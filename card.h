@@ -19,7 +19,31 @@ typedef struct {
     gs_handle(gs_graphics_renderpass_t) renderpass;
 } card_state;
 
-card_state card_create(const char *name,
+typedef struct {
+    float x, y, z, u, v;
+} card_vertex;
+
+static const char* card_vertex_shader_src =
+"#version 330 core\n"
+"layout(location = 0) in vec3 a_pos;\n"
+"layout(location = 1) in vec2 a_uv;\n"
+"uniform mat4 u_mvp;\n"
+"out vec2 uv;\n"
+"void main() {\n"
+"   uv = a_uv;\n"
+"   gl_Position = u_mvp * vec4(a_pos, 1.0);\n"
+"}\n";
+
+static const char* card_fragment_shader_src =
+"#version 330 core\n"
+"in vec2 uv;\n"
+"out vec4 frag_color;\n"
+"uniform sampler2D u_tex;\n"
+"void main() {\n"
+"   frag_color = texture(u_tex, uv);\n"
+"}\n";
+
+card_state card_new(const char *name,
                  uint16_t attack,
                  uint16_t health) {
     card_state card = {0};
