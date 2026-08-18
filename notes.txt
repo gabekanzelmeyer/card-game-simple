@@ -1,12 +1,23 @@
+road map
+- create card.h to hold card struct and do card operations
+- size cards a bit better
+- render 6 card hand
+- respond to mouse events
+- try orthographic projection
+- make placeholder simple front / back card texture
+
+game sequence
 1. select an up to 6 card hand
 2. each player selects the first card to play and they are played at the same time
 3. each tick the cards do actions attacking the other card
 4. if a card is destroyed, that player selects another card to play
 5. repeat until a player looses all cards
 
-
 card property ideas
-levels?
-colors?
-cards that have abilities based on number of cards in either players hand (starting or dynamic)
-cards that impact cards in either players hand
+- levels?
+- colors?
+- cards that have abilities based on number of cards in either players hand (starting or dynamic)
+- cards that impact cards in either players hand
+
+game modes
+- constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)

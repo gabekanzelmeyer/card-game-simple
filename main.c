@@ -1,14 +1,10 @@
-/*
- *   Gunslinger example: load a texture, render it on a quad in 3D,
- *   move it around, and rotate it, all viewed through a perspective camera.
- *
- *   Verified against MrFrenik/gunslinger master (gs.h) directly.
- *   Build: single TU, #define GS_IMPL before including gs.h (done once, here).
- */
 #define GS_IMPL
 #include "gs.h"
+
 #define GS_IMMEDIATE_DRAW_IMPL
-#include "util/gs_idraw.h"   // Immediate-mode draw util: gives us text rendering (gsi_text) and a default font
+#include "util/gs_idraw.h"
+
+#include "card.h"
 
 typedef struct
 {
@@ -155,7 +151,7 @@ void app_init()
         &(gs_graphics_shader_desc_t){
             .sources = sources,
             .size = sizeof(sources),
-                                             .name = "card_shader"
+            .name = "card_shader"
         }
     );
 
