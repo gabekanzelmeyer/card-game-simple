@@ -1,5 +1,6 @@
 road map
-- create card.h to hold card struct and do card operations
+x create card.h to hold card struct and do card operations
+- add card rendering function to card.h
 - size cards a bit better
 - render 6 card hand
 - respond to mouse events
