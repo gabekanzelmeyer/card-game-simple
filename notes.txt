@@ -2,10 +2,8 @@ road map
 x create card.h to hold card struct and do card operations
 x add card rendering function to card.h
 x size cards a bit better
-- render 6 card hand
-- respond to mouse events
-- try orthographic projection
-- make placeholder simple front / back card texture
+x render 6 card hand
+x respond to mouse events
 
 game sequence
 1. select an up to 6 card hand

@@ -144,7 +144,8 @@ void card_global_init() {
                 .size = sizeof(pipeline_layout)
             },
             .depth = {
-                .func = GS_GRAPHICS_DEPTH_FUNC_LESS
+                .func = GS_GRAPHICS_DEPTH_FUNC_LESS,
+                .mask = GS_GRAPHICS_DEPTH_MASK_DISABLED
             }
         }
     );
