@@ -4,7 +4,7 @@
 #define GS_IMMEDIATE_DRAW_IMPL
 #include "util/gs_idraw.h"
 
-#define CARD_TEXTURE_WIDTH 500
+#define CARD_TEXTURE_WIDTH 550
 #define CARD_TEXTURE_HEIGHT 800
 
 typedef struct {
@@ -25,7 +25,6 @@ typedef struct {
 
     gs_handle(gs_graphics_uniform_t) uniform_mvp;
     gs_handle(gs_graphics_uniform_t) uniform_texture;
-
     gs_handle(gs_graphics_texture_t) texture;
     gs_handle(gs_graphics_framebuffer_t) framebuffer;
     gs_handle(gs_graphics_renderpass_t) renderpass;
@@ -59,11 +58,12 @@ card_global_state card_global = {0};
 
 void card_global_init() {
     // common vertices and indices used for all cards
+    float card_width_ratio = (float)CARD_TEXTURE_WIDTH / (float)CARD_TEXTURE_HEIGHT;
     card_vertex verts[] = {
-        {-0.5f, -0.5f, 0.f,  0.f, 0.f},
-        { 0.5f, -0.5f, 0.f,  1.f, 0.f},
-        { 0.5f,  0.5f, 0.f,  1.f, 1.f},
-        {-0.5f,  0.5f, 0.f,  0.f, 1.f},
+        {-card_width_ratio, -1.0f, 0.f,  0.f, 0.f},
+        {card_width_ratio, -1.0f, 0.f,  1.f, 0.f},
+        {card_width_ratio,  1.0f, 0.f,  1.f, 1.f},
+        {-card_width_ratio,  1.0f, 0.f,  0.f, 1.f},
     };
     uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
 
@@ -213,7 +213,7 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
     gsi_texture(immediate_draw, card_global.card_texture);
     gsi_rectvd(immediate_draw,
                gs_v2(0.f, 0.f),
-               gs_v2(CARD_TEXTURE_WIDTH, CARD_TEXTURE_WIDTH),
+               gs_v2(CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT),
                gs_v2(0.f, 0.f),
                gs_v2(1.f, 1.f),
                GS_COLOR_WHITE,
@@ -234,4 +234,42 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
     gsi_draw(immediate_draw, &command_buffer);       // replays the recorded gsi_* commands above
     gs_graphics_renderpass_end(&command_buffer);
     gs_graphics_command_buffer_submit(&command_buffer);
+}
+
+void card_render_single(card_state* card,
+                        gs_command_buffer_t *command_buffer,
+                        gs_mat4 view_projection) {
+    gs_mat4 model = gs_vqs_to_mat4(&card->transform);
+    gs_mat4 mvp = gs_mat4_mul(view_projection, model);
+
+    gs_graphics_pipeline_bind(command_buffer, card_global.card_pipeline);
+
+    gs_graphics_bind_vertex_buffer_desc_t vbuf = {.buffer = card_global.card_vertex_buffer};
+    gs_graphics_bind_index_buffer_desc_t  ibuf = {.buffer = card_global.card_index_buffer};
+    gs_graphics_bind_uniform_desc_t uniforms[] = {
+        {.uniform = card->uniform_mvp, .data = &mvp, .binding = 0},
+        {.uniform = card->uniform_texture, .data = &card->texture, .binding = 0}
+    };
+    gs_graphics_bind_desc_t binds = {
+        .vertex_buffers = {.desc = &vbuf},
+        .index_buffers  = {.desc = &ibuf},
+        .uniforms       = {.desc = uniforms, .size = sizeof(uniforms)}
+    };
+    gs_graphics_apply_bindings(command_buffer, &binds);
+    gs_graphics_draw(command_buffer, &(gs_graphics_draw_desc_t){.start = 0, .count = 6});
+}
+
+void card_render_instanced(card_state* cards,
+                           uint32_t count,
+                           gs_command_buffer_t *command_buffer,
+                           gs_mat4 view_projection) {
+    if (count == 0) return;
+
+    gs_mat4 mvps[count];
+    for (int i = 0; i < count; i++) {
+        gs_mat4 model = gs_vqs_to_mat4(&cards[i].transform);
+        gs_mat4 mvp = gs_mat4_mul(view_projection, model);
+        mvps[i] = mvp;
+    }
+
 }

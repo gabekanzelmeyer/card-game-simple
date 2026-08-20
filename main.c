@@ -61,12 +61,10 @@ void update() {
         card.transform.rotation = gs_quat_mul(dq, card.transform.rotation);
     }
 
+
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
-
-    gs_mat4 model = gs_vqs_to_mat4(&card.transform);
-    gs_mat4 vp = gs_camera_get_view_projection(&state.camera, (int32_t)fbw, (int32_t)fbh);
-    gs_mat4 mvp = gs_mat4_mul(vp, model);
+    gs_mat4 view_projection = gs_camera_get_view_projection(&state.camera, (int32_t)fbw, (int32_t)fbh);
 
     gs_graphics_clear_action_t clear = {.flag = GS_GRAPHICS_CLEAR_COLOR | GS_GRAPHICS_CLEAR_DEPTH, .color = {0.1f, 0.1f, 0.15f, 1.f}};
     gs_graphics_clear_desc_t clear_desc = {.actions = &clear, .size = sizeof(clear)};
@@ -74,21 +72,8 @@ void update() {
     gs_graphics_clear(&state.command_buffer, &clear_desc);
     gs_graphics_set_viewport(&state.command_buffer, 0, 0, fbw, fbh);
 
-    gs_graphics_pipeline_bind(&state.command_buffer, card_global.card_pipeline);
+    card_render_single(&card, &state.command_buffer, view_projection);
 
-    gs_graphics_bind_vertex_buffer_desc_t vbuf = {.buffer = card_global.card_vertex_buffer};
-    gs_graphics_bind_index_buffer_desc_t  ibuf = {.buffer = card_global.card_index_buffer};
-    gs_graphics_bind_uniform_desc_t uniforms[] = {
-        {.uniform = card.uniform_mvp, .data = &mvp, .binding = 0},
-        {.uniform = card.uniform_texture, .data = &card.texture, .binding = 0}
-    };
-    gs_graphics_bind_desc_t binds = {
-        .vertex_buffers = {.desc = &vbuf},
-        .index_buffers  = {.desc = &ibuf},
-        .uniforms       = {.desc = uniforms, .size = sizeof(uniforms)}
-    };
-    gs_graphics_apply_bindings(&state.command_buffer, &binds);
-    gs_graphics_draw(&state.command_buffer, &(gs_graphics_draw_desc_t){.start = 0, .count = 6});
     gs_graphics_renderpass_end(&state.command_buffer);
     gs_graphics_command_buffer_submit(&state.command_buffer);
 }
