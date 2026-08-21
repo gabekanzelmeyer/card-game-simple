@@ -69,7 +69,7 @@ static const char* card_fragment_shader_src =
 "   frag_color = texture(u_tex, uv);\n"
 "}\n";
 
-card_global_state card_global = {0};
+card_global_state cards_global = {0};
 
 void card_global_init() {
     // shared verts / indices used by every card instance
@@ -82,20 +82,20 @@ void card_global_init() {
     };
     uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
 
-    card_global.card_vertex_buffer = gs_graphics_vertex_buffer_create(
+    cards_global.card_vertex_buffer = gs_graphics_vertex_buffer_create(
         &(gs_graphics_vertex_buffer_desc_t) {
             .data = verts,
             .size = sizeof(verts)
         }
     );
-    card_global.card_index_buffer = gs_graphics_index_buffer_create(
+    cards_global.card_index_buffer = gs_graphics_index_buffer_create(
         &(gs_graphics_index_buffer_desc_t) {
             .data = indices,
             .size = sizeof(indices)
         }
     );
     // create the per-card instance data buffer
-    card_global.card_instance_buffer = gs_graphics_vertex_buffer_create(
+    cards_global.card_instance_buffer = gs_graphics_vertex_buffer_create(
         &(gs_graphics_vertex_buffer_desc_t) {
             .data = NULL,
             .size = CARD_ATLAS_MAX_SLOTS * sizeof(card_instance_data),
@@ -107,7 +107,7 @@ void card_global_init() {
         {.type = GS_GRAPHICS_SHADER_STAGE_VERTEX, .source = card_vertex_shader_src},
         {.type = GS_GRAPHICS_SHADER_STAGE_FRAGMENT, .source = card_fragment_shader_src}
     };
-    card_global.card_shader = gs_graphics_shader_create(
+    cards_global.card_shader = gs_graphics_shader_create(
         &(gs_graphics_shader_desc_t){
             .sources = sources,
             .size = sizeof(sources),
@@ -127,10 +127,10 @@ void card_global_init() {
         {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp3", .stride = sizeof(card_instance_data), .offset = 48, .divisor = 1},
         {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_uv_rect", .stride = sizeof(card_instance_data), .offset = 64, .divisor = 1},
     };
-    card_global.card_pipeline = gs_graphics_pipeline_create(
+    cards_global.card_pipeline = gs_graphics_pipeline_create(
         &(gs_graphics_pipeline_desc_t){
             .raster = {
-                .shader = card_global.card_shader,
+                .shader = cards_global.card_shader,
                 .primitive = GS_GRAPHICS_PRIMITIVE_TRIANGLES,
                 .index_buffer_element_size = sizeof(uint16_t)
             },
@@ -152,7 +152,7 @@ void card_global_init() {
 
     // setup the uniform for the card render target texture (shared by all card instances)
     gs_graphics_uniform_layout_desc_t texture_layout = {.type = GS_GRAPHICS_UNIFORM_SAMPLER2D};
-    card_global.uniform_render_target_texture = gs_graphics_uniform_create(
+    cards_global.uniform_render_target_texture = gs_graphics_uniform_create(
         &(gs_graphics_uniform_desc_t){
             .name = "u_tex",
             .stage = GS_GRAPHICS_SHADER_STAGE_FRAGMENT,
@@ -180,19 +180,19 @@ void card_global_init() {
         base_texture_desc.data[0] = tex_data;
         base_texture_desc.min_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
         base_texture_desc.mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
-        card_global.card_atlas_texture = gs_graphics_texture_create(&base_texture_desc);
+        cards_global.card_atlas_texture = gs_graphics_texture_create(&base_texture_desc);
         gs_free(tex_data);
     } else {
         gs_println("WARNING: failed to load assets/card.png");
     }
 
     // load the font
-    if (!gs_asset_font_load_from_file("assets/font.otf", &card_global.card_font, 100)) {
+    if (!gs_asset_font_load_from_file("assets/font.otf", &cards_global.card_font, 100)) {
         gs_println("WARNING: failed to load assets/font.otf (100pt)");
     }
 
     // create the render target texture, each card gets rendered to a specific position in this texture
-    card_global.render_target_texture = gs_graphics_texture_create(
+    cards_global.render_target_texture = gs_graphics_texture_create(
         &(gs_graphics_texture_desc_t){
             .width = CARD_TEXTURE_WIDTH,
             .height = CARD_TEXTURE_HEIGHT * CARD_ATLAS_MAX_SLOTS,
@@ -202,12 +202,12 @@ void card_global_init() {
             .data = {NULL} // rendered into below, per-card, via card_bake_texture
         }
     );
-    card_global.render_target_framebuffer = gs_graphics_framebuffer_create(&(gs_graphics_framebuffer_desc_t){0});
-    card_global.render_target_renderpass = gs_graphics_renderpass_create(
+    cards_global.render_target_framebuffer = gs_graphics_framebuffer_create(&(gs_graphics_framebuffer_desc_t){0});
+    cards_global.render_target_renderpass = gs_graphics_renderpass_create(
         &(gs_graphics_renderpass_desc_t){
-            .fbo = card_global.render_target_framebuffer,
-            .color = &card_global.render_target_texture,
-            .color_size = sizeof(card_global.render_target_texture)
+            .fbo = cards_global.render_target_framebuffer,
+            .color = &cards_global.render_target_texture,
+            .color_size = sizeof(cards_global.render_target_texture)
         }
     );
 }
@@ -242,7 +242,7 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
 
     gsi_camera2D(immediate_draw, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
 
-    gsi_texture(immediate_draw, card_global.card_atlas_texture);
+    gsi_texture(immediate_draw, cards_global.card_atlas_texture);
     // TODO: this will change once more textures are added to the atlas
     gsi_rectvd(immediate_draw,
                 gs_v2(0.f, 0.f),
@@ -252,7 +252,7 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
                 GS_COLOR_WHITE,
                 GS_GRAPHICS_PRIMITIVE_TRIANGLES);
 
-    gsi_text(immediate_draw, 24.f, 24.f, card->name, &card_global.card_font, false, 20, 20, 20, 255);
+    gsi_text(immediate_draw, 24.f, 24.f, card->name, &cards_global.card_font, false, 20, 20, 20, 255);
 
     gs_command_buffer_t command_buffer = gs_command_buffer_new();
     gs_graphics_clear_action_t clear = {
@@ -260,7 +260,7 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
         .color = {0.f, 0.f, 0.f, 0.f}
     };
 
-    gs_graphics_renderpass_begin(&command_buffer, card_global.render_target_renderpass);
+    gs_graphics_renderpass_begin(&command_buffer, cards_global.render_target_renderpass);
 
     // set viewport and sizor to this cards position in the render target
     // scissor makes sure the clear doesn't wipe out other already-baked textures
@@ -303,7 +303,7 @@ void card_render_instanced(card_state* cards,
     // update the per instance data buffer
     gs_graphics_vertex_buffer_request_update(
         command_buffer,
-        card_global.card_instance_buffer,
+        cards_global.card_instance_buffer,
         &(gs_graphics_vertex_buffer_desc_t) {
             .data = instance_data,
             .size = count * sizeof(card_instance_data),
@@ -311,23 +311,23 @@ void card_render_instanced(card_state* cards,
         }
     );
 
-    gs_graphics_pipeline_bind(command_buffer, card_global.card_pipeline);
+    gs_graphics_pipeline_bind(command_buffer, cards_global.card_pipeline);
 
     // 7 entries, matching the 7 attributes in the pipeline layout (must be in order)
     gs_graphics_bind_vertex_buffer_desc_t vbufs[] = {
-        {.buffer = card_global.card_vertex_buffer},   // a_pos
-        {.buffer = card_global.card_vertex_buffer},   // a_uv
-        {.buffer = card_global.card_instance_buffer}, // a_mvp0
-        {.buffer = card_global.card_instance_buffer}, // a_mvp1
-        {.buffer = card_global.card_instance_buffer}, // a_mvp2
-        {.buffer = card_global.card_instance_buffer}, // a_mvp3
-        {.buffer = card_global.card_instance_buffer}, // a_uv_rect
+        {.buffer = cards_global.card_vertex_buffer},   // a_pos
+        {.buffer = cards_global.card_vertex_buffer},   // a_uv
+        {.buffer = cards_global.card_instance_buffer}, // a_mvp0
+        {.buffer = cards_global.card_instance_buffer}, // a_mvp1
+        {.buffer = cards_global.card_instance_buffer}, // a_mvp2
+        {.buffer = cards_global.card_instance_buffer}, // a_mvp3
+        {.buffer = cards_global.card_instance_buffer}, // a_uv_rect
     };
-    gs_graphics_bind_index_buffer_desc_t ibuf = {.buffer = card_global.card_index_buffer};
+    gs_graphics_bind_index_buffer_desc_t ibuf = {.buffer = cards_global.card_index_buffer};
     gs_graphics_bind_uniform_desc_t uniforms[] = {
         {
-            .uniform = card_global.uniform_render_target_texture,
-            .data = &card_global.render_target_texture,
+            .uniform = cards_global.uniform_render_target_texture,
+            .data = &cards_global.render_target_texture,
             .binding = 0
         }
     };

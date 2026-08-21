@@ -4,6 +4,13 @@ x add card rendering function to card.h
 x size cards a bit better
 x render 6 card hand
 x respond to mouse events
+- start game button (menu)
+- transition to and from playing state
+- load player and opponent hands
+- select card to play it (opponent always plays a random card at the same time)
+- show played card in the middle, remove it from hand
+- allow playing all cards in hand, removing cards in middle and
+- return to menu after all cards are played
 
 game sequence
 1. select an up to 6 card hand
