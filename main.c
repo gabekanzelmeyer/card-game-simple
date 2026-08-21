@@ -10,7 +10,7 @@
 #include "cards.h"
 
 #define HOVER_SCREEN_SIZE 300
-
+// macro that allows for erasing and element from a gs_dyn_array and keeing the order
 #define gs_dyn_array_erase(__ARR, __IDX)\
 do {\
     if ((__ARR) && (uint32_t)(__IDX) < gs_dyn_array_size(__ARR)) {\
@@ -29,7 +29,9 @@ enum game_state {
 };
 
 enum card_game_state {
-    SELECT_CARD
+    SELECT_CARD,
+    OPPONENT_SELECT_CARD,
+    BATTLE
 };
 
 
@@ -42,8 +44,8 @@ typedef struct {
     enum card_game_state current_card_game_state;
     gs_dyn_array(card_state) player_hand;
     gs_dyn_array(card_state) opponent_hand;
-    card_state *player_in_play_card;
-    card_state *opponent_in_play_card;
+    card_state player_in_play_card;
+    card_state opponent_in_play_card;
 } game_state;
 
 static game_state state = {0};
@@ -74,8 +76,8 @@ void init_card_game() {
         gs_dyn_array_push(state.opponent_hand, card_new("CARD NAME", 3, 3, instance_index++));
     }
 
-    state.player_in_play_card = NULL;
-    state.opponent_in_play_card = NULL;
+    state.player_in_play_card = (card_state){0};
+    state.opponent_in_play_card = (card_state){0};
 
     state.current_state = GAME;
     state.current_card_game_state = SELECT_CARD;
@@ -90,6 +92,8 @@ void init_card_game() {
 }
 
 void init() {
+    srand(time(NULL));
+
     gs_gui_init(&state.gui_ctx, gs_platform_main_window());
 
     state.command_buffer = gs_command_buffer_new();
@@ -198,13 +202,55 @@ void update() {
                 break;
             }
         }
+
         card_render_instanced(state.player_hand, gs_dyn_array_size(state.player_hand), &state.command_buffer, view_projection);
         card_render_instanced(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), &state.command_buffer, view_projection);
+        if (state.player_in_play_card.name != NULL) {
+            state.player_in_play_card.transform.position = gs_v3(-2., 0.f, 0.f);
+            card_render_instanced(&state.player_in_play_card, 1, &state.command_buffer, view_projection);
+        }
+        if (state.opponent_in_play_card.name != NULL) {
+            state.opponent_in_play_card.transform.position = gs_v3(2., 0.f, 0.f);
+            card_render_instanced(&state.opponent_in_play_card, 1, &state.command_buffer, view_projection);
+        }
 
-        if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
-            printf("selected: %s\n", state.player_hand[hovered_index].name);
-            gs_dyn_array_erase(state.player_hand, hovered_index);
-            position_hand(state.player_hand, gs_dyn_array_size(state.player_hand), 0.9f, 10.0f, -0.08, -2.5);
+        if (state.current_card_game_state == SELECT_CARD) {
+            if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+                printf("selected: %s\n", state.player_hand[hovered_index].name);
+                state.player_in_play_card = state.player_hand[hovered_index];
+                gs_dyn_array_erase(state.player_hand, hovered_index);
+                position_hand(state.player_hand, gs_dyn_array_size(state.player_hand), 0.9f, 10.0f, -0.08, -2.5);
+
+                // once we set the plater "in play" card, see if there is an opponent "in play" card,
+                // if so, move to the battle stage. otherwise, move to the opponent play card stage
+                if (state.opponent_in_play_card.name == NULL) {
+                    state.current_card_game_state = OPPONENT_SELECT_CARD;
+                } else {
+                    state.current_card_game_state = BATTLE;
+                }
+            }
+        } else if (state.current_card_game_state == OPPONENT_SELECT_CARD) {
+            int random_card = (rand() % gs_dyn_array_size(state.opponent_hand));
+            state.opponent_in_play_card = state.opponent_hand[hovered_index];
+            gs_dyn_array_erase(state.opponent_hand, random_card);
+            position_hand(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), 0.9f, -10.0f, 0.08, 2.5);
+            state.current_card_game_state = BATTLE;
+        } else if (state.current_card_game_state == BATTLE) {
+            printf("BATTLE\n");
+            state.player_in_play_card = (card_state){0};
+            state.opponent_in_play_card = (card_state){0};
+            if (gs_dyn_array_size(state.opponent_hand) == 0 && gs_dyn_array_size(state.player_hand) == 0) {
+                printf("DRAW\n");
+                state.current_state = MENU;
+            } else if (gs_dyn_array_size(state.opponent_hand) == 0) {
+                printf("PLAYER WINS\n");
+                state.current_state = MENU;
+            } else if (gs_dyn_array_size(state.player_hand) == 0) {
+                printf("OPPONENT WINS\n");
+                state.current_state = MENU;
+            } else {
+                state.current_card_game_state = SELECT_CARD;
+            }
         }
     }
 
