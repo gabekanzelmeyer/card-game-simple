@@ -67,13 +67,12 @@ void position_hand(card_state *cards, int count, float spacing, float tilt, floa
 }
 
 void init_card_game() {
-    int instance_index = 0;
-
     gs_dyn_array_free(state.player_hand);
     gs_dyn_array_free(state.opponent_hand);
+
     for (int i = 0; i < 6; i++) {
-        gs_dyn_array_push(state.player_hand, card_new("CARD NAME", 3, 3, instance_index++));
-        gs_dyn_array_push(state.opponent_hand, card_new("CARD NAME", 3, 3, instance_index++));
+        gs_dyn_array_push(state.player_hand, card_get_random());
+        gs_dyn_array_push(state.opponent_hand, card_get_random());
     }
 
     state.player_in_play_card = (card_state){0};
@@ -207,10 +206,12 @@ void update() {
         card_render_instanced(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), &state.command_buffer, view_projection);
         if (state.player_in_play_card.name != NULL) {
             state.player_in_play_card.transform.position = gs_v3(-2., 0.f, 0.f);
+            state.player_in_play_card.transform.rotation = gs_quat_default();
             card_render_instanced(&state.player_in_play_card, 1, &state.command_buffer, view_projection);
         }
         if (state.opponent_in_play_card.name != NULL) {
             state.opponent_in_play_card.transform.position = gs_v3(2., 0.f, 0.f);
+            state.opponent_in_play_card.transform.rotation = gs_quat_default();
             card_render_instanced(&state.opponent_in_play_card, 1, &state.command_buffer, view_projection);
         }
 
@@ -230,9 +231,10 @@ void update() {
                 }
             }
         } else if (state.current_card_game_state == OPPONENT_SELECT_CARD) {
-            int random_card = (rand() % gs_dyn_array_size(state.opponent_hand));
-            state.opponent_in_play_card = state.opponent_hand[hovered_index];
-            gs_dyn_array_erase(state.opponent_hand, random_card);
+            int random_index = (rand() % gs_dyn_array_size(state.opponent_hand));
+            printf("opp selected: %s\n", state.opponent_hand[random_index].name);
+            state.opponent_in_play_card = state.opponent_hand[random_index];
+            gs_dyn_array_erase(state.opponent_hand, random_index);
             position_hand(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), 0.9f, -10.0f, 0.08, 2.5);
             state.current_card_game_state = BATTLE;
         } else if (state.current_card_game_state == BATTLE) {

@@ -11,8 +11,8 @@ x select card to play it (opponent always plays a random card at the same time)
 x show played card in the middle, remove it from hand
 x allow playing all cards in hand, removing cards in middle and
 x return to menu after all cards are played
-- bake attack and health on cards
-- create pool of cards that can be used for starting hands
+x bake attack and health on cards
+x create pool of cards that can be used for starting hands
 - implement battle turns, updating card appearence
 - show notification for the winner
 - organize codebase

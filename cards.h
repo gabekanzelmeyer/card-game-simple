@@ -10,6 +10,22 @@
 #define CARD_ATLAS_MAX_SLOTS 16
 
 typedef struct {
+    const char *name;
+    uint16_t attack;
+    uint16_t health;
+    gs_vqs transform;
+} card_state;
+
+typedef struct {
+    float x, y, z, u, v;
+} card_vertex_data;
+
+typedef struct {
+    float mvp[16];
+    float uv_rect[4];
+} card_instance_data;
+
+typedef struct {
     gs_handle(gs_graphics_pipeline_t) card_pipeline;
     gs_handle(gs_graphics_vertex_buffer_t) card_vertex_buffer;
     gs_handle(gs_graphics_vertex_buffer_t) card_instance_buffer;
@@ -23,26 +39,10 @@ typedef struct {
     gs_handle(gs_graphics_renderpass_t) render_target_renderpass;
 
     gs_asset_font_t card_font;
+
+    gs_hash_table(const char*, card_state) card_lookup;
+    gs_hash_table(const char*, uint32_t) card_instance_lookup;
 } card_global_state;
-
-typedef struct {
-    const char *name;
-    uint16_t attack;
-    uint16_t health;
-
-    gs_vqs transform;
-
-    uint32_t instance_index;
-} card_state;
-
-typedef struct {
-    float x, y, z, u, v;
-} card_vertex_data;
-
-typedef struct {
-    float mvp[16];
-    float uv_rect[4];
-} card_instance_data;
 
 static const char* card_vertex_shader_src =
 "#version 330 core\n"
@@ -70,6 +70,17 @@ static const char* card_fragment_shader_src =
 "}\n";
 
 card_global_state cards_global = {0};
+
+card_state card_new(const char *name,
+                    uint16_t attack,
+                    uint16_t health) {
+    card_state card = {0};
+    card.name = name;
+    card.attack = attack;
+    card.health = health;
+    card.transform = gs_vqs_default();
+    return card;
+                    }
 
 void card_global_init() {
     // shared verts / indices used by every card instance
@@ -210,25 +221,45 @@ void card_global_init() {
             .color_size = sizeof(cards_global.render_target_texture)
         }
     );
+
+    // add cards to lookup table
+    uint32_t instance_id = 0;
+    gs_hash_table_insert(cards_global.card_lookup, "Card 1", card_new("Card 1", 1, 1));
+    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 1", instance_id++);
+    gs_hash_table_insert(cards_global.card_lookup, "Card 2", card_new("Card 2", 2, 2));
+    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 2", instance_id++);
+    gs_hash_table_insert(cards_global.card_lookup, "Card 3", card_new("Card 3", 3, 3));
+    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 3", instance_id++);
+    gs_hash_table_insert(cards_global.card_lookup, "Card 4", card_new("Card 4", 4, 4));
+    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 4", instance_id++);
+    gs_hash_table_insert(cards_global.card_lookup, "Card 5", card_new("Card 5", 5, 5));
+    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 5", instance_id++);
+    gs_hash_table_insert(cards_global.card_lookup, "Card 6", card_new("Card 6", 6, 6));
+    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 6", instance_id++);
 }
 
-card_state card_new(const char *name,
-                    uint16_t attack,
-                    uint16_t health,
-                    uint32_t instance_index) {
-    card_state card = {0};
-    card.name = name;
-    card.attack = attack;
-    card.health = health;
-    card.transform = gs_vqs_default();
-    card.instance_index = instance_index;
+card_state card_get_random() {
+    // in order to populate hands with a random card, put the lookup map in a list and get a random index
+    gs_dyn_array(card_state) lookup_cards = NULL;
+    for (gs_hash_table_iter it = gs_hash_table_iter_new(cards_global.card_lookup);
+         gs_hash_table_iter_valid(cards_global.card_lookup, it);
+    gs_hash_table_iter_advance(cards_global.card_lookup, it)) {
+        gs_dyn_array_push(lookup_cards, gs_hash_table_iter_get(cards_global.card_lookup, it));
+    }
+
+    int random_index = (rand() % gs_dyn_array_size(lookup_cards));
+    card_state card = lookup_cards[random_index];
+    gs_dyn_array_free(lookup_cards);
     return card;
 }
 
+
+
 // Returns this card's row within the shared atlas, in normalized UV space.
-static gs_vec4_t card_get_uv_rect(const card_state* card) {
+static gs_vec4_t card_render_target_uv_rect(const card_state* card) {
     float uv_height = 1.f / (float)CARD_ATLAS_MAX_SLOTS;
-    float y_offset = (float)card->instance_index * uv_height;
+    uint32_t instance_index = gs_hash_table_get(cards_global.card_instance_lookup, card->name);
+    float y_offset = (float) instance_index * uv_height;
     gs_vec4_t r;
     r.x = 0.f;
     r.y = y_offset;
@@ -238,7 +269,8 @@ static gs_vec4_t card_get_uv_rect(const card_state* card) {
 }
 
 void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
-    uint32_t y_offset = card->instance_index * CARD_TEXTURE_HEIGHT;
+    uint32_t instance_index = gs_hash_table_get(cards_global.card_instance_lookup, card->name);
+    uint32_t y_offset = (float)instance_index * CARD_TEXTURE_HEIGHT;
 
     gsi_camera2D(immediate_draw, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
 
@@ -253,6 +285,15 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
                 GS_GRAPHICS_PRIMITIVE_TRIANGLES);
 
     gsi_text(immediate_draw, 24.f, 24.f, card->name, &cards_global.card_font, false, 20, 20, 20, 255);
+
+    char attack_char_buffer[10];
+    snprintf(attack_char_buffer, sizeof(attack_char_buffer), "%d", card->attack);
+    gsi_text(immediate_draw, 24.f, 300.f, attack_char_buffer, &cards_global.card_font, false, 20, 20, 20, 255);
+
+    char health_char_buffer[10];
+    snprintf(health_char_buffer, sizeof(health_char_buffer), "%d", card->health);
+    gsi_text(immediate_draw, 200.f, 300.f, health_char_buffer, &cards_global.card_font, false, 20, 20, 20, 255);
+
 
     gs_command_buffer_t command_buffer = gs_command_buffer_new();
     gs_graphics_clear_action_t clear = {
@@ -291,9 +332,10 @@ void card_render_instanced(card_state* cards,
         memcpy(instance_data[i].mvp, mvp.elements, sizeof(instance_data[i].mvp));
 
         float uv_height = 1.f / (float)CARD_ATLAS_MAX_SLOTS;
-        float y_offset = (float)cards[i].instance_index * uv_height;
+        uint32_t instance_index = gs_hash_table_get(cards_global.card_instance_lookup, cards[i].name);
+        float y_offset = (float)instance_index * uv_height;
 
-        gs_vec4 r = card_get_uv_rect(&cards[i]);
+        gs_vec4 r = card_render_target_uv_rect(&cards[i]);
         instance_data[i].uv_rect[0] = r.x;
         instance_data[i].uv_rect[1] = r.y;
         instance_data[i].uv_rect[2]  = r.z;
