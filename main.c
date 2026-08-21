@@ -11,6 +11,18 @@
 
 #define HOVER_SCREEN_SIZE 300
 
+#define gs_dyn_array_erase(__ARR, __IDX)\
+do {\
+    if ((__ARR) && (uint32_t)(__IDX) < gs_dyn_array_size(__ARR)) {\
+        memmove(\
+        &(__ARR)[__IDX],\
+        &(__ARR)[(__IDX) + 1],\
+        (gs_dyn_array_size(__ARR) - (__IDX) - 1) * sizeof(*(__ARR))\
+        );\
+        gs_dyn_array_head(__ARR)->size--;\
+    }\
+} while (0)
+
 enum game_state {
     MENU,
     GAME
@@ -37,14 +49,14 @@ typedef struct {
 static game_state state = {0};
 
 
-void position_hand(card_state *cards, int count, float spacing, float tilt, float curve_dir, float y_offset) {
+void position_hand(card_state *cards, int count, float spacing, float tilt, float curve_amount, float y_offset) {
     float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
     float start_tilt = tilt * (float)count / 2.f - tilt / 2.f;
     for (int i = 0; i < count; i++) {
         cards[i].transform.position.x = start_x + i * spacing;
-        cards[i].transform.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * 0.08 * curve_dir * (1.f / spacing) + y_offset;
+        cards[i].transform.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
         cards[i].transform.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * tilt)), gs_v3(0, 0, 1));
-        if (curve_dir > 0) {
+        if (curve_amount > 0) {
             cards[i].transform.rotation = gs_quat_mul(
                 gs_quat_angle_axis(gs_deg2rad(180), gs_v3(0, 0, 1)),
                 cards[i].transform.rotation);
@@ -58,8 +70,8 @@ void init_card_game() {
     gs_dyn_array_free(state.player_hand);
     gs_dyn_array_free(state.opponent_hand);
     for (int i = 0; i < 6; i++) {
-        gs_dyn_array_push(state.player_hand, card_new("Card", 6, 2, instance_index++));
-        gs_dyn_array_push(state.opponent_hand, card_new("Card", 6, 2, instance_index++));
+        gs_dyn_array_push(state.player_hand, card_new("CARD NAME", 3, 3, instance_index++));
+        gs_dyn_array_push(state.opponent_hand, card_new("CARD NAME", 3, 3, instance_index++));
     }
 
     state.player_in_play_card = NULL;
@@ -73,8 +85,8 @@ void init_card_game() {
         card_bake_texture(&state.opponent_hand[i], &state.immediate_draw);
     }
 
-    position_hand(state.player_hand, gs_dyn_array_size(state.player_hand), 0.9f, 10.0f, -1, -2.5);
-    position_hand(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), 0.9f, -10.0f, 1,  2.5);
+    position_hand(state.player_hand, gs_dyn_array_size(state.player_hand), 0.9f, 10.0f, -0.08, -2.5);
+    position_hand(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), 0.9f, -10.0f, 0.08,  2.5);
 }
 
 void init() {
@@ -175,16 +187,25 @@ void update() {
         for (int i = gs_dyn_array_size(state.player_hand) - 1; i >= 0; i--) {
             state.player_hand[i].transform.scale = gs_v3(1.f, 1.f, 1.f);
         }
+
+        int hovered_index = -1;
         for (int i = gs_dyn_array_size(state.player_hand) - 1; i >= 0; i--) {
             gs_vec2 screen_pos;
             world_to_screen(state.player_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
             if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE)  {
                 state.player_hand[i].transform.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                hovered_index = i;
                 break;
             }
         }
         card_render_instanced(state.player_hand, gs_dyn_array_size(state.player_hand), &state.command_buffer, view_projection);
         card_render_instanced(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), &state.command_buffer, view_projection);
+
+        if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+            printf("selected: %s\n", state.player_hand[hovered_index].name);
+            gs_dyn_array_erase(state.player_hand, hovered_index);
+            position_hand(state.player_hand, gs_dyn_array_size(state.player_hand), 0.9f, 10.0f, -0.08, -2.5);
+        }
     }
 
     gs_gui_render(&state.gui_ctx, &state.command_buffer);
