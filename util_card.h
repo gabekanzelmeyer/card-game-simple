@@ -56,6 +56,7 @@ typedef struct {
 
 void card_util_init();
 card_state_t card_new(const char *name, uint16_t attack, uint16_t health, card_abilities_t abilities);
+void card_reset_stats(card_state_t *card);
 card_state_t card_get_random(uint32_t render_index);
 void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw);
 void cards_render_instanced(card_state_t* cards, uint32_t count, gs_command_buffer_t* command_buffer, gs_mat4 view_projection);
@@ -99,14 +100,12 @@ card_state_t card_new(const char *name,
     card.attack = attack;
     card.health = health;
     card.abilities = abilities;
-    card.current_attack = attack;
-    card.current_health = health;
-    card.current_abilities = abilities;
+    card_reset_stats(&card);
     card.transform = gs_vqs_default();
     return card;
 }
 
-void card_reset(card_state_t *card) {
+void card_reset_stats(card_state_t *card) {
     card->current_attack = card->attack;
     card->current_health = card->health;
     card->current_abilities = card->abilities;

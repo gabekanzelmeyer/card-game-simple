@@ -90,33 +90,31 @@ bool card_do_battle(card_game_state_t *card_game, game_state_t *game_state) {
     card_update(&card_game->player_in_play_card, &game_state->immediate_draw);
     card_update(&card_game->opponent_in_play_card, &game_state->immediate_draw);
 
-    bool card_destroyed = false;
+    bool was_a_card_destroyed = false;
     if (card_game->player_in_play_card.current_health <= 0) {
         card_game->player_in_play_card = (card_state_t){0};
-        card_destroyed = true;
+        was_a_card_destroyed = true;
     }
     if (card_game->opponent_in_play_card.current_health <= 0) {
         card_game->opponent_in_play_card = (card_state_t){0};
-        card_destroyed = true;
+        was_a_card_destroyed = true;
     }
-    return card_destroyed;
+    return was_a_card_destroyed;
 }
 
 void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
-    uint32_t fbw, fbh;
-    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
-
     float dt = gs_platform_delta_time();
     gs_vec2 mouse_pos = gs_platform_mouse_positionv();
-
+    uint32_t fbw, fbh;
+    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
     gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
 
-    // NOTE: cards are drawn depth wise in order, so sort based on draw order before rendering
-    // In that same spirit, we should iterate backwards over the cards to check if any are hovered
+    // reset sizes of player hand cards
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
         card_game->player_hand[i].transform.scale = gs_v3(1.f, 1.f, 1.f);
     }
 
+    // increase scale of hovered hand card and keep track of which card for later
     int hovered_index = -1;
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
         gs_vec2 screen_pos;
@@ -128,13 +126,18 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
     }
 
+    // NOTE: cards are drawn depth wise in order, so sort based on draw order before rendering
+    // In that same spirit, we should iterate backwards over the cards to check if any are hovered
     cards_render_instanced(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), &game_state->command_buffer, view_projection);
     cards_render_instanced(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), &game_state->command_buffer, view_projection);
+
+    // if there is a player card in play, position and rotate correctly
     if (card_game->player_in_play_card.name != NULL) {
         card_game->player_in_play_card.transform.position = gs_v3(-2., 0.f, 0.f);
         card_game->player_in_play_card.transform.rotation = gs_quat_default();
         cards_render_instanced(&card_game->player_in_play_card, 1, &game_state->command_buffer, view_projection);
     }
+    // if there is a opponent card in play, position and rotate correctly
     if (card_game->opponent_in_play_card.name != NULL) {
         card_game->opponent_in_play_card.transform.position = gs_v3(2., 0.f, 0.f);
         card_game->opponent_in_play_card.transform.rotation = gs_quat_default();
@@ -143,7 +146,6 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
     if (card_game->phase == SELECT_CARD) {
         if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
-            printf("selected: %s\n", card_game->player_hand[hovered_index].name);
             card_game->player_in_play_card = card_game->player_hand[hovered_index];
             gs_dyn_array_erase(card_game->player_hand, hovered_index);
             card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), 0.9f, 10.0f, -0.08, -2.5);
@@ -155,18 +157,17 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             } else {
                 card_game->phase = BATTLE;
                 card_game->battle_timer = 0.f;
-                card_reset(&card_game->player_in_play_card);
+                card_reset_stats(&card_game->player_in_play_card);
             }
         }
     } else if (card_game->phase == OPPONENT_SELECT_CARD) {
         int random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
-        printf("opp selected: %s\n", card_game->opponent_hand[random_index].name);
         card_game->opponent_in_play_card = card_game->opponent_hand[random_index];
         gs_dyn_array_erase(card_game->opponent_hand, random_index);
         card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), 0.9f, -10.0f, 0.08, 2.5);
         card_game->phase = BATTLE;
         card_game->battle_timer = 0.f;
-        card_reset(&card_game->opponent_in_play_card);
+        card_reset_stats(&card_game->opponent_in_play_card);
     } else if (card_game->phase == BATTLE) {
         float prev_battle_timer = card_game->battle_timer;
         card_game->battle_timer += dt;
@@ -174,8 +175,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         if (floorf(prev_battle_timer / tick_resolution) * tick_resolution < floorf(card_game->battle_timer / tick_resolution) * tick_resolution) {
             printf("battle tick\n");
 
-            bool card_destroyed = card_do_battle(card_game, game_state);
-            if (card_destroyed) {
+            bool was_a_card_destroyed = card_do_battle(card_game, game_state);
+            if (was_a_card_destroyed) {
                 if (gs_dyn_array_size(card_game->opponent_hand) == 0
                     && gs_dyn_array_size(card_game->player_hand) == 0
                     && card_game->player_in_play_card.name == NULL
