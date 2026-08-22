@@ -46,6 +46,7 @@ typedef struct {
     gs_dyn_array(card_state) opponent_hand;
     card_state player_in_play_card;
     card_state opponent_in_play_card;
+    float battle_timer;
 } game_state;
 
 static game_state state = {0};
@@ -70,9 +71,10 @@ void init_card_game() {
     gs_dyn_array_free(state.player_hand);
     gs_dyn_array_free(state.opponent_hand);
 
+    int render_index = 0;
     for (int i = 0; i < 6; i++) {
-        gs_dyn_array_push(state.player_hand, card_get_random());
-        gs_dyn_array_push(state.opponent_hand, card_get_random());
+        gs_dyn_array_push(state.player_hand, card_get_random(render_index++));
+        gs_dyn_array_push(state.opponent_hand, card_get_random(render_index++));
     }
 
     state.player_in_play_card = (card_state){0};
@@ -140,6 +142,9 @@ void update() {
         state.current_state = MENU;
     }
 
+    float dt = gs_platform_delta_time();
+    gs_vec2 mouse_pos = gs_platform_mouse_positionv();
+
     gs_gui_begin(&state.gui_ctx, NULL);
     if (state.current_state == MENU) {
         if (gs_gui_window_begin_ex(&state.gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
@@ -166,9 +171,6 @@ void update() {
         gs_gui_window_end(&state.gui_ctx);
     }
     gs_gui_end(&state.gui_ctx);
-
-    float dt = gs_platform_delta_time();
-    gs_vec2 mouse_pos = gs_platform_mouse_positionv();
 
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
@@ -228,6 +230,9 @@ void update() {
                     state.current_card_game_state = OPPONENT_SELECT_CARD;
                 } else {
                     state.current_card_game_state = BATTLE;
+                    state.battle_timer = 0.f;
+                    state.player_in_play_card.current_health = state.player_in_play_card.health;
+                    state.player_in_play_card.current_attack = state.player_in_play_card.attack;
                 }
             }
         } else if (state.current_card_game_state == OPPONENT_SELECT_CARD) {
@@ -237,21 +242,51 @@ void update() {
             gs_dyn_array_erase(state.opponent_hand, random_index);
             position_hand(state.opponent_hand, gs_dyn_array_size(state.opponent_hand), 0.9f, -10.0f, 0.08, 2.5);
             state.current_card_game_state = BATTLE;
+            state.battle_timer = 0.f;
+
+            state.opponent_in_play_card.current_health = state.opponent_in_play_card.health;
+            state.opponent_in_play_card.current_attack = state.opponent_in_play_card.attack;
         } else if (state.current_card_game_state == BATTLE) {
-            printf("BATTLE\n");
-            state.player_in_play_card = (card_state){0};
-            state.opponent_in_play_card = (card_state){0};
-            if (gs_dyn_array_size(state.opponent_hand) == 0 && gs_dyn_array_size(state.player_hand) == 0) {
-                printf("DRAW\n");
-                state.current_state = MENU;
-            } else if (gs_dyn_array_size(state.opponent_hand) == 0) {
-                printf("PLAYER WINS\n");
-                state.current_state = MENU;
-            } else if (gs_dyn_array_size(state.player_hand) == 0) {
-                printf("OPPONENT WINS\n");
-                state.current_state = MENU;
-            } else {
-                state.current_card_game_state = SELECT_CARD;
+            float prev_battle_timer = state.battle_timer;
+            state.battle_timer += dt;
+            float tick_resolution = 1;
+            if (floorf(prev_battle_timer / tick_resolution) * tick_resolution < floorf(state.battle_timer / tick_resolution) * tick_resolution) {
+                printf("battle tick\n");
+
+                state.player_in_play_card.current_health -= state.opponent_in_play_card.current_attack;
+                state.opponent_in_play_card.current_health -= state.player_in_play_card.current_attack;
+
+                card_bake_texture(&state.player_in_play_card, &state.immediate_draw);
+                card_bake_texture(&state.opponent_in_play_card, &state.immediate_draw);
+
+                bool card_destroyed = false;
+                if (state.player_in_play_card.current_health <= 0) {
+                    state.player_in_play_card = (card_state){0};
+                    card_destroyed = true;
+                }
+                if (state.opponent_in_play_card.current_health <= 0) {
+                    state.opponent_in_play_card = (card_state){0};
+                    card_destroyed = true;
+                }
+                if (card_destroyed) {
+                    if (gs_dyn_array_size(state.opponent_hand) == 0 && gs_dyn_array_size(state.player_hand) == 0) {
+                        printf("DRAW\n");
+                        state.current_state = MENU;
+                    } else if (gs_dyn_array_size(state.opponent_hand) == 0) {
+                        printf("PLAYER WINS\n");
+                        state.current_state = MENU;
+                    } else if (gs_dyn_array_size(state.player_hand) == 0) {
+                        printf("OPPONENT WINS\n");
+                        state.current_state = MENU;
+                    } else {
+                        if (state.player_in_play_card.name == NULL) {
+                            state.current_card_game_state = SELECT_CARD;
+                        } else {
+                            state.current_card_game_state = OPPONENT_SELECT_CARD;
+                        }
+                    }
+                }
+
             }
         }
     }
