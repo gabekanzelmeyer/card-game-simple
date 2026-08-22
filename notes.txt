@@ -13,16 +13,27 @@ x allow playing all cards in hand, removing cards in middle and
 x return to menu after all cards are played
 x bake attack and health on cards
 x create pool of cards that can be used for starting hands
-- implement battle turns, updating card appearence
-- show notification for the winner
+x implement battle turns, updating card appearence
 - organize codebase
+- start using a better looking card template
+- create interesting cards
 
-game sequence
-1. select an up to 6 card hand
-2. each player selects the first card to play and they are played at the same time
-3. each tick the cards do actions attacking the other card
-4. if a card is destroyed, that player selects another card to play
-5. repeat until a player looses all cards
+card abilities
+- shield: block one attack regardless of amount, shield is broken
+- penetrate: attack ignores shields
+- on play, deal damage to random card in opp hand or own hand
+- on play, cards in hand gain health or attack
+- on play, give card in hand or opponent hand shield
+- receive double damage
+- haste: attacks first and offsets battle timer
+- reduce incoming attack by X
+- if destroyed, set health to 1
+- whenever a card is played, if in hand, give +1 attack or health to card in play, or hand cards
+- on attack / receive attack also deal 1 damage to opponent hand cards
+- on death, return to hand with less stats
+- on death, reduce health or attack or cards in hands
+- on play, heal all hand cards to full health
+- on play / on death, destroy random card in either hand
 
 card property ideas
 - levels?

@@ -1,7 +1,7 @@
-#define GS_IMPL
-#include "gs.h"
+#ifndef UTIL_CARD_H
+#define UTIL_CARD_H
 
-#define GS_IMMEDIATE_DRAW_IMPL
+#include "gs.h"
 #include "util/gs_idraw.h"
 
 #define CARD_TEXTURE_WIDTH  600
@@ -10,24 +10,30 @@
 #define CARD_ATLAS_MAX_SLOTS 16
 
 typedef struct {
+    int shield_count;
+} card_abilities_t;
+
+typedef struct {
     const char *name;
     uint16_t attack;
     uint16_t health;
+    card_abilities_t abilities;
     int current_attack;
     int current_health;
+    card_abilities_t current_abilities;
     gs_vqs transform;
 
     uint32_t render_index;
-} card_state;
+} card_state_t;
 
 typedef struct {
     float x, y, z, u, v;
-} card_vertex_data;
+} card_vertex_data_t;
 
 typedef struct {
     float mvp[16];
     float uv_rect[4];
-} card_instance_data;
+} card_instance_data_t;
 
 typedef struct {
     gs_handle(gs_graphics_pipeline_t) card_pipeline;
@@ -44,9 +50,19 @@ typedef struct {
 
     gs_asset_font_t card_font;
 
-    gs_hash_table(const char*, card_state) card_lookup;
+    gs_hash_table(const char*, card_state_t) card_lookup;
     gs_hash_table(const char*, uint32_t) card_instance_lookup;
-} card_global_state;
+} card_util_t;
+
+void card_util_init();
+card_state_t card_new(const char *name, uint16_t attack, uint16_t health, card_abilities_t abilities);
+card_state_t card_get_random(uint32_t render_index);
+void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw);
+void cards_render_instanced(card_state_t* cards, uint32_t count, gs_command_buffer_t* command_buffer, gs_mat4 view_projection);
+
+#ifdef UTIL_CARD_IMPL
+
+card_util_t card_util = {0};
 
 static const char* card_vertex_shader_src =
 "#version 330 core\n"
@@ -73,25 +89,33 @@ static const char* card_fragment_shader_src =
 "   frag_color = texture(u_tex, uv);\n"
 "}\n";
 
-card_global_state cards_global = {0};
 
-card_state card_new(const char *name,
-                    uint16_t attack,
-                    uint16_t health) {
-    card_state card = {0};
+card_state_t card_new(const char *name,
+                      uint16_t attack,
+                      uint16_t health,
+                      card_abilities_t abilities) {
+    card_state_t card = {0};
     card.name = name;
     card.attack = attack;
     card.health = health;
+    card.abilities = abilities;
     card.current_attack = attack;
     card.current_health = health;
+    card.current_abilities = abilities;
     card.transform = gs_vqs_default();
     return card;
 }
 
-void card_global_init() {
+void card_reset(card_state_t *card) {
+    card->current_attack = card->attack;
+    card->current_health = card->health;
+    card->current_abilities = card->abilities;
+}
+
+void card_util_init() {
     // shared verts / indices used by every card instance
     float card_width_ratio = (float)CARD_TEXTURE_WIDTH / (float)CARD_TEXTURE_HEIGHT;
-    card_vertex_data verts[] = {
+    card_vertex_data_t verts[] = {
         {-card_width_ratio, -1.0f, 0.f,  0.f, 0.f},
         {card_width_ratio, -1.0f, 0.f,  1.f, 0.f},
         {card_width_ratio,  1.0f, 0.f,  1.f, 1.f},
@@ -99,23 +123,23 @@ void card_global_init() {
     };
     uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
 
-    cards_global.card_vertex_buffer = gs_graphics_vertex_buffer_create(
+    card_util.card_vertex_buffer = gs_graphics_vertex_buffer_create(
         &(gs_graphics_vertex_buffer_desc_t) {
             .data = verts,
             .size = sizeof(verts)
         }
     );
-    cards_global.card_index_buffer = gs_graphics_index_buffer_create(
+    card_util.card_index_buffer = gs_graphics_index_buffer_create(
         &(gs_graphics_index_buffer_desc_t) {
             .data = indices,
             .size = sizeof(indices)
         }
     );
     // create the per-card instance data buffer
-    cards_global.card_instance_buffer = gs_graphics_vertex_buffer_create(
+    card_util.card_instance_buffer = gs_graphics_vertex_buffer_create(
         &(gs_graphics_vertex_buffer_desc_t) {
             .data = NULL,
-            .size = CARD_ATLAS_MAX_SLOTS * sizeof(card_instance_data),
+            .size = CARD_ATLAS_MAX_SLOTS * sizeof(card_instance_data_t),
             .usage = GS_GRAPHICS_BUFFER_USAGE_STREAM
         }
     );
@@ -124,7 +148,7 @@ void card_global_init() {
         {.type = GS_GRAPHICS_SHADER_STAGE_VERTEX, .source = card_vertex_shader_src},
         {.type = GS_GRAPHICS_SHADER_STAGE_FRAGMENT, .source = card_fragment_shader_src}
     };
-    cards_global.card_shader = gs_graphics_shader_create(
+    card_util.card_shader = gs_graphics_shader_create(
         &(gs_graphics_shader_desc_t){
             .sources = sources,
             .size = sizeof(sources),
@@ -135,19 +159,19 @@ void card_global_init() {
     // set up the pipeline, .divisor = 0 means per vertex, .divisor = 1 means per instance
     gs_graphics_vertex_attribute_desc_t pipeline_layout[] = {
         // per-vertex (divisor = 0): stride = sizeof(card_vertex) = 20 bytes
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT3, .name = "a_pos", .stride = sizeof(card_vertex_data), .offset = 0, .divisor = 0},
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT2, .name = "a_uv", .stride = sizeof(card_vertex_data), .offset = 12, .divisor = 0},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT3, .name = "a_pos", .stride = sizeof(card_vertex_data_t), .offset = 0, .divisor = 0},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT2, .name = "a_uv", .stride = sizeof(card_vertex_data_t), .offset = 12, .divisor = 0},
         // per-instance (divisor = 1): stride = sizeof(card_instance_t) = 80 bytes
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp0", .stride = sizeof(card_instance_data), .offset = 0, .divisor = 1},
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp1", .stride = sizeof(card_instance_data), .offset = 16, .divisor = 1},
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp2", .stride = sizeof(card_instance_data), .offset = 32, .divisor = 1},
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp3", .stride = sizeof(card_instance_data), .offset = 48, .divisor = 1},
-        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_uv_rect", .stride = sizeof(card_instance_data), .offset = 64, .divisor = 1},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp0", .stride = sizeof(card_instance_data_t), .offset = 0, .divisor = 1},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp1", .stride = sizeof(card_instance_data_t), .offset = 16, .divisor = 1},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp2", .stride = sizeof(card_instance_data_t), .offset = 32, .divisor = 1},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_mvp3", .stride = sizeof(card_instance_data_t), .offset = 48, .divisor = 1},
+        {.format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT4, .name = "a_uv_rect", .stride = sizeof(card_instance_data_t), .offset = 64, .divisor = 1},
     };
-    cards_global.card_pipeline = gs_graphics_pipeline_create(
+    card_util.card_pipeline = gs_graphics_pipeline_create(
         &(gs_graphics_pipeline_desc_t){
             .raster = {
-                .shader = cards_global.card_shader,
+                .shader = card_util.card_shader,
                 .primitive = GS_GRAPHICS_PRIMITIVE_TRIANGLES,
                 .index_buffer_element_size = sizeof(uint16_t)
             },
@@ -169,7 +193,7 @@ void card_global_init() {
 
     // setup the uniform for the card render target texture (shared by all card instances)
     gs_graphics_uniform_layout_desc_t texture_layout = {.type = GS_GRAPHICS_UNIFORM_SAMPLER2D};
-    cards_global.uniform_render_target_texture = gs_graphics_uniform_create(
+    card_util.uniform_render_target_texture = gs_graphics_uniform_create(
         &(gs_graphics_uniform_desc_t){
             .name = "u_tex",
             .stage = GS_GRAPHICS_SHADER_STAGE_FRAGMENT,
@@ -197,19 +221,19 @@ void card_global_init() {
         base_texture_desc.data[0] = tex_data;
         base_texture_desc.min_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
         base_texture_desc.mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
-        cards_global.card_atlas_texture = gs_graphics_texture_create(&base_texture_desc);
+        card_util.card_atlas_texture = gs_graphics_texture_create(&base_texture_desc);
         gs_free(tex_data);
     } else {
         gs_println("WARNING: failed to load assets/card.png");
     }
 
     // load the font
-    if (!gs_asset_font_load_from_file("assets/font.otf", &cards_global.card_font, 100)) {
+    if (!gs_asset_font_load_from_file("assets/font.otf", &card_util.card_font, 100)) {
         gs_println("WARNING: failed to load assets/font.otf (100pt)");
     }
 
     // create the render target texture, each card gets rendered to a specific position in this texture
-    cards_global.render_target_texture = gs_graphics_texture_create(
+    card_util.render_target_texture = gs_graphics_texture_create(
         &(gs_graphics_texture_desc_t){
             .width = CARD_TEXTURE_WIDTH,
             .height = CARD_TEXTURE_HEIGHT * CARD_ATLAS_MAX_SLOTS,
@@ -219,51 +243,49 @@ void card_global_init() {
             .data = {NULL} // rendered into below, per-card, via card_bake_texture
         }
     );
-    cards_global.render_target_framebuffer = gs_graphics_framebuffer_create(&(gs_graphics_framebuffer_desc_t){0});
-    cards_global.render_target_renderpass = gs_graphics_renderpass_create(
+    card_util.render_target_framebuffer = gs_graphics_framebuffer_create(&(gs_graphics_framebuffer_desc_t){0});
+    card_util.render_target_renderpass = gs_graphics_renderpass_create(
         &(gs_graphics_renderpass_desc_t){
-            .fbo = cards_global.render_target_framebuffer,
-            .color = &cards_global.render_target_texture,
-            .color_size = sizeof(cards_global.render_target_texture)
+            .fbo = card_util.render_target_framebuffer,
+            .color = &card_util.render_target_texture,
+            .color_size = sizeof(card_util.render_target_texture)
         }
     );
 
     // add cards to lookup table
     uint32_t instance_id = 0;
-    gs_hash_table_insert(cards_global.card_lookup, "Card 1", card_new("Card 1", 1, 1));
-    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 1", instance_id++);
-    gs_hash_table_insert(cards_global.card_lookup, "Card 2", card_new("Card 2", 2, 2));
-    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 2", instance_id++);
-    gs_hash_table_insert(cards_global.card_lookup, "Card 3", card_new("Card 3", 3, 3));
-    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 3", instance_id++);
-    gs_hash_table_insert(cards_global.card_lookup, "Card 4", card_new("Card 4", 4, 4));
-    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 4", instance_id++);
-    gs_hash_table_insert(cards_global.card_lookup, "Card 5", card_new("Card 5", 5, 5));
-    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 5", instance_id++);
-    gs_hash_table_insert(cards_global.card_lookup, "Card 6", card_new("Card 6", 6, 6));
-    gs_hash_table_insert(cards_global.card_instance_lookup, "Card 6", instance_id++);
+    gs_hash_table_insert(card_util.card_lookup, "Card 1", card_new("Card 1", 1, 1, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_instance_lookup, "Card 1", instance_id++);
+    gs_hash_table_insert(card_util.card_lookup, "Card 2", card_new("Card 2", 2, 2, (card_abilities_t){.shield_count = 1}));
+    gs_hash_table_insert(card_util.card_instance_lookup, "Card 2", instance_id++);
+    gs_hash_table_insert(card_util.card_lookup, "Card 3", card_new("Card 3", 3, 3, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_instance_lookup, "Card 3", instance_id++);
+    gs_hash_table_insert(card_util.card_lookup, "Card 4", card_new("Card 4", 4, 4, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_instance_lookup, "Card 4", instance_id++);
+    gs_hash_table_insert(card_util.card_lookup, "Card 5", card_new("Card 5", 5, 5, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_instance_lookup, "Card 5", instance_id++);
+    gs_hash_table_insert(card_util.card_lookup, "Card 6", card_new("Card 6", 6, 6, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_instance_lookup, "Card 6", instance_id++);
 }
 
-card_state card_get_random(uint32_t render_index) {
+card_state_t card_get_random(uint32_t render_index) {
     // in order to populate hands with a random card, put the lookup map in a list and get a random index
-    gs_dyn_array(card_state) lookup_cards = NULL;
-    for (gs_hash_table_iter it = gs_hash_table_iter_new(cards_global.card_lookup);
-         gs_hash_table_iter_valid(cards_global.card_lookup, it);
-    gs_hash_table_iter_advance(cards_global.card_lookup, it)) {
-        gs_dyn_array_push(lookup_cards, gs_hash_table_iter_get(cards_global.card_lookup, it));
+    gs_dyn_array(card_state_t) lookup_cards = NULL;
+    for (gs_hash_table_iter it = gs_hash_table_iter_new(card_util.card_lookup);
+         gs_hash_table_iter_valid(card_util.card_lookup, it);
+    gs_hash_table_iter_advance(card_util.card_lookup, it)) {
+        gs_dyn_array_push(lookup_cards, gs_hash_table_iter_get(card_util.card_lookup, it));
     }
 
     int random_index = (rand() % gs_dyn_array_size(lookup_cards));
-    card_state card = lookup_cards[random_index];
+    card_state_t card = lookup_cards[random_index];
     card.render_index = render_index;
     gs_dyn_array_free(lookup_cards);
     return card;
 }
 
-
-
 // Returns this card's row within the shared atlas, in normalized UV space.
-static gs_vec4_t card_render_target_uv_rect(const card_state* card) {
+static gs_vec4_t card_render_target_uv_rect(const card_state_t* card) {
     float uv_height = 1.f / (float)CARD_ATLAS_MAX_SLOTS;
     float y_offset = (float) card->render_index * uv_height;
     gs_vec4_t r;
@@ -274,12 +296,12 @@ static gs_vec4_t card_render_target_uv_rect(const card_state* card) {
     return r;
 }
 
-void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
+void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
     uint32_t y_offset = (float)card->render_index * CARD_TEXTURE_HEIGHT;
 
     gsi_camera2D(immediate_draw, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
 
-    gsi_texture(immediate_draw, cards_global.card_atlas_texture);
+    gsi_texture(immediate_draw, card_util.card_atlas_texture);
     // TODO: this will change once more textures are added to the atlas
     gsi_rectvd(immediate_draw,
                 gs_v2(0.f, 0.f),
@@ -289,15 +311,22 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
                 GS_COLOR_WHITE,
                 GS_GRAPHICS_PRIMITIVE_TRIANGLES);
 
-    gsi_text(immediate_draw, 24.f, 24.f, card->name, &cards_global.card_font, false, 20, 20, 20, 255);
+    gsi_text(immediate_draw, 24.f, 24.f, card->name, &card_util.card_font, false, 20, 20, 20, 255);
+
+    if (card->current_abilities.shield_count > 0) {
+        char shield_buffer[10] = "Shield ";
+        size_t current_len = strlen(shield_buffer);
+        snprintf(shield_buffer + current_len, sizeof(shield_buffer) - current_len, "%d", card->current_abilities.shield_count);
+        gsi_text(immediate_draw, 24.f, 300.f, shield_buffer, &card_util.card_font, false, 20, 20, 20, 255);
+    }
 
     char attack_char_buffer[10];
     snprintf(attack_char_buffer, sizeof(attack_char_buffer), "%d", card->current_attack);
-    gsi_text(immediate_draw, 24.f, 300.f, attack_char_buffer, &cards_global.card_font, false, 20, 20, 20, 255);
+    gsi_text(immediate_draw, 24.f, 600.f, attack_char_buffer, &card_util.card_font, false, 20, 20, 20, 255);
 
     char health_char_buffer[10];
     snprintf(health_char_buffer, sizeof(health_char_buffer), "%d", card->current_health);
-    gsi_text(immediate_draw, 200.f, 300.f, health_char_buffer, &cards_global.card_font, false, 20, 20, 20, 255);
+    gsi_text(immediate_draw, 200.f, 600.f, health_char_buffer, &card_util.card_font, false, 20, 20, 20, 255);
 
 
     gs_command_buffer_t command_buffer = gs_command_buffer_new();
@@ -306,7 +335,7 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
         .color = {0.f, 0.f, 0.f, 0.f}
     };
 
-    gs_graphics_renderpass_begin(&command_buffer, cards_global.render_target_renderpass);
+    gs_graphics_renderpass_begin(&command_buffer, card_util.render_target_renderpass);
 
     // set viewport and sizor to this cards position in the render target
     // scissor makes sure the clear doesn't wipe out other already-baked textures
@@ -322,15 +351,15 @@ void card_bake_texture(card_state *card, gs_immediate_draw_t *immediate_draw) {
     gs_graphics_command_buffer_submit(&command_buffer);
 }
 
-void card_render_instanced(card_state* cards,
-                           uint32_t count,
-                           gs_command_buffer_t* command_buffer,
-                           gs_mat4 view_projection) {
+void cards_render_instanced(card_state_t* cards,
+                            uint32_t count,
+                            gs_command_buffer_t* command_buffer,
+                            gs_mat4 view_projection) {
     if (count == 0) return;
     if (count > CARD_ATLAS_MAX_SLOTS) count = CARD_ATLAS_MAX_SLOTS; // safety clamp
 
     // ---- Build the per-instance CPU buffer ----
-    static card_instance_data instance_data[CARD_ATLAS_MAX_SLOTS];
+    static card_instance_data_t instance_data[CARD_ATLAS_MAX_SLOTS];
     for (uint32_t i = 0; i < count; ++i) {
         gs_mat4 model = gs_vqs_to_mat4(&cards[i].transform);
         gs_mat4 mvp = gs_mat4_mul(view_projection, model);
@@ -349,31 +378,31 @@ void card_render_instanced(card_state* cards,
     // update the per instance data buffer
     gs_graphics_vertex_buffer_request_update(
         command_buffer,
-        cards_global.card_instance_buffer,
+        card_util.card_instance_buffer,
         &(gs_graphics_vertex_buffer_desc_t) {
             .data = instance_data,
-            .size = count * sizeof(card_instance_data),
+            .size = count * sizeof(card_instance_data_t),
             .usage = GS_GRAPHICS_BUFFER_USAGE_STREAM
         }
     );
 
-    gs_graphics_pipeline_bind(command_buffer, cards_global.card_pipeline);
+    gs_graphics_pipeline_bind(command_buffer, card_util.card_pipeline);
 
     // 7 entries, matching the 7 attributes in the pipeline layout (must be in order)
     gs_graphics_bind_vertex_buffer_desc_t vbufs[] = {
-        {.buffer = cards_global.card_vertex_buffer},   // a_pos
-        {.buffer = cards_global.card_vertex_buffer},   // a_uv
-        {.buffer = cards_global.card_instance_buffer}, // a_mvp0
-        {.buffer = cards_global.card_instance_buffer}, // a_mvp1
-        {.buffer = cards_global.card_instance_buffer}, // a_mvp2
-        {.buffer = cards_global.card_instance_buffer}, // a_mvp3
-        {.buffer = cards_global.card_instance_buffer}, // a_uv_rect
+        {.buffer = card_util.card_vertex_buffer},   // a_pos
+        {.buffer = card_util.card_vertex_buffer},   // a_uv
+        {.buffer = card_util.card_instance_buffer}, // a_mvp0
+        {.buffer = card_util.card_instance_buffer}, // a_mvp1
+        {.buffer = card_util.card_instance_buffer}, // a_mvp2
+        {.buffer = card_util.card_instance_buffer}, // a_mvp3
+        {.buffer = card_util.card_instance_buffer}, // a_uv_rect
     };
-    gs_graphics_bind_index_buffer_desc_t ibuf = {.buffer = cards_global.card_index_buffer};
+    gs_graphics_bind_index_buffer_desc_t ibuf = {.buffer = card_util.card_index_buffer};
     gs_graphics_bind_uniform_desc_t uniforms[] = {
         {
-            .uniform = cards_global.uniform_render_target_texture,
-            .data = &cards_global.render_target_texture,
+            .uniform = card_util.uniform_render_target_texture,
+            .data = &card_util.render_target_texture,
             .binding = 0
         }
     };
@@ -390,3 +419,5 @@ void card_render_instanced(card_state* cards,
         .instances = count
     });
 }
+#endif // UTIL_CARD_IMPL
+#endif // UTIL_CARD_H
