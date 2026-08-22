@@ -14,8 +14,7 @@ x return to menu after all cards are played
 x bake attack and health on cards
 x create pool of cards that can be used for starting hands
 x implement battle turns, updating card appearence
-- organize codebase
-- start using a better looking card template
+x organize codebase
 - create interesting cards
 
 card abilities

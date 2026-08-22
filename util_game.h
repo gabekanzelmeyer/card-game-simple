@@ -29,9 +29,9 @@ void game_state_init(game_state_t *state) {
     state->command_buffer = gs_command_buffer_new();
     state->immediate_draw = gs_immediate_draw_new();
     state->camera = gs_camera_perspective();
-    state->camera .transform.position = gs_v3(0.f, 0.f, 6.f);
+    state->camera .transform.position = gs_v3(0.f, 0.f, 6.5f);
 
-    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &card_util.card_font}};
+    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &card_util.card_name_font}};
 
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));

@@ -48,10 +48,11 @@ typedef struct {
     gs_handle(gs_graphics_framebuffer_t) render_target_framebuffer;
     gs_handle(gs_graphics_renderpass_t) render_target_renderpass;
 
-    gs_asset_font_t card_font;
+    gs_asset_font_t card_name_font;
+    gs_asset_font_t card_stats_font;
+    gs_asset_font_t card_abilities_font;
 
     gs_hash_table(const char*, card_state_t) card_lookup;
-    gs_hash_table(const char*, uint32_t) card_instance_lookup;
 } card_util_t;
 
 void card_util_init();
@@ -90,7 +91,6 @@ static const char* card_fragment_shader_src =
 "   frag_color = texture(u_tex, uv);\n"
 "}\n";
 
-
 card_state_t card_new(const char *name,
                       uint16_t attack,
                       uint16_t health,
@@ -103,6 +103,15 @@ card_state_t card_new(const char *name,
     card_reset_stats(&card);
     card.transform = gs_vqs_default();
     return card;
+}
+
+static void card_populate_lookup() {
+    gs_hash_table_insert(card_util.card_lookup, "Card 1", card_new("Card 1", 1, 1, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_lookup, "Card 2", card_new("Card 2", 2, 2, (card_abilities_t){.shield_count = 1}));
+    gs_hash_table_insert(card_util.card_lookup, "Card 3", card_new("Card 3", 3, 3, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_lookup, "Card 4", card_new("Card 4", 4, 4, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_lookup, "Card 5", card_new("Card 5", 5, 5, (card_abilities_t){0}));
+    gs_hash_table_insert(card_util.card_lookup, "Card 6", card_new("Card 6", 6, 6, (card_abilities_t){0}));
 }
 
 void card_reset_stats(card_state_t *card) {
@@ -226,8 +235,14 @@ void card_util_init() {
         gs_println("WARNING: failed to load assets/card.png");
     }
 
-    // load the font
-    if (!gs_asset_font_load_from_file("assets/font.otf", &card_util.card_font, 100)) {
+    // load the fonts
+    if (!gs_asset_font_load_from_file("assets/font.otf", &card_util.card_name_font, 120)) {
+        gs_println("WARNING: failed to load assets/font.otf (100pt)");
+    }
+    if (!gs_asset_font_load_from_file("assets/font.otf", &card_util.card_stats_font, 140)) {
+        gs_println("WARNING: failed to load assets/font.otf (100pt)");
+    }
+    if (!gs_asset_font_load_from_file("assets/font.otf", &card_util.card_abilities_font, 80)) {
         gs_println("WARNING: failed to load assets/font.otf (100pt)");
     }
 
@@ -252,19 +267,7 @@ void card_util_init() {
     );
 
     // add cards to lookup table
-    uint32_t instance_id = 0;
-    gs_hash_table_insert(card_util.card_lookup, "Card 1", card_new("Card 1", 1, 1, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_instance_lookup, "Card 1", instance_id++);
-    gs_hash_table_insert(card_util.card_lookup, "Card 2", card_new("Card 2", 2, 2, (card_abilities_t){.shield_count = 1}));
-    gs_hash_table_insert(card_util.card_instance_lookup, "Card 2", instance_id++);
-    gs_hash_table_insert(card_util.card_lookup, "Card 3", card_new("Card 3", 3, 3, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_instance_lookup, "Card 3", instance_id++);
-    gs_hash_table_insert(card_util.card_lookup, "Card 4", card_new("Card 4", 4, 4, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_instance_lookup, "Card 4", instance_id++);
-    gs_hash_table_insert(card_util.card_lookup, "Card 5", card_new("Card 5", 5, 5, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_instance_lookup, "Card 5", instance_id++);
-    gs_hash_table_insert(card_util.card_lookup, "Card 6", card_new("Card 6", 6, 6, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_instance_lookup, "Card 6", instance_id++);
+    card_populate_lookup();
 }
 
 card_state_t card_get_random(uint32_t render_index) {
@@ -310,22 +313,26 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
                 GS_COLOR_WHITE,
                 GS_GRAPHICS_PRIMITIVE_TRIANGLES);
 
-    gsi_text(immediate_draw, 24.f, 24.f, card->name, &card_util.card_font, false, 20, 20, 20, 255);
+    gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&card_util.card_name_font, card->name, -1); // -1 means null-terminated string
+
+    gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, 24.f, card->name, &card_util.card_name_font, false, 20, 20, 20, 255);
 
     if (card->current_abilities.shield_count > 0) {
         char shield_buffer[10] = "Shield ";
         size_t current_len = strlen(shield_buffer);
         snprintf(shield_buffer + current_len, sizeof(shield_buffer) - current_len, "%d", card->current_abilities.shield_count);
-        gsi_text(immediate_draw, 24.f, 300.f, shield_buffer, &card_util.card_font, false, 20, 20, 20, 255);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, shield_buffer, strlen(shield_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, 400.f, shield_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
     }
 
     char attack_char_buffer[10];
     snprintf(attack_char_buffer, sizeof(attack_char_buffer), "%d", card->current_attack);
-    gsi_text(immediate_draw, 24.f, 600.f, attack_char_buffer, &card_util.card_font, false, 20, 20, 20, 255);
+    gsi_text(immediate_draw, 50.f, 650.f, attack_char_buffer, &card_util.card_stats_font, false, 20, 20, 20, 255);
 
     char health_char_buffer[10];
     snprintf(health_char_buffer, sizeof(health_char_buffer), "%d", card->current_health);
-    gsi_text(immediate_draw, 200.f, 600.f, health_char_buffer, &card_util.card_font, false, 20, 20, 20, 255);
+    text_dimensions = gs_asset_font_text_dimensions(&card_util.card_stats_font, health_char_buffer, strlen(health_char_buffer));
+    gsi_text(immediate_draw, CARD_TEXTURE_WIDTH - text_dimensions.x - 50.f, 650.f, health_char_buffer, &card_util.card_stats_font, false, 20, 20, 20, 255);
 
 
     gs_command_buffer_t command_buffer = gs_command_buffer_new();

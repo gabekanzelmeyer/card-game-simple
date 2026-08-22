@@ -20,6 +20,10 @@ do {\
 } while (0)
 
 #define HOVER_SCREEN_SIZE 300
+#define HAND_SPACING 1.2f
+#define HAND_FAN_ANGLE 2.0f
+#define HAND_CURVE_AMOUNT 0.02f
+#define HAND_POSITION_OFFSET 2.6f
 
 enum card_game_phase {
     SELECT_CARD,
@@ -34,6 +38,8 @@ typedef struct {
     card_state_t player_in_play_card;
     card_state_t opponent_in_play_card;
     float battle_timer;
+    bool player_card_attacking;
+    bool opponent_card_attacking;
 } card_game_state_t;
 
 void card_game_position_hand(card_state_t *cards, int count, float spacing, float tilt, float curve_amount, float y_offset) {
@@ -43,11 +49,6 @@ void card_game_position_hand(card_state_t *cards, int count, float spacing, floa
         cards[i].transform.position.x = start_x + i * spacing;
         cards[i].transform.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
         cards[i].transform.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * tilt)), gs_v3(0, 0, 1));
-        if (curve_amount > 0) {
-            cards[i].transform.rotation = gs_quat_mul(
-                gs_quat_angle_axis(gs_deg2rad(180), gs_v3(0, 0, 1)),
-                                                      cards[i].transform.rotation);
-        }
     }
 }
 
@@ -71,11 +72,11 @@ void card_game_init(card_game_state_t *card_game, gs_immediate_draw_t *immediate
         card_update(&card_game->opponent_hand[i], immediate_draw);
     }
 
-    card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), 0.9f, 10.0f, -0.08, -2.5);
-    card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), 0.9f, -10.0f, 0.08,  2.5);
+    card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_POSITION_OFFSET);
+    card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_POSITION_OFFSET);
 }
 
-bool card_do_battle(card_game_state_t *card_game, game_state_t *game_state) {
+void card_do_battle(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->player_in_play_card.current_abilities.shield_count > 0) {
         card_game->player_in_play_card.current_abilities.shield_count--;
     } else {
@@ -89,7 +90,9 @@ bool card_do_battle(card_game_state_t *card_game, game_state_t *game_state) {
 
     card_update(&card_game->player_in_play_card, &game_state->immediate_draw);
     card_update(&card_game->opponent_in_play_card, &game_state->immediate_draw);
+}
 
+bool card_resolve_battle(card_game_state_t *card_game) {
     bool was_a_card_destroyed = false;
     if (card_game->player_in_play_card.current_health <= 0) {
         card_game->player_in_play_card = (card_state_t){0};
@@ -133,14 +136,16 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
     // if there is a player card in play, position and rotate correctly
     if (card_game->player_in_play_card.name != NULL) {
-        card_game->player_in_play_card.transform.position = gs_v3(-2., 0.f, 0.f);
+        card_game->player_in_play_card.transform.position = gs_v3(card_game->player_card_attacking ? -1.5f : -2., 0.f, 0.f);
         card_game->player_in_play_card.transform.rotation = gs_quat_default();
+        card_game->player_in_play_card.transform.scale = gs_v3(1.f, 1.f, 1.f);
         cards_render_instanced(&card_game->player_in_play_card, 1, &game_state->command_buffer, view_projection);
     }
     // if there is a opponent card in play, position and rotate correctly
     if (card_game->opponent_in_play_card.name != NULL) {
-        card_game->opponent_in_play_card.transform.position = gs_v3(2., 0.f, 0.f);
+        card_game->opponent_in_play_card.transform.position = gs_v3(card_game->opponent_card_attacking ? 1.5f : 2., 0.f, 0.f);
         card_game->opponent_in_play_card.transform.rotation = gs_quat_default();
+        card_game->opponent_in_play_card.transform.scale = gs_v3(1.f, 1.f, 1.f);
         cards_render_instanced(&card_game->opponent_in_play_card, 1, &game_state->command_buffer, view_projection);
     }
 
@@ -148,7 +153,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
             card_game->player_in_play_card = card_game->player_hand[hovered_index];
             gs_dyn_array_erase(card_game->player_hand, hovered_index);
-            card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), 0.9f, 10.0f, -0.08, -2.5);
+            card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_POSITION_OFFSET);
 
             // once we set the plater "in play" card, see if there is an opponent "in play" card,
             // if so, move to the battle stage. otherwise, move to the opponent play card stage
@@ -164,18 +169,36 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         int random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
         card_game->opponent_in_play_card = card_game->opponent_hand[random_index];
         gs_dyn_array_erase(card_game->opponent_hand, random_index);
-        card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), 0.9f, -10.0f, 0.08, 2.5);
+        card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_POSITION_OFFSET);
         card_game->phase = BATTLE;
         card_game->battle_timer = 0.f;
         card_reset_stats(&card_game->opponent_in_play_card);
     } else if (card_game->phase == BATTLE) {
         float prev_battle_timer = card_game->battle_timer;
         card_game->battle_timer += dt;
-        float tick_resolution = 1;
-        if (floorf(prev_battle_timer / tick_resolution) * tick_resolution < floorf(card_game->battle_timer / tick_resolution) * tick_resolution) {
-            printf("battle tick\n");
+        float tick_resolution = 1.5;
+        float attack_anim_time = 1.0;
+        float end_attack_anim_time = 1.2; // must be greater than attack_anim_time and less that tick_resolution
 
-            bool was_a_card_destroyed = card_do_battle(card_game, game_state);
+        if (floorf((prev_battle_timer - attack_anim_time) / tick_resolution) * tick_resolution
+            < floorf((card_game->battle_timer - attack_anim_time) / tick_resolution) * tick_resolution) {
+            printf("anim: %f\n", card_game->battle_timer);
+            card_game->player_card_attacking = true;
+            card_game->opponent_card_attacking = true;
+        }
+        if (floorf((prev_battle_timer - end_attack_anim_time) / tick_resolution) * tick_resolution
+            < floorf((card_game->battle_timer - end_attack_anim_time) / tick_resolution) * tick_resolution) {
+            printf("anim: %f\n", card_game->battle_timer);
+            card_game->player_card_attacking = false;
+            card_game->opponent_card_attacking = false;
+            card_do_battle(card_game, game_state);
+        }
+        if (floorf(prev_battle_timer / tick_resolution) * tick_resolution < floorf(card_game->battle_timer / tick_resolution) * tick_resolution) {
+            printf("battle tick: %f\n", card_game->battle_timer);
+            card_game->player_card_attacking = false;
+            card_game->opponent_card_attacking = false;
+
+            bool was_a_card_destroyed = card_resolve_battle(card_game);
             if (was_a_card_destroyed) {
                 if (gs_dyn_array_size(card_game->opponent_hand) == 0
                     && gs_dyn_array_size(card_game->player_hand) == 0
