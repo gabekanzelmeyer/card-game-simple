@@ -17,22 +17,47 @@ x implement battle turns, updating card appearence
 x organize codebase
 - create interesting cards
 
+card ideas
+
+Thicket Green 4/1 Quickstep
+Boggle Green 2/2 fortify 3 warcry 3
+Bramble Green 3/4 Popshot 1 Regenerate
+Mossback Green Disarm 2
+Ashgrove Green 4/4 Enchant Shield
+Deadfen Green 6/6 Sacrifice 1
+
+Bogmite Blue 2/2 Bless War cry 1
+Riptide Blue Disarm 2
+Glassfin Blue 6/1
+Whistler Blue Prism Blue 1
+Seeker Blue 4/4 curse timebound
+Sludger Blue 3/4 fortress 1 showtun 1
+
+
 card abilities
 - shield: block one attack regardless of amount, shield is broken
-- penetrate: attack ignores shields
-- on play, deal damage to random card in opp hand or own hand
-- on play, cards in hand gain health or attack
-- on play, give card in hand or opponent hand shield
-- receive double damage
-- haste: attacks first and offsets battle timer
-- reduce incoming attack by X
-- if destroyed, set health to 1
-- whenever a card is played, if in hand, give +1 attack or health to card in play, or hand cards
-- on attack / receive attack also deal 1 damage to opponent hand cards
-- on death, return to hand with less stats
-- on death, reduce health or attack or cards in hands
-- on play, heal all hand cards to full health
-- on play / on death, destroy random card in either hand
+- regenerate: on death return to hand
+- quickstep: attacks before other card
+- timebound: all cards with timebound must be played before any other cards in hand
+- terrain X: set terrain to boost all cards of that color +X/+X)
+
+- fortify X: give random hand card +X health
+- fortress X: give all hand cards +X health
+- warcry X: give random hand card +X attack
+- warmonger X: give all hand cards +X attack
+- headshot X: dead X damage to opposing card
+- popshot X: deal X damage to random opp hand card
+- shotgun X: deal X damage to all opp hand cards
+- sacrifice X: discard X cards form hand
+- assasinate X: destrot X cards in opponenets hand
+- disarm X: reduce opposite card attack by X
+- blunt X: reduce random opp hand card attack by X
+- cripple X: reduce all opp hand card attack by X
+- enchant [ability]: gives ability to random card in hand
+- bless [ability]: gives ability to all cards in hand
+- curse [ability]: gives ability to random card in opp hand
+- prism [color] X: all cards of color get +X/+X
+- dim [color] X: all cards of color get -X/-X
 
 card property ideas
 - levels?

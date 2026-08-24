@@ -9,14 +9,24 @@
 
 #define CARD_ATLAS_MAX_SLOTS 16
 
+
 typedef struct {
-    int shield_count;
+    int shield; // when damaged, prevent reduce count
+    int regenerate; // if the card is destroyed, reduce count add to hand
+    int reinforce; // all hand cards get +X health
+    int rally; // all hand cards get +X attack
+    int bash; // deal X damage to opposing card
+    int volley; // deal X damage to all opp hand cards
+    bool haste; // attacks early in battle
 } card_abilities_t;
 
 typedef struct {
     const char *name;
     uint16_t attack;
     uint16_t health;
+    bool red;
+    bool green;
+    bool blue;
     card_abilities_t abilities;
     int current_attack;
     int current_health;
@@ -56,7 +66,7 @@ typedef struct {
 } card_util_t;
 
 void card_util_init();
-card_state_t card_new(const char *name, uint16_t attack, uint16_t health, card_abilities_t abilities);
+card_state_t card_new(const char *name, uint16_t attack, uint16_t health, bool red, bool green, bool blue, card_abilities_t abilities);
 void card_reset_stats(card_state_t *card);
 card_state_t card_get_random(uint32_t render_index);
 void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw);
@@ -94,24 +104,35 @@ static const char* card_fragment_shader_src =
 card_state_t card_new(const char *name,
                       uint16_t attack,
                       uint16_t health,
+                      bool red,
+                      bool green,
+                      bool blue,
                       card_abilities_t abilities) {
     card_state_t card = {0};
     card.name = name;
     card.attack = attack;
     card.health = health;
+    card.red = red;
+    card.green = green;
+    card.blue = blue;
     card.abilities = abilities;
     card_reset_stats(&card);
     card.transform = gs_vqs_default();
     return card;
 }
 
+static void card_add_to_lookup(card_state_t card) {
+    gs_hash_table_insert(card_util.card_lookup, card.name, card);
+}
+
 static void card_populate_lookup() {
-    gs_hash_table_insert(card_util.card_lookup, "Card 1", card_new("Card 1", 1, 1, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_lookup, "Card 2", card_new("Card 2", 2, 2, (card_abilities_t){.shield_count = 1}));
-    gs_hash_table_insert(card_util.card_lookup, "Card 3", card_new("Card 3", 3, 3, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_lookup, "Card 4", card_new("Card 4", 4, 4, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_lookup, "Card 5", card_new("Card 5", 5, 5, (card_abilities_t){0}));
-    gs_hash_table_insert(card_util.card_lookup, "Card 6", card_new("Card 6", 6, 6, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Slab Crab", 2, 4, true, false, false, (card_abilities_t){.shield = 1}));
+    card_add_to_lookup(card_new("Tusker", 5, 3, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Ironbrow", 3, 3, true, false, false, (card_abilities_t){.reinforce = 2}));
+    card_add_to_lookup(card_new("Cinder Wisp", 3, 1, true, false, false, (card_abilities_t){.haste = true, .bash = 1}));
+    card_add_to_lookup(card_new("Basalt", 3, 4, true, false, false, (card_abilities_t){.volley = 1}));
+    card_add_to_lookup(card_new("Rust Wing", 1, 4, true, false, false, (card_abilities_t){.rally = 1}));
+    card_add_to_lookup(card_new("Bramble", 2, 3, false, true, false, (card_abilities_t){.regenerate = 1}));
 }
 
 void card_reset_stats(card_state_t *card) {
@@ -317,12 +338,61 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
 
     gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, 24.f, card->name, &card_util.card_name_font, false, 20, 20, 20, 255);
 
-    if (card->current_abilities.shield_count > 0) {
-        char shield_buffer[10] = "Shield ";
-        size_t current_len = strlen(shield_buffer);
-        snprintf(shield_buffer + current_len, sizeof(shield_buffer) - current_len, "%d", card->current_abilities.shield_count);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, shield_buffer, strlen(shield_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, 400.f, shield_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+    float ability_y_offset = 400.0f;
+    float offset_increment = 60.f;
+    if (card->current_abilities.shield > 0) {
+        char ability_buffer[20] = "Shield ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.shield);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.regenerate) {
+        char ability_buffer[20] = "Regenerate ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.regenerate);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.reinforce > 0) {
+        char ability_buffer[20] = "Reinforce ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.reinforce);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.rally > 0) {
+        char ability_buffer[20] = "Rally ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.rally);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.bash > 0) {
+        char ability_buffer[20] = "Bash ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.bash);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.volley > 0) {
+        char ability_buffer[20] = "Volley ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.volley);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.haste) {
+        char ability_buffer[20] = "Haste";
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
     }
 
     char attack_char_buffer[10];
