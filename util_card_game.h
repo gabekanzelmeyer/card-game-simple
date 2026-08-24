@@ -153,51 +153,129 @@ void card_game_resolve_damage(card_game_state_t *card_game, game_state_t *game_s
 
 void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->player_card_played) {
-        if (card_game->player_in_play_card.abilities.bash > 0) {
+        if (card_game->player_in_play_card.abilities.strike > 0) {
             if (card_game->opponent_in_play_card.current_abilities.shield > 0) {
                 card_game->opponent_in_play_card.current_abilities.shield--;
             } else {
-                card_game->opponent_in_play_card.current_health -= card_game->player_in_play_card.abilities.bash;
+                card_game->opponent_in_play_card.current_health -= card_game->player_in_play_card.abilities.strike;
             }
         }
-        if (card_game->player_in_play_card.abilities.rally > 0) {
+        if (card_game->player_in_play_card.abilities.blunt > 0) {
+            card_game->opponent_in_play_card.current_attack = fmax(1, card_game->opponent_in_play_card.current_attack - card_game->player_in_play_card.abilities.blunt);
+        }
+        if (card_game->player_in_play_card.abilities.warcry > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                card_game->player_hand[i].current_attack += card_game->player_in_play_card.abilities.rally;
+                card_game->player_hand[i].current_attack += card_game->player_in_play_card.abilities.warcry;
             }
         }
-        if (card_game->player_in_play_card.abilities.reinforce > 0) {
+        if (card_game->player_in_play_card.abilities.wellspring > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                card_game->player_hand[i].current_health += card_game->player_in_play_card.abilities.reinforce;
+                card_game->player_hand[i].current_health += card_game->player_in_play_card.abilities.wellspring;
             }
         }
-        if (card_game->player_in_play_card.abilities.volley > 0) {
+        if (card_game->player_in_play_card.abilities.scattershot > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                card_game->opponent_hand[i].current_health -= card_game->player_in_play_card.abilities.volley;
+                card_game->opponent_hand[i].current_health -= card_game->player_in_play_card.abilities.scattershot;
             }
+        }
+        if (card_game->player_in_play_card.abilities.cripple > 0) {
+            for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+                card_game->opponent_hand[i].current_attack = fmax(1, card_game->opponent_hand[i].current_attack - card_game->player_in_play_card.abilities.cripple);
+            }
+        }
+        if (card_game->player_in_play_card.abilities.channel > 0) {
+            // increase this cards stats
+            card_game->player_in_play_card.current_attack += card_game->player_in_play_card.abilities.channel;
+            card_game->player_in_play_card.current_health += card_game->player_in_play_card.abilities.channel;
+            // increase opponent card in play if colors match
+            if (card_do_colors_match(card_game->player_in_play_card, card_game->opponent_in_play_card)) {
+                card_game->opponent_in_play_card.current_attack += card_game->player_in_play_card.abilities.channel;
+                card_game->opponent_in_play_card.current_health += card_game->player_in_play_card.abilities.channel;
+            }
+            // increase all hand cards if colors match
+            for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+                if (card_do_colors_match(card_game->player_in_play_card, card_game->player_hand[i])) {
+                    card_game->player_hand[i].current_attack += card_game->player_in_play_card.abilities.channel;
+                    card_game->player_hand[i].current_health += card_game->player_in_play_card.abilities.channel;
+                }
+            }
+            for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+                if (card_do_colors_match(card_game->player_in_play_card, card_game->opponent_hand[i])) {
+                    card_game->opponent_hand[i].current_attack += card_game->player_in_play_card.abilities.channel;
+                    card_game->opponent_hand[i].current_health += card_game->player_in_play_card.abilities.channel;
+                }
+            }
+        }
+        if (card_game->player_in_play_card.abilities.sacrifice > 0 && gs_dyn_array_size(card_game->player_hand)> 0) {
+            int random_index = (rand() % gs_dyn_array_size(card_game->player_hand));
+            gs_dyn_array_erase(card_game->player_hand, random_index);
+        }
+        if (card_game->player_in_play_card.abilities.assassinate > 0 && gs_dyn_array_size(card_game->opponent_hand)> 0) {
+            int random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
+            gs_dyn_array_erase(card_game->opponent_hand, random_index);
         }
     }
     if (card_game->opponent_card_played) {
-        if (card_game->opponent_in_play_card.abilities.bash > 0) {
+        if (card_game->opponent_in_play_card.abilities.strike > 0) {
             if (card_game->player_in_play_card.current_abilities.shield > 0) {
                 card_game->player_in_play_card.current_abilities.shield--;
             } else {
-                card_game->player_in_play_card.current_health -= card_game->opponent_in_play_card.abilities.bash;
+                card_game->player_in_play_card.current_health -= card_game->opponent_in_play_card.abilities.strike;
             }
         }
-        if (card_game->opponent_in_play_card.abilities.rally > 0) {
+        if (card_game->opponent_in_play_card.abilities.blunt > 0) {
+            card_game->player_in_play_card.current_attack = fmax(1, card_game->player_in_play_card.current_attack - card_game->opponent_in_play_card.abilities.blunt);
+        }
+        if (card_game->opponent_in_play_card.abilities.warcry > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-                card_game->opponent_hand[i].current_attack += card_game->opponent_in_play_card.abilities.rally;
+                card_game->opponent_hand[i].current_attack += card_game->opponent_in_play_card.abilities.warcry;
             }
         }
-        if (card_game->opponent_in_play_card.abilities.reinforce > 0) {
+        if (card_game->opponent_in_play_card.abilities.wellspring > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-                card_game->opponent_hand[i].current_health += card_game->opponent_in_play_card.abilities.reinforce;
+                card_game->opponent_hand[i].current_health += card_game->opponent_in_play_card.abilities.wellspring;
             }
         }
-        if (card_game->opponent_in_play_card.abilities.volley > 0) {
+        if (card_game->opponent_in_play_card.abilities.scattershot > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                card_game->player_hand[i].current_health -= card_game->opponent_in_play_card.abilities.volley;
+                card_game->player_hand[i].current_health -= card_game->opponent_in_play_card.abilities.scattershot;
             }
+        }
+        if (card_game->opponent_in_play_card.abilities.cripple > 0) {
+            for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+                card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->opponent_in_play_card.abilities.cripple);
+            }
+        }
+        if (card_game->opponent_in_play_card.abilities.channel > 0) {
+            // increase this cards stats
+            card_game->opponent_in_play_card.current_attack += card_game->opponent_in_play_card.abilities.channel;
+            card_game->opponent_in_play_card.current_health += card_game->opponent_in_play_card.abilities.channel;
+            // increase opponent card in play if colors match
+            if (card_do_colors_match(card_game->opponent_in_play_card, card_game->player_in_play_card)) {
+                card_game->player_in_play_card.current_attack += card_game->opponent_in_play_card.abilities.channel;
+                card_game->player_in_play_card.current_health += card_game->opponent_in_play_card.abilities.channel;
+            }
+            // increase all hand card stats if colors match
+            for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+                if (card_do_colors_match(card_game->opponent_in_play_card, card_game->player_hand[i])) {
+                    card_game->player_hand[i].current_attack += card_game->opponent_in_play_card.abilities.channel;
+                    card_game->player_hand[i].current_health += card_game->opponent_in_play_card.abilities.channel;
+                }
+            }
+            for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+                if (card_do_colors_match(card_game->opponent_in_play_card, card_game->opponent_hand[i])) {
+                    card_game->opponent_hand[i].current_attack += card_game->opponent_in_play_card.abilities.channel;
+                    card_game->opponent_hand[i].current_health += card_game->opponent_in_play_card.abilities.channel;
+                }
+            }
+        }
+        if (card_game->opponent_in_play_card.abilities.sacrifice > 0 && gs_dyn_array_size(card_game->opponent_hand) > 0) {
+            int random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
+            gs_dyn_array_erase(card_game->opponent_hand, random_index);
+        }
+        if (card_game->opponent_in_play_card.abilities.assassinate > 0 && gs_dyn_array_size(card_game->player_hand) > 0) {
+            int random_index = (rand() % gs_dyn_array_size(card_game->player_hand));
+            gs_dyn_array_erase(card_game->player_hand, random_index);
         }
     }
 
@@ -280,21 +358,44 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
     if (card_game->phase == SELECT_CARD) {
         if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
-            card_game->player_in_play_card = card_game->player_hand[hovered_index];
-            card_game->player_card_played = true;
-            gs_dyn_array_erase(card_game->player_hand, hovered_index);
+            // if there are timebound hands in the players hand, one of them must be played
+            bool has_timebound = false;
+            for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+                if (card_game->player_hand[i].abilities.timebound) has_timebound = true;
+            }
+            if (!has_timebound || card_game->player_hand[hovered_index].abilities.timebound) {
+                card_game->player_in_play_card = card_game->player_hand[hovered_index];
+                card_game->player_card_played = true;
+                gs_dyn_array_erase(card_game->player_hand, hovered_index);
 
-            // once we set the plater "in play" card, see if there is an opponent "in play" card,
-            // if so, move to the battle stage. otherwise, move to the opponent play card stage
-            if (card_game->opponent_in_play_card.name == NULL) {
-                card_game->phase = OPPONENT_SELECT_CARD;
-            } else {
-                card_game->phase = BATTLE;
-                card_game->battle_timer = 0.f;
+                // once we set the plater "in play" card, see if there is an opponent "in play" card,
+                // if so, move to the battle stage. otherwise, move to the opponent play card stage
+                if (card_game->opponent_in_play_card.name == NULL) {
+                    card_game->phase = OPPONENT_SELECT_CARD;
+                } else {
+                    card_game->phase = BATTLE;
+                    card_game->battle_timer = 0.f;
+                }
             }
         }
     } else if (card_game->phase == OPPONENT_SELECT_CARD) {
-        int random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
+        // if there are timebound hands in the opponents hand, one of them must be played
+        // gather timebound indices
+        gs_dyn_array(int) timebound_indices = NULL;
+        for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+            if (card_game->opponent_hand[i].abilities.timebound) gs_dyn_array_push(timebound_indices, i);
+        }
+
+        // if there are timebound cards, grab a random one of those
+        int random_index;
+        printf("size : %i", gs_dyn_array_size(timebound_indices));
+        if (gs_dyn_array_size(timebound_indices) > 0) {
+            random_index = timebound_indices[(rand() % gs_dyn_array_size(timebound_indices))];
+        } else {
+            random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
+        }
+        printf("random : %i", random_index);
+
         card_game->opponent_in_play_card = card_game->opponent_hand[random_index];
         card_game->opponent_card_played = true;
         gs_dyn_array_erase(card_game->opponent_hand, random_index);
