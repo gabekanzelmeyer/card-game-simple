@@ -37,6 +37,8 @@ typedef struct {
     int current_attack;
     int current_health;
     card_abilities_t current_abilities;
+
+    bool selectable;
     gs_vqs transform;
 
     uint32_t render_index;
@@ -140,7 +142,7 @@ static void card_populate_lookup() {
 
     card_add_to_lookup(card_new("Slime", 2, 3, false, true, false, (card_abilities_t){.regenerate=1}));
     card_add_to_lookup(card_new("Mongoose", 2, 3, false, true, false, (card_abilities_t){.haste=true}));
-    card_add_to_lookup(card_new("Sun Bear", 4, 5, false, true, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Sun Bear", 4, 5, false, true, false, (card_abilities_t){.timebound=true}));
     card_add_to_lookup(card_new("Titan", 8, 8, false, true, false, (card_abilities_t){.sacrifice=1}));
 
     card_add_to_lookup(card_new("Sea Nettle", 1, 4, false, false, true, (card_abilities_t){.disarm=1}));
@@ -353,14 +355,23 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
     gsi_camera2D(immediate_draw, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
 
     gsi_texture(immediate_draw, card_util.card_atlas_texture);
+
+    gsi_rectvd(immediate_draw,
+        gs_v2(0.f, 0.f),
+        gs_v2(CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT),
+        gs_v2(0.f, 0.f), gs_v2(1.f, 1.f),
+        gs_color(50, card->selectable ? 255 : 50, 50, 255),
+        GS_GRAPHICS_PRIMITIVE_TRIANGLES);
+
     // TODO: this will change once more textures are added to the atlas
     gsi_rectvd(immediate_draw,
-                gs_v2(0.f, 0.f),
-                gs_v2(CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT),
-                gs_v2(0.f, 0.f),
-                gs_v2(1.f, 1.f),
-                GS_COLOR_WHITE,
-                GS_GRAPHICS_PRIMITIVE_TRIANGLES);
+        gs_v2(12.f, 12.f),
+        gs_v2(CARD_TEXTURE_WIDTH - 24, CARD_TEXTURE_HEIGHT - 24),
+        gs_v2(0.f, 0.f),
+        gs_v2(1.f, 1.f),
+        GS_COLOR_WHITE,
+        GS_GRAPHICS_PRIMITIVE_TRIANGLES);
+
 
     gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&card_util.card_name_font, card->name, -1); // -1 means null-terminated string
 

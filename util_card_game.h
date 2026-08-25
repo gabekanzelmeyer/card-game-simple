@@ -316,20 +316,41 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
     gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
 
-    // reset sizes of player hand cards
-    for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        card_game->player_hand[i].transform.scale = gs_v3(1.f, 1.f, 1.f);
+    bool has_timebound = false;
+    for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+        if (card_game->player_hand[i].abilities.timebound) has_timebound = true;
     }
 
-    // increase scale of hovered hand card and keep track of which card for later
+    // reset sizes of player hand cards, set selectable state
+    for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
+        card_game->player_hand[i].transform.scale = gs_v3(1.f, 1.f, 1.f);
+
+        if (!has_timebound || card_game->player_hand[i].abilities.timebound) {
+            if (!card_game->player_hand[i].selectable) {
+                printf("selectable\n");
+                card_game->player_hand[i].selectable = true;
+                card_update(&card_game->player_hand[i], &game_state->immediate_draw);
+            }
+        } else {
+            if (card_game->player_hand[i].selectable) {
+                card_game->player_hand[i].selectable = false;
+                card_update(&card_game->player_hand[i], &game_state->immediate_draw);
+            }
+        }
+    }
+
+    // increase scale of hovered hand card and keep track of which card for later,
+    // also, if the card can be selected, outline it in green
     int hovered_index = -1;
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
         gs_vec2 screen_pos;
         world_to_screen(card_game->player_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE)  {
-            card_game->player_hand[i].transform.scale = gs_v3(1.2f, 1.2f, 1.2f);
-            hovered_index = i;
-            break;
+        if (!has_timebound || card_game->player_hand[hovered_index].abilities.timebound) {
+            if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE)  {
+                card_game->player_hand[i].transform.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                hovered_index = i;
+                break;
+            }
         }
     }
 
@@ -359,11 +380,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->phase == SELECT_CARD) {
         if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
             // if there are timebound hands in the players hand, one of them must be played
-            bool has_timebound = false;
-            for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                if (card_game->player_hand[i].abilities.timebound) has_timebound = true;
-            }
-            if (!has_timebound || card_game->player_hand[hovered_index].abilities.timebound) {
+            if (card_game->player_hand[hovered_index].selectable) {
                 card_game->player_in_play_card = card_game->player_hand[hovered_index];
                 card_game->player_card_played = true;
                 gs_dyn_array_erase(card_game->player_hand, hovered_index);

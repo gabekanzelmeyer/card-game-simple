@@ -16,8 +16,12 @@ x create pool of cards that can be used for starting hands
 x implement battle turns, updating card appearence
 x organize codebase
 x implement some basic abilities
-- color card stats relative to base state
+X color card stats relative to base state
 x load shaders from file
+x outline selectable cards
+- make Strike ability selectable between opp hand and in play card
+- add ability where if card is last card in hand it's destroyed
+- refactor game sequence to allow co routining actions and triggered things
 
 
 card property ideas
