@@ -16,8 +16,8 @@ typedef struct {
     int wellspring; // all hand cards get +X health
     int warcry; // all hand cards get +X attack
     int strike; // deal X damage to opposing card
-    int scattershot; // deal X damage to all opp hand cards
-    int blunt; // reduce opposing card attack by X (no less than 1)
+    int swipe; // deal X damage to all opp hand cards
+    int disarm; // reduce opposing card attack by X (no less than 1)
     int cripple; // reduce opponent hand cards attack by X (no less than 1)
     int channel; // all cards in hands and in play get +X/+X if they share this cards color
     int sacrifice; // destroy X cards in hand
@@ -83,30 +83,23 @@ bool card_do_colors_match(card_state_t card1, card_state_t card2);
 
 card_util_t card_util = {0};
 
-static const char* card_vertex_shader_src =
-"#version 330 core\n"
-"layout(location = 0) in vec3 a_pos;\n"
-"layout(location = 1) in vec2 a_uv;\n"
-"layout(location = 2) in vec4 a_mvp0;\n"
-"layout(location = 3) in vec4 a_mvp1;\n"
-"layout(location = 4) in vec4 a_mvp2;\n"
-"layout(location = 5) in vec4 a_mvp3;\n"
-"layout(location = 6) in vec4 a_uv_rect;\n" // atlas uv positions
-"out vec2 uv;\n"
-"void main() {\n"
-"   mat4 mvp = mat4(a_mvp0, a_mvp1, a_mvp2, a_mvp3);\n"
-"   uv = a_uv_rect.xy + a_uv * a_uv_rect.zw;\n"
-"   gl_Position = mvp * vec4(a_pos, 1.0);\n"
-"}\n";
-
-static const char* card_fragment_shader_src =
-"#version 330 core\n"
-"in vec2 uv;\n"
-"out vec4 frag_color;\n"
-"uniform sampler2D u_tex;\n"
-"void main() {\n"
-"   frag_color = texture(u_tex, uv);\n"
-"}\n";
+char* load_file(const char* filename) {
+    char *buffer = 0;
+    long length;
+    FILE *f = fopen(filename, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        length = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        buffer = malloc(length + 1);
+        if (buffer) {
+            fread(buffer, 1, length, f);
+        }
+        fclose(f);
+    }
+    buffer[length] = '\0';
+    return buffer;
+}
 
 card_state_t card_new(const char *name,
                       uint16_t attack,
@@ -140,19 +133,34 @@ static void card_add_to_lookup(card_state_t card) {
 }
 
 static void card_populate_lookup() {
-    card_add_to_lookup(card_new("Slab", 2, 4, true, false, false, (card_abilities_t){.shield = 1}));
-    card_add_to_lookup(card_new("Tusk", 5, 3, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Iron", 3, 3, true, false, false, (card_abilities_t){.wellspring = 2}));
-    card_add_to_lookup(card_new("Cinder", 3, 1, true, false, false, (card_abilities_t){.haste = true, .strike = 1}));
-    card_add_to_lookup(card_new("Basalt", 3, 4, true, false, false, (card_abilities_t){.scattershot = 1}));
-    card_add_to_lookup(card_new("Rust", 1, 4, true, false, false, (card_abilities_t){.warcry = 1}));
-    card_add_to_lookup(card_new("Bramble", 2, 3, false, true, false, (card_abilities_t){.regenerate = 1}));
-    card_add_to_lookup(card_new("Demon", 6, 6, false, true, false, (card_abilities_t){.sacrifice = 1}));
-    card_add_to_lookup(card_new("Theif", 2, 2, false, true, false, (card_abilities_t){.assassinate = 1}));
-    card_add_to_lookup(card_new("Clockwork", 5, 5, false, false, true, (card_abilities_t){.timebound = true}));
-    card_add_to_lookup(card_new("Mage", 3, 3, false, false, true, (card_abilities_t){.blunt = 2}));
-    card_add_to_lookup(card_new("Wizard", 1, 4, false, false, true, (card_abilities_t){.cripple = 2}));
-    card_add_to_lookup(card_new("Master", 1, 4, false, false, true, (card_abilities_t){.channel = 2}));
+    card_add_to_lookup(card_new("Scorpion", 3, 1, true, false, false, (card_abilities_t){.strike=1}));
+    card_add_to_lookup(card_new("Inferno Ants", 3, 1, true, false, false, (card_abilities_t){.strike=1}));
+    card_add_to_lookup(card_new("Pit Viper", 3, 1, true, false, false, (card_abilities_t){.haste=true}));
+    card_add_to_lookup(card_new("Spitfire", 3, 3, true, false, false, (card_abilities_t){.strike=3, .swipe=1}));
+
+    card_add_to_lookup(card_new("Slime", 2, 3, false, true, false, (card_abilities_t){.regenerate=1}));
+    card_add_to_lookup(card_new("Mongoose", 2, 3, false, true, false, (card_abilities_t){.haste=true}));
+    card_add_to_lookup(card_new("Sun Bear", 4, 5, false, true, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Titan", 8, 8, false, true, false, (card_abilities_t){.sacrifice=1}));
+
+    card_add_to_lookup(card_new("Sea Nettle", 1, 4, false, false, true, (card_abilities_t){.disarm=1}));
+    card_add_to_lookup(card_new("Sunfish", 5, 5, false, false, true, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Immortal Jelly", 2, 1, false, false, true, (card_abilities_t){.regenerate=3}));
+    card_add_to_lookup(card_new("Kraken", 4, 4, false, false, true, (card_abilities_t){.channel=2}));
+
+    // card_add_to_lookup(card_new("Slab", 2, 4, true, false, false, (card_abilities_t){.shield = 1}));
+    // card_add_to_lookup(card_new("Tusk", 5, 3, true, false, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Iron", 3, 3, true, false, false, (card_abilities_t){.wellspring = 2}));
+    // card_add_to_lookup(card_new("Cinder", 3, 1, true, false, false, (card_abilities_t){.haste = true, .strike = 1}));
+    // card_add_to_lookup(card_new("Basalt", 3, 4, true, false, false, (card_abilities_t){.swipe = 1}));
+    // card_add_to_lookup(card_new("Rust", 1, 4, true, false, false, (card_abilities_t){.warcry = 1}));
+    // card_add_to_lookup(card_new("Bramble", 2, 3, false, true, false, (card_abilities_t){.regenerate = 1}));
+    // card_add_to_lookup(card_new("Demon", 6, 6, false, true, false, (card_abilities_t){.sacrifice = 1}));
+    // card_add_to_lookup(card_new("Theif", 2, 2, false, true, false, (card_abilities_t){.assassinate = 1}));
+    // card_add_to_lookup(card_new("Clockwork", 5, 5, false, false, true, (card_abilities_t){.timebound = true}));
+    // card_add_to_lookup(card_new("Mage", 3, 3, false, false, true, (card_abilities_t){.disarm = 2}));
+    // card_add_to_lookup(card_new("Wizard", 1, 4, false, false, true, (card_abilities_t){.cripple = 2}));
+    // card_add_to_lookup(card_new("Master", 1, 4, false, false, true, (card_abilities_t){.channel = 2}));
 }
 
 void card_reset_stats(card_state_t *card) {
@@ -194,8 +202,8 @@ void card_util_init() {
     );
 
     gs_graphics_shader_source_desc_t sources[] = {
-        {.type = GS_GRAPHICS_SHADER_STAGE_VERTEX, .source = card_vertex_shader_src},
-        {.type = GS_GRAPHICS_SHADER_STAGE_FRAGMENT, .source = card_fragment_shader_src}
+        {.type = GS_GRAPHICS_SHADER_STAGE_VERTEX, .source = load_file("shaders/card.vert")},
+        {.type = GS_GRAPHICS_SHADER_STAGE_FRAGMENT, .source = load_file("shaders/card.frag")}
     };
     card_util.card_shader = gs_graphics_shader_create(
         &(gs_graphics_shader_desc_t){
@@ -369,10 +377,10 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.blunt > 0) {
-        char ability_buffer[20] = "Blunt ";
+    if (card->current_abilities.disarm > 0) {
+        char ability_buffer[20] = "Disarm ";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.blunt);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.disarm);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
@@ -409,10 +417,10 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.scattershot > 0) {
-        char ability_buffer[20] = "Scattershot ";
+    if (card->current_abilities.swipe > 0) {
+        char ability_buffer[20] = "Swipe ";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.scattershot);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.swipe);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
@@ -421,6 +429,14 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
         char ability_buffer[20] = "Cripple ";
         size_t current_len = strlen(ability_buffer);
         snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.cripple);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.channel > 0) {
+        char ability_buffer[20] = "Channel ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.channel);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
@@ -456,13 +472,12 @@ void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
 
     char attack_char_buffer[10];
     snprintf(attack_char_buffer, sizeof(attack_char_buffer), "%d", card->current_attack);
-    gsi_text(immediate_draw, 50.f, 650.f, attack_char_buffer, &card_util.card_stats_font, false, 20, 20, 20, 255);
+    gsi_text(immediate_draw, 50.f, 650.f, attack_char_buffer, &card_util.card_stats_font, false, card->current_attack < card->attack ? 255 : 20, card->current_attack > card->attack ? 255 : 20, 20, 255);
 
     char health_char_buffer[10];
     snprintf(health_char_buffer, sizeof(health_char_buffer), "%d", card->current_health);
     text_dimensions = gs_asset_font_text_dimensions(&card_util.card_stats_font, health_char_buffer, strlen(health_char_buffer));
-    gsi_text(immediate_draw, CARD_TEXTURE_WIDTH - text_dimensions.x - 50.f, 650.f, health_char_buffer, &card_util.card_stats_font, false, 20, 20, 20, 255);
-
+    gsi_text(immediate_draw, CARD_TEXTURE_WIDTH - text_dimensions.x - 50.f, 650.f, health_char_buffer, &card_util.card_stats_font, false, card->current_health < card->health ? 255 : 20, card->current_health > card->health ? 255 : 20, 20, 255);
 
     gs_command_buffer_t command_buffer = gs_command_buffer_new();
     gs_graphics_clear_action_t clear = {

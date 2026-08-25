@@ -160,8 +160,8 @@ void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_s
                 card_game->opponent_in_play_card.current_health -= card_game->player_in_play_card.abilities.strike;
             }
         }
-        if (card_game->player_in_play_card.abilities.blunt > 0) {
-            card_game->opponent_in_play_card.current_attack = fmax(1, card_game->opponent_in_play_card.current_attack - card_game->player_in_play_card.abilities.blunt);
+        if (card_game->player_in_play_card.abilities.disarm > 0) {
+            card_game->opponent_in_play_card.current_attack = fmax(1, card_game->opponent_in_play_card.current_attack - card_game->player_in_play_card.abilities.disarm);
         }
         if (card_game->player_in_play_card.abilities.warcry > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
@@ -173,9 +173,9 @@ void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_s
                 card_game->player_hand[i].current_health += card_game->player_in_play_card.abilities.wellspring;
             }
         }
-        if (card_game->player_in_play_card.abilities.scattershot > 0) {
+        if (card_game->player_in_play_card.abilities.swipe > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                card_game->opponent_hand[i].current_health -= card_game->player_in_play_card.abilities.scattershot;
+                card_game->opponent_hand[i].current_health -= card_game->player_in_play_card.abilities.swipe;
             }
         }
         if (card_game->player_in_play_card.abilities.cripple > 0) {
@@ -223,8 +223,8 @@ void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_s
                 card_game->player_in_play_card.current_health -= card_game->opponent_in_play_card.abilities.strike;
             }
         }
-        if (card_game->opponent_in_play_card.abilities.blunt > 0) {
-            card_game->player_in_play_card.current_attack = fmax(1, card_game->player_in_play_card.current_attack - card_game->opponent_in_play_card.abilities.blunt);
+        if (card_game->opponent_in_play_card.abilities.disarm > 0) {
+            card_game->player_in_play_card.current_attack = fmax(1, card_game->player_in_play_card.current_attack - card_game->opponent_in_play_card.abilities.disarm);
         }
         if (card_game->opponent_in_play_card.abilities.warcry > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
@@ -236,9 +236,9 @@ void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_s
                 card_game->opponent_hand[i].current_health += card_game->opponent_in_play_card.abilities.wellspring;
             }
         }
-        if (card_game->opponent_in_play_card.abilities.scattershot > 0) {
+        if (card_game->opponent_in_play_card.abilities.swipe > 0) {
             for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-                card_game->player_hand[i].current_health -= card_game->opponent_in_play_card.abilities.scattershot;
+                card_game->player_hand[i].current_health -= card_game->opponent_in_play_card.abilities.swipe;
             }
         }
         if (card_game->opponent_in_play_card.abilities.cripple > 0) {
@@ -279,8 +279,8 @@ void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_s
         }
     }
 
-    card_game_update_all_cards(card_game, &game_state->immediate_draw);
     card_game_resolve_damage(card_game, game_state);
+    card_game_update_all_cards(card_game, &game_state->immediate_draw);
 }
 
 void card_game_do_player_card_attack_opponent(card_game_state_t *card_game, game_state_t *game_state) {

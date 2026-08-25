@@ -16,9 +16,9 @@ x create pool of cards that can be used for starting hands
 x implement battle turns, updating card appearence
 x organize codebase
 x implement some basic abilities
+- color card stats relative to base state
+x load shaders from file
 
-
-card ideas
 
 card property ideas
 - levels?
