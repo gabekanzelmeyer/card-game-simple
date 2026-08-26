@@ -39,7 +39,13 @@ typedef struct {
     card_abilities_t current_abilities;
 
     bool selectable;
+    bool hovered;
     gs_vqs transform;
+
+    float anim_duration;
+    float lerp;
+    gs_vqs prev_transform;
+    gs_vqs target_transform;
 
     uint32_t render_index;
 } card_state_t;

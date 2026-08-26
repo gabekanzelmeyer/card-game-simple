@@ -26,8 +26,14 @@ do {\
 #define HAND_POSITION_OFFSET 2.6f
 
 enum card_game_phase {
-    SELECT_CARD,
-    OPPONENT_SELECT_CARD,
+    INIT,
+    PLAYER_SELECT_CARD_TO_PLAY,
+    OPPONENT_SELECT_CARD_TO_PLAY,
+    ANIMATE_PLAYING_CARDS,
+    ANIMATE_ON_PLAY_EFFECTS,
+    PLAYER_SELECT_TARGET,
+    OPPONENT_SELECT_TARGET,
+    ANIMATE_TARGET_EFFECT,
     BATTLE
 };
 
@@ -40,17 +46,23 @@ typedef struct {
     float battle_timer;
     bool player_card_played;
     bool opponent_card_played;
+    bool player_handle_selection;
+    bool opponent_handle_selection;
     bool player_card_attacking;
     bool opponent_card_attacking;
 } card_game_state_t;
+
+static void card_game_set_animation(card_state_t *card, gs_vqs_t target_transform, float duration);
 
 void card_game_position_hand(card_state_t *cards, int count, float spacing, float tilt, float curve_amount, float y_offset) {
     float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
     float start_tilt = tilt * (float)count / 2.f - tilt / 2.f;
     for (int i = 0; i < count; i++) {
-        cards[i].transform.position.x = start_x + i * spacing;
-        cards[i].transform.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
-        cards[i].transform.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * tilt)), gs_v3(0, 0, 1));
+        gs_vqs_t target = gs_vqs_default();
+        target.position.x = start_x + i * spacing;
+        target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
+        target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * tilt)), gs_v3(0, 0, 1));
+        card_game_set_animation(&cards[i], target, 0.3f);
     }
 }
 
@@ -82,7 +94,7 @@ void card_game_init(card_game_state_t *card_game, gs_immediate_draw_t *immediate
     card_game->player_in_play_card = (card_state_t){0};
     card_game->opponent_in_play_card = (card_state_t){0};
 
-    card_game->phase = SELECT_CARD;
+    card_game->phase = INIT;
 
     card_game_update_all_cards(card_game, immediate_draw);
 }
@@ -142,14 +154,13 @@ void card_game_resolve_damage(card_game_state_t *card_game, game_state_t *game_s
             game_state->mode = MENU;
         } else {
             if (card_game->player_in_play_card.name == NULL) {
-                card_game->phase = SELECT_CARD;
+                card_game->phase = PLAYER_SELECT_CARD_TO_PLAY;
             } else {
-                card_game->phase = OPPONENT_SELECT_CARD;
+                card_game->phase = OPPONENT_SELECT_CARD_TO_PLAY;
             }
         }
     }
 }
-
 
 void card_game_do_card_played(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->player_card_played) {
@@ -301,6 +312,83 @@ void card_game_do_opponent_card_attack_player(card_game_state_t *card_game, game
     card_game_update_all_cards(card_game, &game_state->immediate_draw);
 }
 
+static void card_game_lerp_card_transform(card_state_t *card, float dt) {
+    card->transform.position.x = gs_interp_smoothstep(card->prev_transform.position.x,
+                         card->target_transform.position.x,
+                         card->lerp);
+    card->transform.position.y = gs_interp_smoothstep(card->prev_transform.position.y,
+                         card->target_transform.position.y,
+                         card->lerp);
+    card->transform.position.z = gs_interp_smoothstep(card->prev_transform.position.z,
+                         card->target_transform.position.z,
+                         card->lerp);
+
+    card->transform.scale.x = gs_interp_smoothstep(card->prev_transform.scale.x,
+                         card->target_transform.scale.x,
+                         card->lerp);
+    card->transform.scale.y = gs_interp_smoothstep(card->prev_transform.scale.y,
+                         card->target_transform.scale.y,
+                         card->lerp);
+    card->transform.scale.z = gs_interp_smoothstep(card->prev_transform.scale.z,
+                         card->target_transform.scale.z,
+                         card->lerp);
+
+    card->transform.rotation.x = gs_interp_smoothstep(card->prev_transform.rotation.x,
+                         card->target_transform.rotation.x,
+                         card->lerp);
+    card->transform.rotation.y = gs_interp_smoothstep(card->prev_transform.rotation.y,
+                         card->target_transform.rotation.y,
+                         card->lerp);
+    card->transform.rotation.z = gs_interp_smoothstep(card->prev_transform.rotation.z,
+                         card->target_transform.rotation.z,
+                         card->lerp);
+    card->transform.rotation.w = gs_interp_smoothstep(card->prev_transform.rotation.w,
+                         card->target_transform.rotation.w,
+                         card->lerp);
+}
+
+static void card_game_set_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
+    card->prev_transform.position = card->transform.position;
+    card->prev_transform.rotation = card->transform.rotation;
+    card->prev_transform.scale = card->transform.scale;
+    card->target_transform.position = target_transform.position;
+    card->target_transform.rotation = target_transform.rotation;
+    card->target_transform.scale = target_transform.scale;
+    card->anim_duration = duration;
+    card->lerp = 0.0f;
+}
+
+static void card_game_animate_card_transforms(card_game_state_t *card_game, float dt) {
+    for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+        card_game->player_hand[i].lerp += dt / card_game->player_hand[i].anim_duration;
+        if (card_game->player_hand[i].lerp >= 1) {
+            card_game->player_hand[i].lerp = 1;
+        }
+        card_game_lerp_card_transform(&card_game->player_hand[i], dt);
+    }
+    for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+        card_game->opponent_hand[i].lerp += dt / card_game->opponent_hand[i].anim_duration;
+        if (card_game->opponent_hand[i].lerp >= 1) {
+            card_game->opponent_hand[i].lerp = 1;
+        }
+        card_game_lerp_card_transform(&card_game->opponent_hand[i], dt);
+    }
+    if (card_game->player_in_play_card.name != NULL) {
+        card_game->player_in_play_card.lerp += dt / card_game->player_in_play_card.anim_duration;
+        if (card_game->player_in_play_card.lerp >= 1) {
+            card_game->player_in_play_card.lerp = 1;
+        }
+        card_game_lerp_card_transform(&card_game->player_in_play_card, dt);
+    }
+    if (card_game->opponent_in_play_card.name != NULL) {
+        card_game->opponent_in_play_card.lerp += dt / card_game->opponent_in_play_card.anim_duration;
+        if (card_game->opponent_in_play_card.lerp >= 1) {
+            card_game->opponent_in_play_card.lerp = 1;
+        }
+        card_game_lerp_card_transform(&card_game->opponent_in_play_card, dt);
+    }
+}
+
 static bool card_game_battle_timer_trigger_happens(card_game_state_t *card_game, float prev_timer, float current_timer, float trigger, float resolution) {
     if (floorf((prev_timer - trigger) / resolution) * resolution
         < floorf((current_timer - trigger) / resolution) * resolution) {
@@ -323,11 +411,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
     // reset sizes of player hand cards, set selectable state
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        card_game->player_hand[i].transform.scale = gs_v3(1.f, 1.f, 1.f);
-
         if (!has_timebound || card_game->player_hand[i].abilities.timebound) {
             if (!card_game->player_hand[i].selectable) {
-                printf("selectable\n");
                 card_game->player_hand[i].selectable = true;
                 card_update(&card_game->player_hand[i], &game_state->immediate_draw);
             }
@@ -345,57 +430,76 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
         gs_vec2 screen_pos;
         world_to_screen(card_game->player_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (!has_timebound || card_game->player_hand[hovered_index].abilities.timebound) {
-            if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE)  {
-                card_game->player_hand[i].transform.scale = gs_v3(1.2f, 1.2f, 1.2f);
+        if (!has_timebound || card_game->player_hand[i].abilities.timebound) {
+            if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
+                if (!card_game->player_hand[i].hovered) {
+                    card_game->player_hand[i].hovered = true;
+                    gs_vqs_t target = card_game->player_hand[i].target_transform;
+                    target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                    card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
+                }
+
                 hovered_index = i;
                 break;
             }
         }
     }
+     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
+         if (card_game->player_hand[i].hovered && i != hovered_index) {
+             card_game->player_hand[i].hovered = false;
+             gs_vqs_t target = card_game->player_hand[i].target_transform;
+             target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+             card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
+         }
+     }
+
+    card_game_animate_card_transforms(card_game, dt);
 
     // NOTE: cards are drawn depth wise in order, so sort based on draw order before rendering
     // In that same spirit, we should iterate backwards over the cards to check if any are hovered
-    card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_POSITION_OFFSET);
-    card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_POSITION_OFFSET);
-
     cards_render_instanced(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), &game_state->command_buffer, view_projection);
     cards_render_instanced(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), &game_state->command_buffer, view_projection);
-
     // if there is a player card in play, position and rotate correctly
     if (card_game->player_in_play_card.name != NULL) {
-        card_game->player_in_play_card.transform.position = gs_v3(card_game->player_card_attacking ? -1.5f : -2., 0.f, 0.f);
-        card_game->player_in_play_card.transform.rotation = gs_quat_default();
-        card_game->player_in_play_card.transform.scale = gs_v3(1.f, 1.f, 1.f);
         cards_render_instanced(&card_game->player_in_play_card, 1, &game_state->command_buffer, view_projection);
     }
     // if there is a opponent card in play, position and rotate correctly
     if (card_game->opponent_in_play_card.name != NULL) {
-        card_game->opponent_in_play_card.transform.position = gs_v3(card_game->opponent_card_attacking ? 1.5f : 2., 0.f, 0.f);
-        card_game->opponent_in_play_card.transform.rotation = gs_quat_default();
-        card_game->opponent_in_play_card.transform.scale = gs_v3(1.f, 1.f, 1.f);
         cards_render_instanced(&card_game->opponent_in_play_card, 1, &game_state->command_buffer, view_projection);
     }
 
-    if (card_game->phase == SELECT_CARD) {
+    if (card_game->phase == INIT) {
+        card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_POSITION_OFFSET);
+        card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_POSITION_OFFSET);
+
+        card_game->phase = PLAYER_SELECT_CARD_TO_PLAY;
+    } if (card_game->phase == PLAYER_SELECT_CARD_TO_PLAY) {
         if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
             // if there are timebound hands in the players hand, one of them must be played
             if (card_game->player_hand[hovered_index].selectable) {
                 card_game->player_in_play_card = card_game->player_hand[hovered_index];
                 card_game->player_card_played = true;
+                card_game_set_animation(
+                    &card_game->player_in_play_card,
+                    (gs_vqs_t) {
+                        .position = gs_v3(-2., 0.f, 0.f),
+                        .rotation = gs_quat_default(),
+                        .scale = gs_v3(1.f, 1.f, 1.f)
+                    },
+                    0.1f);
                 gs_dyn_array_erase(card_game->player_hand, hovered_index);
 
                 // once we set the plater "in play" card, see if there is an opponent "in play" card,
                 // if so, move to the battle stage. otherwise, move to the opponent play card stage
                 if (card_game->opponent_in_play_card.name == NULL) {
-                    card_game->phase = OPPONENT_SELECT_CARD;
+                    card_game->phase = OPPONENT_SELECT_CARD_TO_PLAY;
                 } else {
-                    card_game->phase = BATTLE;
+                    card_game->phase = ANIMATE_PLAYING_CARDS;
                     card_game->battle_timer = 0.f;
                 }
             }
         }
-    } else if (card_game->phase == OPPONENT_SELECT_CARD) {
+    } else if (card_game->phase == OPPONENT_SELECT_CARD_TO_PLAY) {
         // if there are timebound hands in the opponents hand, one of them must be played
         // gather timebound indices
         gs_dyn_array(int) timebound_indices = NULL;
@@ -415,9 +519,15 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
         card_game->opponent_in_play_card = card_game->opponent_hand[random_index];
         card_game->opponent_card_played = true;
+        card_game_set_animation(
+            &card_game->opponent_in_play_card,
+            (gs_vqs_t) {.position = gs_v3(2., 0.f, 0.f), .rotation = gs_quat_default(), .scale = gs_v3(1.f, 1.f, 1.f)},
+                                0.5f);
         gs_dyn_array_erase(card_game->opponent_hand, random_index);
-        card_game->phase = BATTLE;
+        card_game->phase = ANIMATE_PLAYING_CARDS;
         card_game->battle_timer = 0.f;
+    } else if (card_game->phase == ANIMATE_PLAYING_CARDS) {
+        card_game->phase = BATTLE;
     } else if (card_game->phase == BATTLE) {
         if (card_game->player_card_played || card_game->opponent_card_played) {
             card_game_do_card_played(card_game, game_state);
