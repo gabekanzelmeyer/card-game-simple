@@ -33,3 +33,21 @@ card property ideas
 
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)
+
+turn sequence
+- is game over? no cards in hand or in play for a player, end game if so
+-- is player in play card empty? player selects card
+--- animate card play
+-- is opponent in pkay card empty? opponent selects card
+--- animate card play
+-- if player played card, does player in play card have on play abilities? if so, select target
+-- if opponent played card, does opponent in play card have on play abilities? if so, opponent selects target
+--- animate player target and effect
+--- animate opponent target and effect
+- resolve damamge - start over at the top
+- start battle phase
+- perform / animate haste attacks
+- resolve damage - start over at top
+- perform / animate regular attacks
+- resolve damage - start over at top
+
