@@ -46,10 +46,13 @@ typedef struct {
     float battle_timer;
     bool player_card_played;
     bool opponent_card_played;
-    bool player_handle_selection;
-    bool opponent_handle_selection;
+    bool player_selecting_target;
+    bool opponent_selecting_target;
     bool player_card_attacking;
     bool opponent_card_attacking;
+    int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
+    int selected_index;
+    bool visual_update;
 } card_game_state_t;
 
 static void card_game_set_animation(card_state_t *card, gs_vqs_t target_transform, float duration);
@@ -68,16 +71,16 @@ void card_game_position_hand(card_state_t *cards, int count, float spacing, floa
 
 void card_game_update_all_cards(card_game_state_t *card_game, gs_immediate_draw_t *immediate_draw) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); ++i) {
-        card_update(&card_game->player_hand[i], immediate_draw);
+        card_update_visuals(&card_game->player_hand[i], immediate_draw);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); ++i) {
-        card_update(&card_game->opponent_hand[i], immediate_draw);
+        card_update_visuals(&card_game->opponent_hand[i], immediate_draw);
     }
     if (card_game->player_in_play_card.name != NULL) {
-        card_update(&card_game->player_in_play_card, immediate_draw);
+        card_update_visuals(&card_game->player_in_play_card, immediate_draw);
     }
     if (card_game->opponent_in_play_card.name != NULL) {
-        card_update(&card_game->opponent_in_play_card, immediate_draw);
+        card_update_visuals(&card_game->opponent_in_play_card, immediate_draw);
     }
 }
 
@@ -397,64 +400,138 @@ static bool card_game_battle_timer_trigger_happens(card_game_state_t *card_game,
     return false;
 }
 
-void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
-    float dt = gs_platform_delta_time();
-    gs_vec2 mouse_pos = gs_platform_mouse_positionv();
-    uint32_t fbw, fbh;
-    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
-    gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
-
+static void card_game_set_player_playable_cards_selectable(card_game_state_t *card_game,  game_state_t *game_state) {
     bool has_timebound = false;
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
         if (card_game->player_hand[i].abilities.timebound) has_timebound = true;
     }
 
-    // reset sizes of player hand cards, set selectable state
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
         if (!has_timebound || card_game->player_hand[i].abilities.timebound) {
             if (!card_game->player_hand[i].selectable) {
                 card_game->player_hand[i].selectable = true;
-                card_update(&card_game->player_hand[i], &game_state->immediate_draw);
+                card_game->visual_update = true;
             }
         } else {
             if (card_game->player_hand[i].selectable) {
                 card_game->player_hand[i].selectable = false;
-                card_update(&card_game->player_hand[i], &game_state->immediate_draw);
+                card_game->visual_update = true;
             }
         }
     }
+}
+
+static void card_game_set_hovered_card(card_game_state_t *card_game, game_state_t *game_state) {
+    gs_vec2 mouse_pos = gs_platform_mouse_positionv();
+    uint32_t fbw, fbh;
+    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
+    gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
+    gs_vec2 screen_pos;
 
     // increase scale of hovered hand card and keep track of which card for later,
     // also, if the card can be selected, outline it in green
     int hovered_index = -1;
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        gs_vec2 screen_pos;
         world_to_screen(card_game->player_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (!has_timebound || card_game->player_hand[i].abilities.timebound) {
-            if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
-                if (!card_game->player_hand[i].hovered) {
-                    card_game->player_hand[i].hovered = true;
-                    gs_vqs_t target = card_game->player_hand[i].target_transform;
-                    target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                    card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
-                }
-
-                hovered_index = i;
-                break;
+        if (card_game->player_hand[i].selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
+            if (!card_game->player_hand[i].hovered) {
+                card_game->player_hand[i].hovered = true;
+                gs_vqs_t target = card_game->player_hand[i].target_transform;
+                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
             }
+            hovered_index = i;
+            break;
         }
     }
-     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-         if (card_game->player_hand[i].hovered && i != hovered_index) {
-             card_game->player_hand[i].hovered = false;
-             gs_vqs_t target = card_game->player_hand[i].target_transform;
-             target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-             card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
-         }
-     }
+    for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
+        world_to_screen(card_game->opponent_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
+        if (card_game->opponent_hand[i].selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
+            if (!card_game->opponent_hand[i].hovered) {
+                card_game->opponent_hand[i].hovered = true;
+                gs_vqs_t target = card_game->opponent_hand[i].target_transform;
+                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                card_game_set_animation(&card_game->opponent_hand[i], target, 0.1f);
+            }
+            hovered_index = i + 10; // opponent hand hovered indices is 10-15
+            break;
+        }
+    }
+    if (card_game->player_in_play_card.name != NULL) {
+        world_to_screen(card_game->player_in_play_card.transform.position, &screen_pos, view_projection, fbw, fbh);
+        if (card_game->player_in_play_card.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
+            if (!card_game->player_in_play_card.hovered) {
+                card_game->player_in_play_card.hovered = true;
+                gs_vqs_t target = card_game->player_in_play_card.target_transform;
+                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                card_game_set_animation(&card_game->player_in_play_card, target, 0.1f);
+            }
+            hovered_index = 20; // 20 is player in play card
+        }
+    }
+    if (card_game->opponent_in_play_card.name != NULL) {
+        world_to_screen(card_game->opponent_in_play_card.transform.position, &screen_pos, view_projection, fbw, fbh);
+        if (card_game->opponent_in_play_card.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
+            if (!card_game->opponent_in_play_card.hovered) {
+                card_game->opponent_in_play_card.hovered = true;
+                gs_vqs_t target = card_game->opponent_in_play_card.target_transform;
+                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                card_game_set_animation(&card_game->opponent_in_play_card, target, 0.1f);
+            }
+            hovered_index = 21; // 21 is opponent in play card
+        }
+    }
+
+
+    // change scale of cards that aren't hovered
+    for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
+        if (card_game->player_hand[i].hovered && i != hovered_index) {
+            card_game->player_hand[i].hovered = false;
+            gs_vqs_t target = card_game->player_hand[i].target_transform;
+            target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+            card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
+        }
+    }
+    for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
+        if (card_game->opponent_hand[i].hovered && (i + 10) != hovered_index) {
+            card_game->opponent_hand[i].hovered = false;
+            gs_vqs_t target = card_game->opponent_hand[i].target_transform;
+            target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+            card_game_set_animation(&card_game->opponent_hand[i], target, 0.1f);
+        }
+    }
+    if (card_game->player_in_play_card.hovered && 20 != hovered_index) {
+        card_game->player_in_play_card.hovered = false;
+        gs_vqs_t target = card_game->player_in_play_card.target_transform;
+        target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+        card_game_set_animation(&card_game->player_in_play_card, target, 0.1f);
+    }
+    if (card_game->opponent_in_play_card.hovered && 21 != hovered_index) {
+        card_game->opponent_in_play_card.hovered = false;
+        gs_vqs_t target = card_game->opponent_in_play_card.target_transform;
+        target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+        card_game_set_animation(&card_game->opponent_in_play_card, target, 0.1f);
+    }
+
+    card_game->hovered_index = hovered_index;
+}
+
+
+void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
+    float dt = gs_platform_delta_time();
+
+    card_game_set_player_playable_cards_selectable(card_game, game_state);
+    if (card_game->visual_update) {
+        card_game_update_all_cards(card_game, &game_state->immediate_draw);
+    }
+    card_game_set_hovered_card(card_game, game_state);
 
     card_game_animate_card_transforms(card_game, dt);
 
+
+    uint32_t fbw, fbh;
+    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
+    gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
     // NOTE: cards are drawn depth wise in order, so sort based on draw order before rendering
     // In that same spirit, we should iterate backwards over the cards to check if any are hovered
     cards_render_instanced(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), &game_state->command_buffer, view_projection);
@@ -475,13 +552,13 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         card_game->phase = PLAYER_SELECT_CARD_TO_PLAY;
 
     } if (card_game->phase == PLAYER_SELECT_CARD_TO_PLAY) {
-        if (hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+        if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
             // if there are timebound hands in the players hand, one of them must be played
-            if (card_game->player_hand[hovered_index].selectable) {
-                card_game->player_in_play_card = card_game->player_hand[hovered_index];
+            if (card_game->player_hand[card_game->hovered_index ].selectable) {
+                card_game->player_in_play_card = card_game->player_hand[card_game->hovered_index ];
                 card_game->player_card_played = true;
 
-                gs_dyn_array_erase(card_game->player_hand, hovered_index);
+                gs_dyn_array_erase(card_game->player_hand, card_game->hovered_index );
 
                 // once we set the plater "in play" card, see if there is an opponent "in play" card,
                 // if so, move to the battle stage. otherwise, move to the opponent play card stage
@@ -536,7 +613,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             0.1f);
             card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_POSITION_OFFSET);
          }
-        gs_dyn_array_erase(card_game->player_hand, hovered_index);
+        gs_dyn_array_erase(card_game->player_hand, card_game->hovered_index );
         card_game->phase = DO_ON_PLAY_EFFECTS;
 
     } else if (card_game->phase == DO_ON_PLAY_EFFECTS) {
@@ -544,7 +621,19 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             card_game_do_card_played(card_game, game_state);
             card_game_position_hand(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_POSITION_OFFSET);
             card_game_position_hand(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_POSITION_OFFSET);
+        }
+         card_game->phase = PLAYER_SELECT_TARGET;
+    } else if (card_game->phase == PLAYER_SELECT_TARGET) {
+        if (card_game->player_card_played) {
+            if (card_game->player_in_play_card.abilities.strike > 0) {
+                card_game->player_selecting_target = true;
+            }
             card_game->player_card_played = false;
+        } else if (!card_game->player_selecting_target) { // wait while player is selecting target
+            card_game->phase = OPPONENT_SELECT_TARGET;
+        }
+    } else if (card_game->phase == OPPONENT_SELECT_TARGET) {
+        if (card_game->opponent_card_played) {
             card_game->opponent_card_played = false;
         }
         card_game->phase = BATTLE;

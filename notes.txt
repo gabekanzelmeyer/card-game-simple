@@ -21,7 +21,8 @@ x load shaders from file
 x outline selectable cards
 - make Strike ability selectable between opp hand and in play card
 - add ability where if card is last card in hand it's destroyed
-- refactor game sequence to allow co routining actions and triggered things
+- organize and rename methods in util card game. organize it all actually
+--- probably can rename the .h files too... not sure the util prefix is needed, util_gui can go into util game?
 
 
 card property ideas

@@ -83,7 +83,7 @@ void card_util_init();
 card_state_t card_new(const char *name, uint16_t attack, uint16_t health, bool red, bool green, bool blue, card_abilities_t abilities);
 void card_reset_stats(card_state_t *card);
 card_state_t card_get_random(uint32_t render_index);
-void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw);
+void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw);
 void cards_render_instanced(card_state_t* cards, uint32_t count, gs_command_buffer_t* command_buffer, gs_mat4 view_projection);
 bool card_do_colors_match(card_state_t card1, card_state_t card2);
 
@@ -355,7 +355,7 @@ static gs_vec4_t card_render_target_uv_rect(const card_state_t* card) {
     return r;
 }
 
-void card_update(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
+void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw) {
     uint32_t y_offset = (float)card->render_index * CARD_TEXTURE_HEIGHT;
 
     gsi_camera2D(immediate_draw, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
