@@ -167,11 +167,12 @@ static void card_populate_lookup() {
     card_add_to_lookup(card_new("Cubeface", 3, 3, false, true, false, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.heal=1}));
 
-    // card_add_to_lookup(card_new("Mongoose", 2, 3, false, true, false, (card_abilities_t){.haste=true}));
-    // card_add_to_lookup(card_new("Sun Bear", 4, 5, false, true, false, (card_abilities_t){.timebound=true}));
-    // card_add_to_lookup(card_new("Titan", 8, 8, false, true, false, (card_abilities_t){.sacrifice=1}));
-    //
-    // card_add_to_lookup(card_new("Sea Nettle", 1, 4, false, false, true, (card_abilities_t){.disarm=1}));
+    card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.blunt=1}));
+    card_add_to_lookup(card_new("Loopwing", 4, 2, false, false, true, (card_abilities_t){.timebound=true}));
+    card_add_to_lookup(card_new("Circlet", 2, 3, false, false, true, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.blunt=1}));
+    card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
     // card_add_to_lookup(card_new("Sunfish", 5, 5, false, false, true, (card_abilities_t){0}));
     // card_add_to_lookup(card_new("Immortal Jelly", 2, 1, false, false, true, (card_abilities_t){.regenerate=3}));
     // card_add_to_lookup(card_new("Kraken", 4, 4, false, false, true, (card_abilities_t){.channel=2}));
