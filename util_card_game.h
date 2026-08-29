@@ -54,6 +54,7 @@ typedef struct {
     bool opponent_selecting_target;
     bool player_card_attacking;
     bool opponent_card_attacking;
+    card_state_t *target;
     int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
     bool visual_update;
 } card_game_state_t;
@@ -183,32 +184,103 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             highlight_remove_all(card_game, game_state);
             highlight_targetable_cards(card_game, game_state);
             if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
-                card_state_t *target;
                 if (card_game->hovered_index < 10) {
-                    target = &card_game->player_hand[card_game->hovered_index];
+                    card_game->target = &card_game->player_hand[card_game->hovered_index];
                 } else if (card_game->hovered_index < 20) {
-                    target = &card_game->opponent_hand[card_game->hovered_index - 10];
+                    card_game->target = &card_game->opponent_hand[card_game->hovered_index - 10];
                 } else if (card_game->hovered_index == 20) {
-                    target = &card_game->player_card_in_play;
+                    card_game->target = &card_game->player_card_in_play;
                 } else {
-                    target = &card_game->opponent_card_in_play;
+                    card_game->target = &card_game->opponent_card_in_play;
                 }
-                trigger_target_effects(&card_game->player_card_in_play, target);
+                trigger_target_effects(&card_game->player_card_in_play, card_game->target);
                 resolve_damage(card_game, game_state);
                 position_hand_cards(card_game, card_game->player_hand);
                 position_hand_cards(card_game, card_game->opponent_hand);
                 card_game->visual_update = true;
                 card_game->player_selecting_target = false;
+                set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
             }
         } else {
             highlight_remove_all(card_game, game_state);
-            set_phase(card_game, OPPONENT_SELECT_TARGET);
+            if (card_game->target != NULL) {
+                float begin_anim_time = 0.15;
+                float end_anim_time = 0.25;
+                float end_phase_time = 0.3;
+                if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer > begin_anim_time) {
+                    gs_vqs_t target_transform = card_game->target->target_transform;
+                    target_transform.scale = gs_v3(0.9f, 0.9f, 0.9f);
+                    set_card_animation(card_game->target, target_transform, 0.05f);
+                }
+                if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer > end_anim_time) {
+                    gs_vqs_t target_transform = card_game->target->target_transform;
+                    target_transform.scale = gs_v3(1.f, 1.f, 1.f);
+                    set_card_animation(card_game->target, target_transform, 0.05f);
+                    card_game->target = NULL;
+                }
+                if (card_game->phase_timer > end_phase_time) {
+                    set_phase(card_game, OPPONENT_SELECT_TARGET);
+                }
+            } else {
+                set_phase(card_game, OPPONENT_SELECT_TARGET);
+            }
         }
     } else if (card_game->phase == OPPONENT_SELECT_TARGET) {
         if (card_game->opponent_just_played_card) {
+            if (card_has_target_ability(&card_game->opponent_card_in_play)) {
+                card_game->opponent_selecting_target = true;
+            }
             card_game->opponent_just_played_card = false;
         }
-        set_phase(card_game, BATTLE);
+
+        if (card_game->opponent_selecting_target) {
+            if (card_game->opponent_card_in_play.abilities.blunt > 0 ||
+                card_game->opponent_card_in_play.abilities.strike > 0) {
+                if (gs_dyn_array_size(card_game->player_hand) > 0) {
+                    int random_index = (rand() % gs_dyn_array_size(card_game->player_hand));
+                    card_game->target = &card_game->player_hand[random_index];
+                } else {
+                    card_game->target = &card_game->player_card_in_play;
+                }
+            } else {
+                if (gs_dyn_array_size(card_game->opponent_hand) > 0) {
+                    int random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
+                    card_game->target = &card_game->opponent_hand[random_index];
+                } else {
+                    card_game->target = &card_game->opponent_card_in_play;
+                }
+            }
+
+            trigger_target_effects(&card_game->opponent_card_in_play, card_game->target);
+            resolve_damage(card_game, game_state);
+            position_hand_cards(card_game, card_game->player_hand);
+            position_hand_cards(card_game, card_game->opponent_hand);
+            card_game->visual_update = true;
+            card_game->opponent_selecting_target = false;
+            set_phase(card_game, OPPONENT_SELECT_TARGET); // set to same phase to reset phase timer
+        } else {
+            if (card_game->target != NULL) {
+                float begin_anim_time = 0.15;
+                float end_anim_time = 0.25;
+                float end_phase_time = 0.3;
+                if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer > begin_anim_time) {
+                    gs_vqs_t target_transform = card_game->target->target_transform;
+                    target_transform.scale = gs_v3(0.8f, 0.8f, 0.8f);
+                    set_card_animation(card_game->target, target_transform, 0.05f);
+                }
+                if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer > end_anim_time) {
+                    gs_vqs_t target_transform = card_game->target->target_transform;
+                    target_transform.scale = gs_v3(1.f, 1.f, 1.f);
+                    set_card_animation(card_game->target, target_transform, 0.05f);
+                    card_game->target = NULL;
+                }
+                if (card_game->phase_timer > end_phase_time) {
+                    set_phase(card_game, BATTLE);
+                }
+            } else {
+                set_phase(card_game, BATTLE);
+            }
+        }
     } else if (card_game->phase == BATTLE) {
 
         float haste_begin_attack_time = 0.3;
