@@ -23,10 +23,26 @@ enum card_game_phase {
     BATTLE
 };
 
+static const char* get_phase_name(enum card_game_phase phase) {
+    switch (phase) {
+        case INIT: return "INIT";
+        case PLAYER_SELECT_CARD_TO_PLAY: return "PLAYER_SELECT_CARD_TO_PLAY";
+        case OPPONENT_SELECT_CARD_TO_PLAY: return "OPPONENT_SELECT_CARD_TO_PLAY";
+        case ANIMATE_PLAYING_CARDS: return "ANIMATE_PLAYING_CARDS";
+        case TRIGGER_ON_PLAY_EFFECTS: return "TRIGGER_ON_PLAY_EFFECTS";
+        case PLAYER_SELECT_TARGET: return "PLAYER_SELECT_TARGET";
+        case OPPONENT_SELECT_TARGET: return "OPPONENT_SELECT_TARGET";
+        case ANIMATE_TARGET_EFFECT: return "ANIMATE_TARGET_EFFECT";
+        case BATTLE: return "BATTLE";
+        default: return "UNKNOWN_PHASE";
+    }
+}
+
 typedef struct {
     enum card_game_phase phase;
     float phase_timer_prev;
     float phase_timer;
+    int phase_tick;
     float game_timer;
     gs_dyn_array(card_state_t) player_hand;
     gs_dyn_array(card_state_t) opponent_hand;
@@ -46,12 +62,33 @@ static void position_hand_cards(card_game_state_t *card_game, card_state_t *card
 static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *game_state);
 static void highlight_playable_cards(card_game_state_t *card_game,  game_state_t *game_state);
 static void highlight_targetable_cards(card_game_state_t *card_game,  game_state_t *game_state);
-static void set_phase(card_game_state_t *card_game, card_game_phase);
-static void set_input_indices(card_game_state_t *card_game, game_state_t *game_state);
+static void set_phase(card_game_state_t *card_game, enum card_game_phase phase);
+static void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration);
+static void update_input_indices(card_game_state_t *card_game, game_state_t *game_state);
+static void update_card_visuals(card_game_state_t *card_game, game_state_t *game_state);
+static void update_card_animations(card_game_state_t *card_game, float dt);
 static void trigger_on_play_effects(card_game_state_t *card_game, game_state_t *game_state);
+static void trigger_target_effects(card_state_t *source, card_state_t *target);
+static void damage_card(card_state_t *source, card_state_t *target, int damage);
 static void resolve_damage(card_game_state_t *card_game, game_state_t *game_state);
-static void update_all_card_visuals(card_game_state_t *card_game, game_state_t *game_state);
-static void card_game_set_animation(card_state_t *card, gs_vqs_t target_transform, float duration);
+
+void card_game_init(card_game_state_t *card_game, game_state_t *game_state) {
+    gs_dyn_array_free(card_game->player_hand);
+    gs_dyn_array_free(card_game->opponent_hand);
+
+    int render_index = 0;
+    for (int i = 0; i < 6; i++) {
+        gs_dyn_array_push(card_game->player_hand, card_get_random(render_index++));
+        gs_dyn_array_push(card_game->opponent_hand, card_get_random(render_index++));
+    }
+
+    card_game->player_card_in_play = (card_state_t){0};
+    card_game->opponent_card_in_play = (card_state_t){0};
+
+    card_game->phase = INIT;
+
+    update_card_visuals(card_game, game_state);
+}
 
 void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->phase == INIT) {
@@ -79,41 +116,38 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             }
         }
     } else if (card_game->phase == OPPONENT_SELECT_CARD_TO_PLAY) {
-        if (card_game->phase_timer > 0.5) { // pause 0.5 secs before opponent selects card
-
-            // if there are timebound hands in the opponents hand, one of them must be played
-            gs_dyn_array(int) timebound_indices = NULL;
-            for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-                if (card_game->opponent_hand[i].abilities.timebound) gs_dyn_array_push(timebound_indices, i);
-            }
-            // if there are timebound cards, grab a random one of those
-            int random_index;
-            if (gs_dyn_array_size(timebound_indices) > 0) {
-                random_index = timebound_indices[(rand() % gs_dyn_array_size(timebound_indices))];
-            } else {
-                random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
-            }
-
-            card_game->opponent_card_in_play = card_game->opponent_hand[random_index];
-            card_game->opponent_just_played_card = true;
-
-            gs_dyn_array_erase(card_game->opponent_hand, random_index);
-
-            set_phase(card_game, ANIMATE_PLAYING_CARDS);
+        // if there are timebound hands in the opponents hand, one of them must be played
+        gs_dyn_array(int) timebound_indices = NULL;
+        for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+            if (card_game->opponent_hand[i].abilities.timebound) gs_dyn_array_push(timebound_indices, i);
         }
+        // if there are timebound cards, grab a random one of those
+        int random_index;
+        if (gs_dyn_array_size(timebound_indices) > 0) {
+            random_index = timebound_indices[(rand() % gs_dyn_array_size(timebound_indices))];
+        } else {
+            random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
+        }
+
+        card_game->opponent_card_in_play = card_game->opponent_hand[random_index];
+        card_game->opponent_just_played_card = true;
+
+        gs_dyn_array_erase(card_game->opponent_hand, random_index);
+
+        set_phase(card_game, ANIMATE_PLAYING_CARDS);
     } else if (card_game->phase == ANIMATE_PLAYING_CARDS) {
         // if player just played a card, animate it's position into play'
-        if (card_game->phase_timer_prev > card_game->phase_timer) { // first call in this phase
+        if (card_game->phase_tick == 1) { // first call in this phase
             if (card_game->player_just_played_card) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-2., 0.f, 0.f);
-                card_game_set_animation(&card_game->player_card_in_play, target_transform, 0.1f);
+                set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
                 position_hand_cards(card_game, card_game->player_hand);
             }
             if (card_game->opponent_just_played_card) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(2., 0.f, 0.f);
-                card_game_set_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
+                set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
                 position_hand_cards(card_game, card_game->opponent_hand);
             }
         }
@@ -124,7 +158,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
     } else if (card_game->phase == TRIGGER_ON_PLAY_EFFECTS) {
         if (card_game->player_just_played_card || card_game->opponent_just_played_card) {
-            if (card_game->phase_timer_prev > card_game->phase_timer) {
+            if (card_game->phase_tick == 1) {
                 trigger_on_play_effects(card_game, game_state);
                 resolve_damage(card_game, game_state);
                 position_hand_cards(card_game, card_game->player_hand);
@@ -139,7 +173,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
     } else if (card_game->phase == PLAYER_SELECT_TARGET) {
         if (card_game->player_just_played_card) {
-            if (card_game->player_card_in_play.abilities.strike > 0) {
+            if (card_has_target_ability(&card_game->player_card_in_play)) {
                 card_game->player_selecting_target = true;
             }
             card_game->player_just_played_card = false;
@@ -159,12 +193,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 } else {
                     target = &card_game->opponent_card_in_play;
                 }
-                printf("target: %s\n", target->name);
-                if (target->current_abilities.shield > 0) {
-                    target->current_abilities.shield--;
-                } else {
-                    target->current_health -= card_game->player_card_in_play.abilities.strike;
-                }
+                trigger_target_effects(&card_game->player_card_in_play, target);
                 resolve_damage(card_game, game_state);
                 position_hand_cards(card_game, card_game->player_hand);
                 position_hand_cards(card_game, card_game->opponent_hand);
@@ -172,6 +201,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->player_selecting_target = false;
             }
         } else {
+            highlight_remove_all(card_game, game_state);
             set_phase(card_game, OPPONENT_SELECT_TARGET);
         }
     } else if (card_game->phase == OPPONENT_SELECT_TARGET) {
@@ -180,121 +210,114 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
         set_phase(card_game, BATTLE);
     } else if (card_game->phase == BATTLE) {
-        float battle_round_time = 2.0;
-        float haste_begin_attack_time = 0.5;
-        float haste_end_attack_time = 0.7;
-        float begin_attack_time = 1.5;
-        float end_attack_time = 1.7;
 
-        // haste animation timer ticks
+        float haste_begin_attack_time = 0.3;
+        float haste_end_attack_time = 0.5;
+        float haste_resolve_time = 0.7;
+        float begin_attack_time = 1.0;
+        float end_attack_time = 1.2;
+        float attack_resolve_time = 1.5;
+
         if (card_game->phase_timer_prev < haste_begin_attack_time && card_game->phase_timer > haste_begin_attack_time) {
-            printf("haste anim: %f\n", card_game->phase_timer);
+            printf("haste begin: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = card_game->player_card_in_play.abilities.haste;
             card_game->opponent_card_attacking = card_game->opponent_card_in_play.abilities.haste;
             if (card_game->player_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-1.5f, 0.f, 0.f);
-                card_game_set_animation(&card_game->player_card_in_play, target_transform, 0.07f);
+                set_card_animation(&card_game->player_card_in_play, target_transform, 0.07f);
             }
             if (card_game->opponent_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(1.5f, 0.f, 0.f);
-                card_game_set_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
+                set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
             }
         }
-
         if (card_game->phase_timer_prev < haste_end_attack_time && card_game->phase_timer > haste_end_attack_time) {
-            printf("haste anim: %f\n", card_game->phase_timer);
+            printf("haste end: %f\n", card_game->phase_timer);
             if (card_game->player_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
-                card_game_set_animation(&card_game->player_card_in_play, target_transform, 0.1f);
+                set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
             }
             if (card_game->opponent_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(2.0f, 0.f, 0.f);
-                card_game_set_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
+                set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
             }
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             if (card_game->player_card_in_play.abilities.haste) {
-                card_game_do_player_card_attack_opponent(card_game, game_state);
+                damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.current_attack);
+                card_game->visual_update = true;
             }
             if (card_game->opponent_card_in_play.abilities.haste) {
-                card_game_do_opponent_card_attack_player(card_game, game_state);
+                damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.current_attack);
+                card_game->visual_update = true;
             }
         }
-        // haste battle tick
-        if (card_game_battle_timer_trigger_happens(card_game, prev_battle_timer, card_game->battle_timer, haste_time, tick_resolution)) {
-            printf("haste battle tick: %f\n", card_game->battle_timer);
+        if (card_game->phase_timer_prev < haste_resolve_time && card_game->phase_timer > haste_resolve_time) {
+            printf("haste resolve: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             resolve_damage(card_game, game_state);
-            position_hand_cards(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_Y_POSITION_OFFSET);
-            position_hand_cards(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_Y_POSITION_OFFSET);
+            position_hand_cards(card_game, card_game->player_hand);
+            position_hand_cards(card_game, card_game->opponent_hand);
         }
 
         // normal animation timer ticks
-        if (card_game_battle_timer_trigger_happens(card_game, prev_battle_timer, card_game->battle_timer, attack_anim_time, tick_resolution)) {
-            printf("anim: %f\n", card_game->battle_timer);
+        if (card_game->phase_timer_prev < begin_attack_time && card_game->phase_timer > begin_attack_time) {
+            printf("attack begin: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = !card_game->player_card_in_play.abilities.haste;
             card_game->opponent_card_attacking = !card_game->opponent_card_in_play.abilities.haste;
             if (card_game->player_card_attacking) {
-                card_game_set_animation(&card_game->player_card_in_play,
-                                        (gs_vqs_t) {
-                                            .position = gs_v3(-1.5f, 0.f, 0.f),
-                                        .rotation = gs_quat_default(),
-                                        .scale = gs_v3(1.f, 1.f, 1.f)
-                                        },
-                                        0.07f);
+                gs_vqs_t target_transform = gs_vqs_default();
+                target_transform.position = gs_v3(-1.5f, 0.f, 0.f);
+                set_card_animation(&card_game->player_card_in_play, target_transform, 0.07f);
             }
             if (card_game->opponent_card_attacking) {
-                card_game_set_animation(&card_game->opponent_card_in_play,
-                                        (gs_vqs_t) {
-                                            .position = gs_v3(1.5f, 0.f, 0.f),
-                                        .rotation = gs_quat_default(),
-                                        .scale = gs_v3(1.f, 1.f, 1.f)
-                                        },
-                                        0.07f);
+                gs_vqs_t target_transform = gs_vqs_default();
+                target_transform.position = gs_v3(1.5f, 0.f, 0.f);
+                set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
             }
         }
-        if (card_game_battle_timer_trigger_happens(card_game, prev_battle_timer, card_game->battle_timer, end_attack_anim_time, tick_resolution)) {
-            printf("anim: %f\n", card_game->battle_timer);
+        if (card_game->phase_timer_prev < end_attack_time && card_game->phase_timer > end_attack_time) {
+            printf("attack end: %f\n", card_game->phase_timer);
             if (card_game->player_card_attacking) {
-                card_game_set_animation(&card_game->player_card_in_play,
-                                        (gs_vqs_t) {
-                                            .position = gs_v3(-2.f, 0.f, 0.f),
-                                        .rotation = gs_quat_default(),
-                                        .scale = gs_v3(1.f, 1.f, 1.f)
-                                        },
-                                        0.1f);
+                gs_vqs_t target_transform = gs_vqs_default();
+                target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
+                set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
             }
             if (card_game->opponent_card_attacking) {
-                card_game_set_animation(&card_game->opponent_card_in_play,
-                                        (gs_vqs_t) {
-                                            .position = gs_v3(2.f, 0.f, 0.f),
-                                        .rotation = gs_quat_default(),
-                                        .scale = gs_v3(1.f, 1.f, 1.f)
-                                        },
-                                        0.1f);
+                gs_vqs_t target_transform = gs_vqs_default();
+                target_transform.position = gs_v3(2.0f, 0.f, 0.f);
+                set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
             }
+            card_game->player_card_attacking = false;
+            card_game->opponent_card_attacking = false;
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             if (!card_game->player_card_in_play.abilities.haste) {
-                card_game_do_player_card_attack_opponent(card_game, game_state);
+                damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.current_attack);
+                card_game->visual_update = true;
             }
             if (!card_game->opponent_card_in_play.abilities.haste) {
-                card_game_do_opponent_card_attack_player(card_game, game_state);
+                damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.current_attack);
+                card_game->visual_update = true;
             }
         }
         // normal battle tick
-        if (card_game_battle_timer_trigger_happens(card_game, prev_battle_timer, card_game->battle_timer, 0, tick_resolution)) {
-            printf("battle tick: %f\n", card_game->battle_timer);
+        if (card_game->phase_timer_prev < attack_resolve_time && card_game->phase_timer > attack_resolve_time) {
+            printf("attack resolve: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             resolve_damage(card_game, game_state);
-            position_hand_cards(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), HAND_SPACING, HAND_FAN_ANGLE, -HAND_CURVE_AMOUNT, -HAND_Y_POSITION_OFFSET);
-            position_hand_cards(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), HAND_SPACING, -HAND_FAN_ANGLE, HAND_CURVE_AMOUNT, HAND_Y_POSITION_OFFSET);
+            position_hand_cards(card_game, card_game->player_hand);
+            position_hand_cards(card_game, card_game->opponent_hand);
+            // if resolving damage doesn't result in a card being destroyed, re-set the phase to battle to reset the phase timer
+            if (card_game->player_card_in_play.name != NULL && card_game->opponent_card_in_play.name != NULL) {
+                set_phase(card_game, BATTLE);
+            }
         }
     }
 
@@ -302,12 +325,13 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     card_game->phase_timer_prev = card_game->phase_timer;
     card_game->phase_timer += dt;
     card_game->game_timer += dt;
+    card_game->phase_tick++;
 
     if (card_game->visual_update) {
-        update_all_card_visuals(card_game, &game_state->immediate_draw);
+        update_card_visuals(card_game, game_state);
     }
-    set_input_indices(card_game, game_state);
-    card_game_animate_card_transforms(card_game, dt);
+    update_input_indices(card_game, game_state);
+    update_card_animations(card_game, dt);
 
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
@@ -326,11 +350,11 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     }
 }
 
-static void set_phase(card_game_state_t *card_game, card_game_phase phase) {
+static void set_phase(card_game_state_t *card_game, enum card_game_phase phase) {
     card_game->phase = phase;
     card_game->phase_timer = 0.0f;
-    card_game->phase_first_call = true;
-    printf("SET PHASE: %i TIME: %f\n", phase, card_game->game_timer);
+    card_game->phase_tick = 0;
+    printf("SET PHASE: %s TIME: %f\n", get_phase_name(phase), card_game->game_timer);
 }
 
 static void position_hand_cards(card_game_state_t *card_game, card_state_t *cards) {
@@ -354,12 +378,11 @@ static void position_hand_cards(card_game_state_t *card_game, card_state_t *card
         target.position.x = start_x + i * spacing;
         target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
         target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 0, 1));
-        card_game_set_animation(&cards[i], target, 0.2f);
+        set_card_animation(&cards[i], target, 0.2f);
     }
 }
 
-
-static void update_all_card_visuals(card_game_state_t *card_game, game_state_t *game_state) {
+static void update_card_visuals(card_game_state_t *card_game, game_state_t *game_state) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); ++i) {
         card_update_visuals(&card_game->player_hand[i], &game_state->immediate_draw);
     }
@@ -372,24 +395,6 @@ static void update_all_card_visuals(card_game_state_t *card_game, game_state_t *
     if (card_game->opponent_card_in_play.name != NULL) {
         card_update_visuals(&card_game->opponent_card_in_play, &game_state->immediate_draw);
     }
-}
-
-void card_game_init(card_game_state_t *card_game, gs_immediate_draw_t *immediate_draw) {
-    gs_dyn_array_free(card_game->player_hand);
-    gs_dyn_array_free(card_game->opponent_hand);
-
-    int render_index = 0;
-    for (int i = 0; i < 6; i++) {
-        gs_dyn_array_push(card_game->player_hand, card_get_random(render_index++));
-        gs_dyn_array_push(card_game->opponent_hand, card_get_random(render_index++));
-    }
-
-    card_game->player_card_in_play = (card_state_t){0};
-    card_game->opponent_card_in_play = (card_state_t){0};
-
-    card_game->phase = INIT;
-
-    update_all_card_visuals(card_game, immediate_draw);
 }
 
 void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
@@ -451,23 +456,31 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             game_state->mode = MENU;
         } else {
             if (card_game->player_card_in_play.name == NULL) {
-                card_game->phase = PLAYER_SELECT_CARD_TO_PLAY;
+                set_phase(card_game, PLAYER_SELECT_CARD_TO_PLAY);
             } else if (card_game->opponent_card_in_play.name == NULL) {
-                card_game->phase = OPPONENT_SELECT_CARD_TO_PLAY;
+                set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
             }
         }
     }
 }
 
+void trigger_target_effects(card_state_t *source, card_state_t *target) {
+    if (source->abilities.strike > 0) {
+        damage_card(source, target, source->abilities.strike);
+    }
+    if (source->abilities.blunt > 0) {
+        target->current_attack = fmax(1, target->current_attack - source->abilities.blunt);
+    }
+    if (source->abilities.heal > 0) {
+        target->current_health += source->abilities.heal;
+    }
+    if (source->abilities.sharpen > 0) {
+        target->current_attack += source->abilities.sharpen;
+    }
+}
+
 void trigger_on_play_effects(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->player_just_played_card) {
-        // if (card_game->player_in_play_card.abilities.strike > 0) {
-        //     if (card_game->opponent_in_play_card.current_abilities.shield > 0) {
-        //         card_game->opponent_in_play_card.current_abilities.shield--;
-        //     } else {
-        //         card_game->opponent_in_play_card.current_health -= card_game->player_in_play_card.abilities.strike;
-        //     }
-        // }
         if (card_game->player_card_in_play.abilities.disarm > 0) {
             card_game->opponent_card_in_play.current_attack = fmax(1, card_game->opponent_card_in_play.current_attack - card_game->player_card_in_play.abilities.disarm);
         }
@@ -524,13 +537,6 @@ void trigger_on_play_effects(card_game_state_t *card_game, game_state_t *game_st
         }
     }
     if (card_game->opponent_just_played_card) {
-        // if (card_game->opponent_in_play_card.abilities.strike > 0) {
-        //     if (card_game->player_in_play_card.current_abilities.shield > 0) {
-        //         card_game->player_in_play_card.current_abilities.shield--;
-        //     } else {
-        //         card_game->player_in_play_card.current_health -= card_game->opponent_in_play_card.abilities.strike;
-        //     }
-        // }
         if (card_game->opponent_card_in_play.abilities.disarm > 0) {
             card_game->player_card_in_play.current_attack = fmax(1, card_game->player_card_in_play.current_attack - card_game->opponent_card_in_play.abilities.disarm);
         }
@@ -583,27 +589,17 @@ void trigger_on_play_effects(card_game_state_t *card_game, game_state_t *game_st
         }
         if (card_game->opponent_card_in_play.abilities.assassinate > 0 && gs_dyn_array_size(card_game->player_hand) > 0) {
             int random_index = (rand() % gs_dyn_array_size(card_game->player_hand));
-            card_game->opponent_hand[random_index].player_hand = 0;
+            card_game->opponent_hand[random_index].current_health = 0;
         }
     }
 }
 
-void card_game_do_player_card_attack_opponent(card_game_state_t *card_game, game_state_t *game_state) {
-    if (card_game->opponent_card_in_play.current_abilities.shield > 0) {
-        card_game->opponent_card_in_play.current_abilities.shield--;
+static void damage_card(card_state_t *source, card_state_t *target, int damage) {
+    if (target->current_abilities.shield > 0) {
+        target->current_abilities.shield--;
     } else {
-        card_game->opponent_card_in_play.current_health -= card_game->player_card_in_play.current_attack;
+        target->current_health -= damage;
     }
-    update_all_card_visuals(card_game, &game_state->immediate_draw);
-}
-
-void card_game_do_opponent_card_attack_player(card_game_state_t *card_game, game_state_t *game_state) {
-    if (card_game->player_card_in_play.current_abilities.shield > 0) {
-        card_game->player_card_in_play.current_abilities.shield--;
-    } else {
-        card_game->player_card_in_play.current_health -= card_game->opponent_card_in_play.current_attack;
-    }
-    update_all_card_visuals(card_game, &game_state->immediate_draw);
 }
 
 static void card_game_lerp_card_transform(card_state_t *card, float dt) {
@@ -641,7 +637,7 @@ static void card_game_lerp_card_transform(card_state_t *card, float dt) {
                          card->lerp);
 }
 
-static void card_game_set_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
+static void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
     card->prev_transform.position = card->transform.position;
     card->prev_transform.rotation = card->transform.rotation;
     card->prev_transform.scale = card->transform.scale;
@@ -652,7 +648,7 @@ static void card_game_set_animation(card_state_t *card, gs_vqs_t target_transfor
     card->lerp = 0.0f;
 }
 
-static void card_game_animate_card_transforms(card_game_state_t *card_game, float dt) {
+static void update_card_animations(card_game_state_t *card_game, float dt) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
         card_game->player_hand[i].lerp += dt / card_game->player_hand[i].anim_duration;
         if (card_game->player_hand[i].lerp >= 1) {
@@ -682,7 +678,6 @@ static void card_game_animate_card_transforms(card_game_state_t *card_game, floa
         card_game_lerp_card_transform(&card_game->opponent_card_in_play, dt);
     }
 }
-
 
 static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *game_state) {
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
@@ -774,7 +769,7 @@ static void card_game_set_player_targets_selectable(card_game_state_t *card_game
     }
 }
 
-static void set_input_indices(card_game_state_t *card_game, game_state_t *game_state) {
+static void update_input_indices(card_game_state_t *card_game, game_state_t *game_state) {
     gs_vec2 mouse_pos = gs_platform_mouse_positionv();
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
@@ -791,7 +786,7 @@ static void set_input_indices(card_game_state_t *card_game, game_state_t *game_s
                 card_game->player_hand[i].hovered = true;
                 gs_vqs_t target = card_game->player_hand[i].target_transform;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
+                set_card_animation(&card_game->player_hand[i], target, 0.1f);
             }
             hovered_index = i;
             break;
@@ -804,7 +799,7 @@ static void set_input_indices(card_game_state_t *card_game, game_state_t *game_s
                 card_game->opponent_hand[i].hovered = true;
                 gs_vqs_t target = card_game->opponent_hand[i].target_transform;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                card_game_set_animation(&card_game->opponent_hand[i], target, 0.1f);
+                set_card_animation(&card_game->opponent_hand[i], target, 0.1f);
             }
             hovered_index = i + 10; // opponent hand hovered indices is 10-15
             break;
@@ -817,7 +812,7 @@ static void set_input_indices(card_game_state_t *card_game, game_state_t *game_s
                 card_game->player_card_in_play.hovered = true;
                 gs_vqs_t target = card_game->player_card_in_play.target_transform;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                card_game_set_animation(&card_game->player_card_in_play, target, 0.1f);
+                set_card_animation(&card_game->player_card_in_play, target, 0.1f);
             }
             hovered_index = 20; // 20 is player in play card
         }
@@ -829,7 +824,7 @@ static void set_input_indices(card_game_state_t *card_game, game_state_t *game_s
                 card_game->opponent_card_in_play.hovered = true;
                 gs_vqs_t target = card_game->opponent_card_in_play.target_transform;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                card_game_set_animation(&card_game->opponent_card_in_play, target, 0.1f);
+                set_card_animation(&card_game->opponent_card_in_play, target, 0.1f);
             }
             hovered_index = 21; // 21 is opponent in play card
         }
@@ -837,19 +832,13 @@ static void set_input_indices(card_game_state_t *card_game, game_state_t *game_s
 
     card_game->hovered_index = hovered_index;
 
-    // see if the player is selecting the hovered card
-    if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
-        card_game->selected_index = card_game->hovered_index;
-    }
-
-
     // change scale of cards that aren't hovered
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
         if (card_game->player_hand[i].hovered && i != hovered_index) {
             card_game->player_hand[i].hovered = false;
             gs_vqs_t target = card_game->player_hand[i].target_transform;
             target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-            card_game_set_animation(&card_game->player_hand[i], target, 0.1f);
+            set_card_animation(&card_game->player_hand[i], target, 0.1f);
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
@@ -857,19 +846,19 @@ static void set_input_indices(card_game_state_t *card_game, game_state_t *game_s
             card_game->opponent_hand[i].hovered = false;
             gs_vqs_t target = card_game->opponent_hand[i].target_transform;
             target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-            card_game_set_animation(&card_game->opponent_hand[i], target, 0.1f);
+            set_card_animation(&card_game->opponent_hand[i], target, 0.1f);
         }
     }
     if (card_game->player_card_in_play.hovered && 20 != hovered_index) {
         card_game->player_card_in_play.hovered = false;
         gs_vqs_t target = card_game->player_card_in_play.target_transform;
         target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-        card_game_set_animation(&card_game->player_card_in_play, target, 0.1f);
+        set_card_animation(&card_game->player_card_in_play, target, 0.1f);
     }
     if (card_game->opponent_card_in_play.hovered && 21 != hovered_index) {
         card_game->opponent_card_in_play.hovered = false;
         gs_vqs_t target = card_game->opponent_card_in_play.target_transform;
         target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-        card_game_set_animation(&card_game->opponent_card_in_play, target, 0.1f);
+        set_card_animation(&card_game->opponent_card_in_play, target, 0.1f);
     }
 }

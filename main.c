@@ -25,7 +25,7 @@ void update() {
     if (state.mode == MENU) {
         state.mode = gui_show_menu(&state);
         if (state.mode == GAME) {
-            card_game_init(&card_game, &state.immediate_draw);
+            card_game_init(&card_game, &state);
         }
     }
     gs_gui_end(&state.gui_ctx);
