@@ -138,18 +138,6 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         // if there are timebound hands in the opponents hand, one of them must be played
 
         ai_selection_t selection = ai_decision(card_game, false);
-        // gs_dyn_array(int) timebound_indices = NULL;
-        // for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        //     if (card_game->opponent_hand[i].abilities.timebound) gs_dyn_array_push(timebound_indices, i);
-        // }
-        // // if there are timebound cards, grab a random one of those
-        // int random_index;
-        // if (gs_dyn_array_size(timebound_indices) > 0) {
-        //     random_index = timebound_indices[(rand() % gs_dyn_array_size(timebound_indices))];
-        // } else {
-        //     random_index = (rand() % gs_dyn_array_size(card_game->opponent_hand));
-        // }
-
         card_game->opponent_selection = selection;
         card_game->opponent_card_in_play = card_game->opponent_hand[selection.hand_index];
         card_game->opponent_just_played_card = true;
@@ -498,10 +486,9 @@ static void update_card_visuals(card_game_state_t *card_game, game_state_t *game
 void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
     bool was_a_card_destroyed = false;
     if (card_game->player_card_in_play.current_health <= 0) {
-        if (card_game->player_card_in_play.abilities.regenerate > 0) {
-            int regen = --card_game->player_card_in_play.abilities.regenerate;
+        if (card_game->player_card_in_play.abilities.regenerate) {
             card_reset_stats(&card_game->player_card_in_play);
-            card_game->player_card_in_play.abilities.regenerate = regen;
+            card_game->player_card_in_play.abilities.regenerate = false;
             gs_dyn_array_push(card_game->player_hand, card_game->player_card_in_play);
         }
         card_game->player_card_in_play = (card_state_t){0};
@@ -509,9 +496,8 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
     }
     if (card_game->opponent_card_in_play.current_health <= 0) {
         if (card_game->opponent_card_in_play.abilities.regenerate > 0) {
-            int regen = --card_game->opponent_card_in_play.abilities.regenerate;
             card_reset_stats(&card_game->opponent_card_in_play);
-            card_game->opponent_card_in_play.abilities.regenerate = regen;
+            card_game->opponent_card_in_play.abilities.regenerate = false;
             gs_dyn_array_push(card_game->opponent_hand, card_game->opponent_card_in_play);
         }
         card_game->opponent_card_in_play = (card_state_t){0};
@@ -563,53 +549,56 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
 }
 
 void trigger_target_effects(card_state_t *source, card_state_t *target) {
-    if (source->abilities.strike > 0) {
-        damage_card(source, target, source->abilities.strike);
+    if (source->current_abilities.strike > 0) {
+        damage_card(source, target, source->current_abilities.strike);
     }
-    if (source->abilities.dull > 0) {
-        target->current_attack = fmax(1, target->current_attack - source->abilities.dull);
-    }
-    if (source->abilities.heal > 0) {
-        target->current_health += source->abilities.heal;
-    }
-    if (source->abilities.sharpen > 0) {
-        target->current_attack += source->abilities.sharpen;
-    }
-    if (source->abilities.sacrifice) {
+    if (source->current_abilities.sacrifice) {
         target->current_health = 0;
     }
+    target->current_attack = fmax(1, target->current_attack - source->current_abilities.dull);
+    target->current_health += source->current_abilities.heal;
+    target->current_attack += source->current_abilities.sharpen;
+    target->current_abilities.shield = target->current_abilities.shield || source->current_abilities.gift_shield;
+    target->current_abilities.regenerate = target->current_abilities.regenerate || source->current_abilities.gift_regenerate;
+    target->current_abilities.haste = target->current_abilities.haste || source->current_abilities.gift_haste;
+    target->current_abilities.timebound = target->current_abilities.timebound || source->current_abilities.gift_timebound;
+    target->current_abilities.sacrifice = target->current_abilities.sacrifice || source->current_abilities.gift_sacrifice;
 }
 
 void trigger_on_play_effects(card_game_state_t *card_game) {
     if (card_game->player_just_played_card && !card_game->player_on_play_triggered) {
         card_game->player_on_play_triggered = true;
-        card_game->player_card_in_play.current_health += card_game->player_card_in_play.abilities.mass_heal;
-        card_game->player_card_in_play.current_attack += card_game->player_card_in_play.abilities.mass_sharpen;
-        card_game->opponent_card_in_play.current_attack = fmax(1, card_game->opponent_card_in_play.current_attack - card_game->player_card_in_play.abilities.mass_dull);
-        damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.abilities.mass_strike);
+        card_game->player_card_in_play.current_health += card_game->player_card_in_play.current_abilities.mass_heal;
+        card_game->player_card_in_play.current_attack += card_game->player_card_in_play.current_abilities.mass_sharpen;
+        card_game->opponent_card_in_play.current_attack = fmax(1, card_game->opponent_card_in_play.current_attack - card_game->player_card_in_play.current_abilities.mass_dull);
+        damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.current_abilities.mass_strike);
 
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-            card_game->player_hand[i].current_health += card_game->player_card_in_play.abilities.mass_heal;
-            card_game->player_hand[i].current_attack += card_game->player_card_in_play.abilities.mass_sharpen;
+            card_game->player_hand[i].current_health += card_game->player_card_in_play.current_abilities.mass_heal;
+            card_game->player_hand[i].current_attack += card_game->player_card_in_play.current_abilities.mass_sharpen;
+            card_game->player_hand[i].current_health += card_game->player_hand[i].current_abilities.charge_heal;
+            card_game->player_hand[i].current_attack += card_game->player_hand[i].current_abilities.charge_sharpen;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-            card_game->opponent_hand[i].current_attack = fmax(1, card_game->opponent_hand[i].current_attack - card_game->player_card_in_play.abilities.mass_dull);
-            damage_card(&card_game->player_card_in_play, &card_game->opponent_hand[i], card_game->player_card_in_play.abilities.mass_strike);
+            card_game->opponent_hand[i].current_attack = fmax(1, card_game->opponent_hand[i].current_attack - card_game->player_card_in_play.current_abilities.mass_dull);
+            damage_card(&card_game->player_card_in_play, &card_game->opponent_hand[i], card_game->player_card_in_play.current_abilities.mass_strike);
         }
     }
     if (card_game->opponent_just_played_card && !card_game->opponent_on_play_triggered) {
         card_game->opponent_on_play_triggered = true;
-        card_game->opponent_card_in_play.current_health += card_game->opponent_card_in_play.abilities.mass_heal;
-        card_game->opponent_card_in_play.current_attack += card_game->opponent_card_in_play.abilities.mass_sharpen;
-        card_game->player_card_in_play.current_attack = fmax(1, card_game->player_card_in_play.current_attack - card_game->opponent_card_in_play.abilities.mass_dull);
-        damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.abilities.mass_strike);
+        card_game->opponent_card_in_play.current_health += card_game->opponent_card_in_play.current_abilities.mass_heal;
+        card_game->opponent_card_in_play.current_attack += card_game->opponent_card_in_play.current_abilities.mass_sharpen;
+        card_game->player_card_in_play.current_attack = fmax(1, card_game->player_card_in_play.current_attack - card_game->opponent_card_in_play.current_abilities.mass_dull);
+        damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.current_abilities.mass_strike);
         for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-            card_game->opponent_hand[i].current_health += card_game->opponent_card_in_play.abilities.mass_heal;
-            card_game->opponent_hand[i].current_attack += card_game->opponent_card_in_play.abilities.mass_sharpen;
+            card_game->opponent_hand[i].current_health += card_game->opponent_card_in_play.current_abilities.mass_heal;
+            card_game->opponent_hand[i].current_attack += card_game->opponent_card_in_play.current_abilities.mass_sharpen;
+            card_game->opponent_hand[i].current_health += card_game->opponent_hand[i].current_abilities.charge_heal;
+            card_game->opponent_hand[i].current_attack += card_game->opponent_hand[i].current_abilities.charge_sharpen;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-            card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->opponent_card_in_play.abilities.mass_dull);
-            damage_card(&card_game->opponent_card_in_play, &card_game->player_hand[i], card_game->opponent_card_in_play.abilities.mass_strike);
+            card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->opponent_card_in_play.current_abilities.mass_dull);
+            damage_card(&card_game->opponent_card_in_play, &card_game->player_hand[i], card_game->opponent_card_in_play.current_abilities.mass_strike);
         }
     }
 }
@@ -617,8 +606,8 @@ void trigger_on_play_effects(card_game_state_t *card_game) {
 static void damage_card(card_state_t *source, card_state_t *target, int damage) {
     if (damage <= 0) return;
 
-    if (target->current_abilities.shield > 0) {
-        target->current_abilities.shield--;
+    if (target->current_abilities.shield) {
+        target->current_abilities.shield = false;
     } else {
         target->current_health -= damage;
     }
@@ -727,11 +716,11 @@ static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *ga
 static void highlight_playable_cards(card_game_state_t *card_game,  game_state_t *game_state) {
     bool has_timebound = false;
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        if (card_game->player_hand[i].abilities.timebound) has_timebound = true;
+        if (card_game->player_hand[i].current_abilities.timebound) has_timebound = true;
     }
 
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        if (!has_timebound || card_game->player_hand[i].abilities.timebound) {
+        if (!has_timebound || card_game->player_hand[i].current_abilities.timebound) {
             if (!card_game->player_hand[i].selectable) {
                 card_game->player_hand[i].selectable = true;
                 card_game->visual_update = true;
@@ -943,7 +932,7 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
         float eval = 0;
         gs_dyn_array(int) timebound_indices = NULL;
         for (int i = 0; i < gs_dyn_array_size(tmp_play_card.opponent_hand); i++) {
-            if (tmp_play_card.opponent_hand[i].abilities.timebound) gs_dyn_array_push(timebound_indices, i);
+            if (tmp_play_card.opponent_hand[i].current_abilities.timebound) gs_dyn_array_push(timebound_indices, i);
         }
 
         gs_dyn_array(int) itteration_indices = NULL;
