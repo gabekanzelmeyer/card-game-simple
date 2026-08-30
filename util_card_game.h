@@ -72,6 +72,9 @@ typedef struct {
     card_state_t *target;
     int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
     bool visual_update;
+    bool simulate_player;
+    ai_selection_t player_selection;
+    float game_speed;
 } card_game_state_t;
 
 static void position_hand_cards(card_game_state_t *card_game, card_state_t *cards);
@@ -104,7 +107,8 @@ void card_game_init(card_game_state_t *card_game, game_state_t *game_state) {
     card_game->opponent_card_in_play = (card_state_t){0};
 
     card_game->phase = INIT;
-
+    card_game->simulate_player = true;
+    card_game->game_speed = 10.0f;
     update_card_visuals(card_game, game_state);
 }
 
@@ -115,16 +119,13 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         set_phase(card_game, PLAYER_SELECT_CARD_TO_PLAY);
 
     } if (card_game->phase == PLAYER_SELECT_CARD_TO_PLAY) {
-        highlight_remove_all(card_game, game_state);
-        highlight_playable_cards(card_game, game_state);
-
-        if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) { // will always be an index in players hand here
-            highlight_remove_all(card_game, game_state); // remove all highlights
-
-            card_game->player_card_in_play = card_game->player_hand[card_game->hovered_index];
+        if (card_game->simulate_player) {
+            ai_selection_t selection = ai_decision(card_game, true);
+            card_game->player_selection = selection;
+            card_game->player_card_in_play = card_game->player_hand[selection.hand_index];
             card_game->player_just_played_card = true;
             card_game->player_on_play_triggered = false;
-            gs_dyn_array_erase(card_game->player_hand, card_game->hovered_index);
+            gs_dyn_array_erase(card_game->player_hand, selection.hand_index);
 
             // if the opponent doesn't have a card in play, transition
             // to that phase, otherwise start animating playing cards
@@ -132,6 +133,25 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
             } else {
                 set_phase(card_game, ANIMATE_PLAYING_CARDS);
+            }
+        } else {
+            highlight_remove_all(card_game, game_state);
+            highlight_playable_cards(card_game, game_state);
+            if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) { // will always be an index in players hand here
+                highlight_remove_all(card_game, game_state); // remove all highlights
+
+                card_game->player_card_in_play = card_game->player_hand[card_game->hovered_index];
+                card_game->player_just_played_card = true;
+                card_game->player_on_play_triggered = false;
+                gs_dyn_array_erase(card_game->player_hand, card_game->hovered_index);
+
+                // if the opponent doesn't have a card in play, transition
+                // to that phase, otherwise start animating playing cards
+                if (card_game->opponent_card_in_play.name == NULL) {
+                    set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
+                } else {
+                    set_phase(card_game, ANIMATE_PLAYING_CARDS);
+                }
             }
         }
     } else if (card_game->phase == OPPONENT_SELECT_CARD_TO_PLAY) {
@@ -195,14 +215,12 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
 
         if (card_game->player_selecting_target_type != NONE) { // wait while player is selecting target
-            highlight_remove_all(card_game, game_state);
-            highlight_targetable_cards(card_game, game_state, card_game->player_selecting_target_type);
-            if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
-                if (card_game->hovered_index < 10) {
-                    card_game->target = &card_game->player_hand[card_game->hovered_index];
-                } else if (card_game->hovered_index < 20) {
-                    card_game->target = &card_game->opponent_hand[card_game->hovered_index - 10];
-                } else if (card_game->hovered_index == 20) {
+            if (card_game->simulate_player) {
+                if (card_game->player_selection.target_index < 10) {
+                    card_game->target = &card_game->player_hand[card_game->player_selection.target_index];
+                } else if (card_game->player_selection.target_index < 20) {
+                    card_game->target = &card_game->opponent_hand[card_game->player_selection.target_index - 10];
+                } else if (card_game->player_selection.target_index == 20) {
                     card_game->target = &card_game->player_card_in_play;
                 } else {
                     card_game->target = &card_game->opponent_card_in_play;
@@ -214,6 +232,27 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->visual_update = true;
                 card_game->player_selecting_target_type = NONE;
                 set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
+            } else {
+                highlight_remove_all(card_game, game_state);
+                highlight_targetable_cards(card_game, game_state, card_game->player_selecting_target_type);
+                if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+                    if (card_game->hovered_index < 10) {
+                        card_game->target = &card_game->player_hand[card_game->hovered_index];
+                    } else if (card_game->hovered_index < 20) {
+                        card_game->target = &card_game->opponent_hand[card_game->hovered_index - 10];
+                    } else if (card_game->hovered_index == 20) {
+                        card_game->target = &card_game->player_card_in_play;
+                    } else {
+                        card_game->target = &card_game->opponent_card_in_play;
+                    }
+                    trigger_target_effects(&card_game->player_card_in_play, card_game->target);
+                    resolve_damage(card_game, game_state);
+                    position_hand_cards(card_game, card_game->player_hand);
+                    position_hand_cards(card_game, card_game->opponent_hand);
+                    card_game->visual_update = true;
+                    card_game->player_selecting_target_type = NONE;
+                    set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
+                }
             }
         } else {
             highlight_remove_all(card_game, game_state);
@@ -407,7 +446,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
     }
 
-    float dt = gs_platform_delta_time();
+    float dt = gs_platform_delta_time() * card_game->game_speed;
     card_game->phase_timer_prev = card_game->phase_timer;
     card_game->phase_timer += dt;
     card_game->game_timer += dt;
