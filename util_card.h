@@ -11,23 +11,20 @@
 
 
 typedef struct {
-    int shield; // when damaged, prevent damage and reduce count
     int strike; // deal X damage to target
     int heal; // increase target health by X
-    int blunt; // reduce target attack by X
+    int dull; // reduce target attack by X
     int sharpen; // increase target attack by X
+    int mass_strike; // deal X damage to all opponent cards
+    int mass_heal; // heal all your cards by X
+    int mass_dull; // reduce attack of all opponent cards by X
+    int mass_sharpen; // increase attack of all your cards by X
 
+    int shield; // when damaged, prevent damage and reduce count
     int regenerate; // if the card is destroyed, reduce count add to hand
-    int wellspring; // all hand cards get +X health
-    int warcry; // all hand cards get +X attack
-    int swipe; // deal X damage to all opp hand cards
-    int disarm; // reduce opposing card attack by X (no less than 1)
-    int cripple; // reduce opponent hand cards attack by X (no less than 1)
-    int channel; // all cards in hands and in play get +X/+X if they share this cards color
-    int sacrifice; // destroy X cards in hand
-    int assassinate; // destroy X cards in opp hand
     bool haste; // attacks early in battle
     bool timebound; // if a cards with timebound is in hand, they must be played before other cards
+    bool sacrifice;
 } card_abilities_t;
 
 typedef struct {
@@ -90,9 +87,26 @@ card_state_t card_get_random(uint32_t render_index);
 void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw);
 void cards_render_instanced(card_state_t* cards, uint32_t count, gs_command_buffer_t* command_buffer, gs_mat4 view_projection);
 bool card_do_colors_match(card_state_t card1, card_state_t card2);
-bool card_has_target_ability(card_state_t *card);
+bool card_has_target_ability(card_abilities_t *abilities);
+bool card_has_target_ability_self(card_abilities_t *abilities);
+bool card_has_target_ability_other(card_abilities_t *abilities);
 
 #ifdef UTIL_CARD_IMPL
+
+bool card_has_target_ability(card_abilities_t *abilities) {
+    return abilities->strike > 0
+    || abilities->dull > 0
+    || abilities->heal > 0
+    || abilities->sharpen > 0;
+}
+
+bool card_has_target_ability_self(card_abilities_t *abilities) {
+    return abilities->sacrifice;
+}
+
+bool card_has_target_ability_other(card_abilities_t *abilities) {
+    return false;
+}
 
 card_util_t card_util = {0};
 
@@ -141,36 +155,30 @@ bool card_do_colors_match(card_state_t card1, card_state_t card2) {
     return false;
 }
 
-bool card_has_target_ability(card_state_t *card) {
-    return card->abilities.strike > 0
-    || card->abilities.blunt > 0
-    || card->abilities.heal > 0
-    || card->abilities.sharpen > 0;
-}
-
 static void card_add_to_lookup(card_state_t card) {
     gs_hash_table_insert(card_util.card_lookup, card.name, card);
 }
 
 static void card_populate_lookup() {
     card_add_to_lookup(card_new("Barbtail", 1, 2, true, false, false, (card_abilities_t){.strike=1}));
-    card_add_to_lookup(card_new("Pikeling", 3, 1, true, false, false, (card_abilities_t){.sharpen=1}));
+    card_add_to_lookup(card_new("Pikeling", 3, 1, true, false, false, (card_abilities_t){.mass_sharpen=1}));
     card_add_to_lookup(card_new("Tristeed", 2, 3, true, false, false, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Pyramount", 3, 2, true, false, false, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Anglewing", 1, 2, true, false, false, (card_abilities_t){.haste=true}));
     card_add_to_lookup(card_new("Spireback", 1, 4, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Mass Striker", 1, 1, true, false, false, (card_abilities_t){.mass_strike=2}));
 
     card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
     card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Boxling", 2, 1, false, true, false, (card_abilities_t){.regenerate=1}));
-    card_add_to_lookup(card_new("Bullwark", 1, 4, false, true, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Bullwark", 1, 4, false, true, false, (card_abilities_t){.sacrifice=true}));
     card_add_to_lookup(card_new("Cubeface", 3, 3, false, true, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.heal=1}));
+    card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.mass_heal=1}));
 
-    card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.blunt=1}));
+    card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.dull=1}));
     card_add_to_lookup(card_new("Loopwing", 4, 2, false, false, true, (card_abilities_t){.timebound=true}));
     card_add_to_lookup(card_new("Circlet", 2, 3, false, false, true, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.blunt=1}));
+    card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.mass_dull=1}));
     card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
     // card_add_to_lookup(card_new("Sunfish", 5, 5, false, false, true, (card_abilities_t){0}));
@@ -431,10 +439,10 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.blunt > 0) {
-        char ability_buffer[20] = "Blunt ";
+    if (card->current_abilities.dull > 0) {
+        char ability_buffer[20] = "Dull ";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.blunt);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.dull);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
@@ -447,16 +455,39 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-
-
-    if (card->current_abilities.disarm > 0) {
-        char ability_buffer[20] = "Disarm ";
+    if (card->current_abilities.mass_strike > 0) {
+        char ability_buffer[20] = "Mass Strike ";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.disarm);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.mass_strike);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
+    if (card->current_abilities.mass_heal > 0) {
+        char ability_buffer[20] = "Mass Heal ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.mass_heal);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.mass_dull > 0) {
+        char ability_buffer[20] = "Mass Dull ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.mass_dull);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.mass_sharpen > 0) {
+        char ability_buffer[20] = "Mass Sharpen ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.mass_sharpen);
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+
     if (card->current_abilities.regenerate) {
         char ability_buffer[20] = "Regenerate ";
         size_t current_len = strlen(ability_buffer);
@@ -465,58 +496,9 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.wellspring > 0) {
-        char ability_buffer[20] = "Wellspring ";
+    if (card->current_abilities.sacrifice) {
+        char ability_buffer[20] = "Sacrifice";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.wellspring);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.warcry > 0) {
-        char ability_buffer[20] = "Warcry ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.warcry);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.swipe > 0) {
-        char ability_buffer[20] = "Swipe ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.swipe);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.cripple > 0) {
-        char ability_buffer[20] = "Cripple ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.cripple);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.channel > 0) {
-        char ability_buffer[20] = "Channel ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.channel);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.sacrifice > 0) {
-        char ability_buffer[20] = "Sacrifice ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.sacrifice);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.assassinate > 0) {
-        char ability_buffer[20] = "Assassinate ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.assassinate);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
