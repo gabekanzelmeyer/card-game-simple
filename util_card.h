@@ -172,13 +172,13 @@ static void card_add_to_lookup(card_state_t card) {
 }
 
 static void card_populate_lookup() {
-    card_add_to_lookup(card_new("Barbtail", 1, 2, true, false, false, (card_abilities_t){.strike=1}));
-    card_add_to_lookup(card_new("Pikeling", 3, 1, true, false, false, (card_abilities_t){.mass_sharpen=1}));
-    card_add_to_lookup(card_new("Tristeed", 2, 3, true, false, false, (card_abilities_t){.gift_shield=true}));
-    card_add_to_lookup(card_new("Pyramount", 3, 2, true, false, false, (card_abilities_t){.shield=true}));
-    card_add_to_lookup(card_new("Anglewing", 1, 2, true, false, false, (card_abilities_t){.haste=true}));
-    card_add_to_lookup(card_new("Spireback", 1, 4, true, false, false, (card_abilities_t){.gift_timebound=true}));
-    card_add_to_lookup(card_new("Mass Striker", 1, 1, true, false, false, (card_abilities_t){.charge_heal=1, .charge_sharpen=1}));
+    card_add_to_lookup(card_new("Dud", 2, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Blank", 2, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Gift Shield", 2, 2, true, false, false, (card_abilities_t){.gift_shield=true}));
+    card_add_to_lookup(card_new("Nil", 2, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Nada", 2, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Zilch", 2, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("Zip", 2, 2, true, false, false, (card_abilities_t){0}));
 
     // card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
     // card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
