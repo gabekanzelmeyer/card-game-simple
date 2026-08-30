@@ -181,6 +181,7 @@ static void card_populate_lookup() {
     card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.mass_dull=1}));
     card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
+
     // card_add_to_lookup(card_new("Sunfish", 5, 5, false, false, true, (card_abilities_t){0}));
     // card_add_to_lookup(card_new("Immortal Jelly", 2, 1, false, false, true, (card_abilities_t){.regenerate=3}));
     // card_add_to_lookup(card_new("Kraken", 4, 4, false, false, true, (card_abilities_t){.channel=2}));

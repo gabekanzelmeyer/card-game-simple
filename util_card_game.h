@@ -608,7 +608,7 @@ void trigger_on_play_effects(card_game_state_t *card_game) {
             card_game->opponent_hand[i].current_attack += card_game->opponent_card_in_play.abilities.mass_sharpen;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-            card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->player_card_in_play.abilities.mass_dull);
+            card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->opponent_card_in_play.abilities.mass_dull);
             damage_card(&card_game->opponent_card_in_play, &card_game->player_hand[i], card_game->opponent_card_in_play.abilities.mass_strike);
         }
     }
@@ -906,12 +906,12 @@ static float ai_evaluate(card_game_state_t *card_game) {
     float health_weight = 1.f;
     float score = 0;
     score += card_game->player_card_in_play.current_attack * attack_weight + card_game->player_card_in_play.current_health * health_weight;
-    for (int i = 0; i < gs_dyn_array_size(card_game-> player_hand); i++) {
-        score += card_game-> player_hand[i].current_attack * attack_weight + card_game-> player_hand[i].current_health * health_weight;
+    for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+        score += card_game->player_hand[i].current_attack * attack_weight + card_game->player_hand[i].current_health * health_weight;
     }
     score -= card_game->opponent_card_in_play.current_attack * attack_weight + card_game->opponent_card_in_play.current_health * health_weight;
-    for (int i = 0; i < gs_dyn_array_size(card_game-> opponent_hand); i++) {
-        score -= card_game-> opponent_hand[i].current_attack * attack_weight + card_game-> opponent_hand[i].current_health * health_weight;
+    for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+        score -= card_game->opponent_hand[i].current_attack * attack_weight + card_game->opponent_hand[i].current_health * health_weight;
     }
 
     return score;
@@ -937,9 +937,10 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
     if (is_player) {
 
     } else {
+        printf("--- opp decision start\n");
         card_game_state_t tmp_play_card = copy_state(card_game);
-        int score = 1000;
-        int eval = 0;
+        float score = 1000;
+        float eval = 0;
         gs_dyn_array(int) timebound_indices = NULL;
         for (int i = 0; i < gs_dyn_array_size(tmp_play_card.opponent_hand); i++) {
             if (tmp_play_card.opponent_hand[i].abilities.timebound) gs_dyn_array_push(timebound_indices, i);
@@ -957,12 +958,12 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
         for (int i = 0; i < gs_dyn_array_size(itteration_indices); i++) {
             tmp_play_card.opponent_card_in_play = tmp_play_card.opponent_hand[itteration_indices[i]];
             tmp_play_card.opponent_just_played_card = true;
-            tmp_play_card.player_on_play_triggered = false;
+            tmp_play_card.opponent_on_play_triggered = false;
 
             gs_dyn_array_erase(tmp_play_card.opponent_hand, itteration_indices[i]);
+
             trigger_on_play_effects(&tmp_play_card);
             tmp_play_card.opponent_just_played_card = false;
-            tmp_play_card.player_on_play_triggered = true;
 
             card_game_state_t tmp_target = copy_state(&tmp_play_card);
             enum card_game_target_type target_type = NONE;
@@ -972,7 +973,11 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
             if (target_type == NONE) {
                 eval = ai_evaluate(&tmp_target);
+
+                printf("eval: %f playing card at index %i, name: %s | NO TARGETS\n", eval, itteration_indices[i], tmp_play_card.opponent_card_in_play.name);
+
                 if (eval < score) {
+                    printf("best move so far!\n");
                     score = eval;
                     hand_index = itteration_indices[i];
                 }
@@ -981,7 +986,9 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
                     for (int j = 0; j < gs_dyn_array_size(tmp_target.player_hand); j++) {
                         trigger_target_effects(&tmp_target.opponent_card_in_play, &tmp_target.player_hand[j]);
                         eval = ai_evaluate(&tmp_target);
+                        printf("eval: %f playing card at index %i, name: %s | OTHER hand index: %i\n", eval, itteration_indices[i], tmp_play_card.opponent_card_in_play.name, j);
                         if (eval < score) {
+                            printf("best move so far!\n");
                             score = eval;
                             hand_index = itteration_indices[i];
                             target_index = j;
@@ -990,7 +997,9 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
                     }
                     trigger_target_effects(&tmp_target.opponent_card_in_play, &tmp_target.player_card_in_play);
                     eval = ai_evaluate(&tmp_target);
+                    printf("eval: %f playing card at index %i, name: %s | OTHER card in play\n", eval, itteration_indices[i], tmp_play_card.opponent_card_in_play.name);
                     if (eval < score) {
+                        printf("best move so far!\n");
                         score = eval;
                         hand_index = itteration_indices[i];
                         target_index = 20;
@@ -1001,7 +1010,9 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
                     for (int j = 0; j < gs_dyn_array_size(tmp_target.opponent_hand); j++) {
                         trigger_target_effects(&tmp_target.opponent_card_in_play, &tmp_target.opponent_hand[j]);
                         eval = ai_evaluate(&tmp_target);
+                        printf("eval: %f playing card at index %i, name: %s | SELF hand index: %i\n", eval, itteration_indices[i], tmp_play_card.opponent_card_in_play.name, j);
                         if (eval < score) {
+                            printf("best move so far!\n");
                             score = eval;
                             hand_index = itteration_indices[i];
                             target_index = j + 10;
@@ -1011,10 +1022,12 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
                     trigger_target_effects(&tmp_target.opponent_card_in_play, &tmp_target.opponent_card_in_play);
                     eval = ai_evaluate(&tmp_target);
+                    printf("eval: %f playing card at index %i, name: %s | SELF card in play\n", eval, itteration_indices[i], tmp_play_card.opponent_card_in_play.name);
                     if (eval < score) {
+                        printf("best move so far!\n");
                         score = eval;
                         hand_index = itteration_indices[i];
-                        target_index = 20;
+                        target_index = 21;
                     }
                     tmp_target = copy_state(&tmp_play_card);
                 }
@@ -1022,6 +1035,7 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
             tmp_play_card = copy_state(card_game);
         }
+        printf("--- opp decision end (hand: %i target: %i)\n", hand_index, target_index);
     }
 
     return (ai_selection_t){.hand_index = hand_index, .target_index = target_index};
