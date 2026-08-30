@@ -16,14 +16,17 @@ x create pool of cards that can be used for starting hands
 x implement battle turns, updating card appearence
 x organize codebase
 x implement some basic abilities
-X color card stats relative to base state
+x color card stats relative to base state
 x load shaders from file
 x outline selectable cards
 x make Strike ability selectable between opp hand and in play card
 x organize and rename methods in util card game. organize it all actually
 x animate target selection
 x implement random opponent target selection logic
-- organize util card
+x implement mass effects
+- implement simple eval function and search based decisions for AI
+- implement simulating games
+- record statistics / win rates for cards / abilities
 
 card property ideas
 - levels?
