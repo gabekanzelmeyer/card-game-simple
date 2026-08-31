@@ -51,6 +51,10 @@ typedef struct {
 } ai_selection_t;
 
 typedef struct {
+    char name[64];
+} stats_key_t;
+
+typedef struct {
     enum card_game_phase phase;
     float phase_timer_prev;
     float phase_timer;
@@ -73,7 +77,12 @@ typedef struct {
     int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
     bool visual_update;
     bool simulate_player;
+    int simulation_count;
+    gs_hash_table(uint32_t, int) winning_card_counts;
+    int player_wins, opponent_wins, draws;
     ai_selection_t player_selection;
+    gs_dyn_array(card_state_t) player_hand_cache;
+    gs_dyn_array(card_state_t) opponent_hand_cache;
     float game_speed;
 } card_game_state_t;
 
@@ -96,19 +105,23 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player);
 void card_game_init(card_game_state_t *card_game, game_state_t *game_state) {
     gs_dyn_array_free(card_game->player_hand);
     gs_dyn_array_free(card_game->opponent_hand);
+    gs_dyn_array_free(card_game->player_hand_cache);
+    gs_dyn_array_free(card_game->opponent_hand_cache);
 
     int render_index = 0;
     for (int i = 0; i < 6; i++) {
-        gs_dyn_array_push(card_game->player_hand, card_get_random(render_index++));
-        gs_dyn_array_push(card_game->opponent_hand, card_get_random(render_index++));
+        card_state_t player_card = card_get_random(render_index++);
+        gs_dyn_array_push(card_game->player_hand, player_card);
+        gs_dyn_array_push(card_game->player_hand_cache, player_card);
+        card_state_t opponent_card = card_get_random(render_index++);
+        gs_dyn_array_push(card_game->opponent_hand, opponent_card);
+        gs_dyn_array_push(card_game->opponent_hand_cache, opponent_card);
     }
 
     card_game->player_card_in_play = (card_state_t){0};
     card_game->opponent_card_in_play = (card_state_t){0};
 
     card_game->phase = INIT;
-    card_game->simulate_player = true;
-    card_game->game_speed = 10.0f;
     update_card_visuals(card_game, game_state);
 }
 
@@ -479,7 +492,7 @@ static void set_phase(card_game_state_t *card_game, enum card_game_phase phase) 
     card_game->phase = phase;
     card_game->phase_timer = 0.0f;
     card_game->phase_tick = 0;
-    printf("SET PHASE: %s TIME: %f\n", get_phase_name(phase), card_game->game_timer);
+    //printf("SET PHASE: %s TIME: %f\n", get_phase_name(phase), card_game->game_timer);
 }
 
 static void position_hand_cards(card_game_state_t *card_game, card_state_t *cards) {
@@ -520,6 +533,29 @@ static void update_card_visuals(card_game_state_t *card_game, game_state_t *game
     if (card_game->opponent_card_in_play.name != NULL) {
         card_update_visuals(&card_game->opponent_card_in_play, &game_state->immediate_draw);
     }
+}
+
+static void print_stats(card_game_state_t *card_game) {
+    printf("player wins: %i, opponent wins: %i, draws: %i\n", card_game->player_wins, card_game->opponent_wins, card_game->draws);
+
+    printf("STATS 1: %i 2: %i\n", gs_hash_table_get(card_game->winning_card_counts, 1), gs_hash_table_get(card_game->winning_card_counts, 2));
+
+    for (gs_hash_table_iter it = gs_hash_table_iter_new(card_game->winning_card_counts);
+            gs_hash_table_iter_valid(card_game->winning_card_counts, it);
+            gs_hash_table_iter_advance(card_game->winning_card_counts, it)) {
+        uint32_t k = gs_hash_table_iter_getk(card_game->winning_card_counts, it);
+        int v = gs_hash_table_iter_get(card_game->winning_card_counts, it);
+        printf("stats %s: %i\n", gs_hash_table_get(card_util.card_lookup, k).name, v);
+    }
+
+//     gs_hash_table_iter it = 0;
+//     while (gs_hash_table_iter_valid(card_game->winning_card_counts, it)) {
+//
+//         uint32_t k = gs_hash_table_iter_getk(card_game->winning_card_counts, it);
+//         int v = gs_hash_table_iter_get(card_game->winning_card_counts, it);
+//         printf("stats %s: %i\n", gs_hash_table_get(card_util.card_lookup, k).name, v);
+//         gs_hash_table_iter_advance(card_game->winning_card_counts, it);
+//     }
 }
 
 void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
@@ -568,15 +604,56 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             && card_game->player_card_in_play.name == NULL
             && card_game->opponent_card_in_play.name == NULL) {
             printf("DRAW\n");
-            game_state->mode = MENU;
+            if (card_game->simulate_player && card_game->simulation_count > 0) {
+                card_game->simulation_count--;
+                card_game->draws++;
+                card_game_init(card_game, game_state);
+            } else {
+                print_stats(card_game);
+                game_state->mode = MENU;
+            }
         } else if (gs_dyn_array_size(card_game->opponent_hand) == 0
             && card_game->opponent_card_in_play.name == NULL) {
             printf("PLAYER WINS\n");
-            game_state->mode = MENU;
+            if (card_game->simulate_player && card_game->simulation_count > 0) {
+                card_game->simulation_count--;
+                card_game->player_wins++;
+                for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
+                    printf("**** inserted lookup index pl %i\n", card_game->player_hand_cache[i].lookup_index);
+                    if (!gs_hash_table_key_exists(card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index)) {
+                        gs_hash_table_insert(card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index, 1);
+                    } else {
+                        gs_hash_table_insert(
+                            card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index,
+                            gs_hash_table_get(card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index) + 1);
+                    }
+                }
+                card_game_init(card_game, game_state);
+            } else {
+                print_stats(card_game);
+                game_state->mode = MENU;
+            }
         } else if (gs_dyn_array_size(card_game->player_hand) == 0
             && card_game->player_card_in_play.name == NULL) {
             printf("OPPONENT WINS\n");
-            game_state->mode = MENU;
+            if (card_game->simulate_player && card_game->simulation_count > 0) {
+                card_game->simulation_count--;
+                card_game->opponent_wins++;
+                for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
+                    printf("**** inserted lookup index opp %i\n", card_game->opponent_hand_cache[i].lookup_index);
+                    if (!gs_hash_table_key_exists(card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index)) {
+                        gs_hash_table_insert(card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index, 1);
+                    } else {
+                        gs_hash_table_insert(
+                            card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index,
+                            gs_hash_table_get(card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index) + 1);
+                    }
+                }
+                card_game_init(card_game, game_state);
+            } else {
+                print_stats(card_game);
+                game_state->mode = MENU;
+            }
         } else {
             if (card_game->player_card_in_play.name == NULL) {
                 set_phase(card_game, PLAYER_SELECT_CARD_TO_PLAY);
@@ -1047,16 +1124,14 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
         if (target_type == NONE) {
             eval = ai_evaluate(&tmp_cg_target);
 
-            if (is_player) printf("eval: %f playing card at index %i, name: %s | NO TARGETS\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
-            else printf("eval: %f playing card at index %i, name: %s | NO TARGETS\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
+            // if (is_player) printf("eval: %f playing card at index %i, name: %s | NO TARGETS\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
+            // else printf("eval: %f playing card at index %i, name: %s | NO TARGETS\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
             if (is_player && eval > score) {
-                printf("best move so far!\n");
                 score = eval;
                 hand_index = itteration_indices[i];
                 target_index = -1;
             }
             if (!is_player && eval < score) {
-                printf("best move so far!\n");
                 score = eval;
                 hand_index = itteration_indices[i];
                 target_index = -1;
@@ -1074,16 +1149,14 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
                     eval = ai_evaluate(&tmp_cg_target);
 
-                    if (is_player) printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
-                    else printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
+                    // if (is_player) printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
+                    // else printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
                     if (is_player && eval > score) {
-                        printf("best move so far!\n");
                         score = eval;
                         hand_index = itteration_indices[i];
                         target_index = j + 10;
                     }
                     if (!is_player && eval < score) {
-                        printf("best move so far!\n");
                         score = eval;
                         hand_index = itteration_indices[i];
                         target_index = j;
@@ -1098,16 +1171,14 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
                 eval = ai_evaluate(&tmp_cg_target);
 
-                if (is_player) printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
-                else printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
+                // if (is_player) printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
+                // else printf("eval: %f playing card at index %i, name: %s | OTHER\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
                 if (is_player && eval > score) {
-                    printf("best move so far!\n");
                     score = eval;
                     hand_index = itteration_indices[i];
                     target_index = 21;
                 }
                 if (!is_player && eval < score) {
-                    printf("best move so far!\n");
                     score = eval;
                     hand_index = itteration_indices[i];
                     target_index = 20;
@@ -1125,16 +1196,14 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
                     eval = ai_evaluate(&tmp_cg_target);
 
-                    if (is_player) printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
-                    else printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
+                    // if (is_player) printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
+                    // else printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
                     if (is_player && eval > score) {
-                        printf("best move so far!\n");
                         score = eval;
                         hand_index = itteration_indices[i];
                         target_index = j;
                     }
                     if (!is_player && eval < score) {
-                        printf("best move so far!\n");
                         score = eval;
                         hand_index = itteration_indices[i];
                         target_index = j + 10;
@@ -1149,16 +1218,14 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
                 eval = ai_evaluate(&tmp_cg_target);
 
-                if (is_player) printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
-                else printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
+                // if (is_player) printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.player_card_in_play.name);
+                // else printf("eval: %f playing card at index %i, name: %s | SELF\n", eval, itteration_indices[i], tmp_cg_target.opponent_card_in_play.name);
                 if (is_player && eval > score) {
-                    printf("best move so far!\n");
                     score = eval;
                     hand_index = itteration_indices[i];
                     target_index = 20;
                 }
                 if (!is_player && eval < score) {
-                    printf("best move so far!\n");
                     score = eval;
                     hand_index = itteration_indices[i];
                     target_index = 21;

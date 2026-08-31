@@ -26,7 +26,7 @@ x implement random opponent target selection logic
 x implement mass effects
 x implement simple eval function and search based decisions for AI
 x fix ai search / decisions. don't seem quite right, aren't playing mass cards when they can
-- implement simulating games
+x implement simulating games
 - record statistics / win rates for cards / abilities
 
 card property ideas

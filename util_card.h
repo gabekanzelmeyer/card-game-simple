@@ -34,7 +34,7 @@ typedef struct {
     bool gift_sacrifice; // give sacrifice to target card
 } card_abilities_t;
 
-typedef struct {
+typedef struct card_state_t {
     const char *name;
     uint16_t attack;
     uint16_t health;
@@ -56,6 +56,7 @@ typedef struct {
     gs_vqs target_transform;
 
     uint32_t render_index;
+    uint32_t lookup_index;
 } card_state_t;
 
 typedef struct {
@@ -84,7 +85,7 @@ typedef struct {
     gs_asset_font_t card_stats_font;
     gs_asset_font_t card_abilities_font;
 
-    gs_hash_table(const char*, card_state_t) card_lookup;
+    gs_hash_table(uint32_t, card_state_t) card_lookup;
 } card_util_t;
 
 void card_util_init();
@@ -168,31 +169,33 @@ bool card_do_colors_match(card_state_t card1, card_state_t card2) {
 }
 
 static void card_add_to_lookup(card_state_t card) {
-    gs_hash_table_insert(card_util.card_lookup, card.name, card);
+    card.lookup_index = gs_hash_table_size(card_util.card_lookup) + 1;
+    printf("***** added lookup index %i %s\n", card.lookup_index, card.name);
+    gs_hash_table_insert(card_util.card_lookup, card.lookup_index, card);
 }
 
 static void card_populate_lookup() {
     card_add_to_lookup(card_new("Dud", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Blank", 2, 2, true, false, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Blank", 2, 2, true, false, false, (card_abilities_t){0}));
     card_add_to_lookup(card_new("Gift Shield", 2, 2, true, false, false, (card_abilities_t){.gift_shield=true}));
-    card_add_to_lookup(card_new("Nil", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Nada", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Zilch", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Zip", 2, 2, true, false, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Nil", 2, 2, true, false, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Nada", 2, 2, true, false, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Zilch", 2, 2, true, false, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Zip", 2, 2, true, false, false, (card_abilities_t){0}));
 
-    card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
-    card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Boxling", 2, 1, false, true, false, (card_abilities_t){.regenerate=1}));
-    card_add_to_lookup(card_new("Bullwark", 1, 4, false, true, false, (card_abilities_t){.sacrifice=true}));
-    card_add_to_lookup(card_new("Cubeface", 3, 3, false, true, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.mass_heal=1}));
-
-    card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.dull=1}));
-    card_add_to_lookup(card_new("Loopwing", 4, 2, false, false, true, (card_abilities_t){.timebound=true}));
-    card_add_to_lookup(card_new("Circlet", 2, 3, false, false, true, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.mass_dull=1}));
-    card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
+    // card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Boxling", 2, 1, false, true, false, (card_abilities_t){.regenerate=1}));
+    // card_add_to_lookup(card_new("Bullwark", 1, 4, false, true, false, (card_abilities_t){.sacrifice=true}));
+    // card_add_to_lookup(card_new("Cubeface", 3, 3, false, true, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.mass_heal=1}));
+    //
+    // card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.dull=1}));
+    // card_add_to_lookup(card_new("Loopwing", 4, 2, false, false, true, (card_abilities_t){.timebound=true}));
+    // card_add_to_lookup(card_new("Circlet", 2, 3, false, false, true, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.mass_dull=1}));
+    // card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
 
     // card_add_to_lookup(card_new("Sunfish", 5, 5, false, false, true, (card_abilities_t){0}));
     // card_add_to_lookup(card_new("Immortal Jelly", 2, 1, false, false, true, (card_abilities_t){.regenerate=3}));
@@ -374,7 +377,7 @@ card_state_t card_get_random(uint32_t render_index) {
     gs_dyn_array(card_state_t) lookup_cards = NULL;
     for (gs_hash_table_iter it = gs_hash_table_iter_new(card_util.card_lookup);
          gs_hash_table_iter_valid(card_util.card_lookup, it);
-    gs_hash_table_iter_advance(card_util.card_lookup, it)) {
+        gs_hash_table_iter_advance(card_util.card_lookup, it)) {
         gs_dyn_array_push(lookup_cards, gs_hash_table_iter_get(card_util.card_lookup, it));
     }
 
