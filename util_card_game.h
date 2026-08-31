@@ -273,12 +273,12 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 float begin_anim_time = 0.15;
                 float end_anim_time = 0.25;
                 float end_phase_time = 0.3;
-                if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer > begin_anim_time) {
+                if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
                     gs_vqs_t target_transform = card_game->target->target_transform;
                     target_transform.scale = gs_v3(0.9f, 0.9f, 0.9f);
                     set_card_animation(card_game->target, target_transform, 0.05f);
                 }
-                if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer > end_anim_time) {
+                if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
                     gs_vqs_t target_transform = card_game->target->target_transform;
                     target_transform.scale = gs_v3(1.f, 1.f, 1.f);
                     set_card_animation(card_game->target, target_transform, 0.05f);
@@ -329,12 +329,12 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 float begin_anim_time = 0.15;
                 float end_anim_time = 0.25;
                 float end_phase_time = 0.3;
-                if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer > begin_anim_time) {
+                if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
                     gs_vqs_t target_transform = card_game->target->target_transform;
                     target_transform.scale = gs_v3(0.8f, 0.8f, 0.8f);
                     set_card_animation(card_game->target, target_transform, 0.05f);
                 }
-                if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer > end_anim_time) {
+                if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
                     gs_vqs_t target_transform = card_game->target->target_transform;
                     target_transform.scale = gs_v3(1.f, 1.f, 1.f);
                     set_card_animation(card_game->target, target_transform, 0.05f);
@@ -356,8 +356,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         float end_attack_time = 1.2;
         float attack_resolve_time = 1.5;
 
-        if (card_game->phase_timer_prev < haste_begin_attack_time && card_game->phase_timer > haste_begin_attack_time) {
-            // printf("haste begin: %f\n", card_game->phase_timer);
+        if (card_game->phase_timer_prev < haste_begin_attack_time && card_game->phase_timer >= haste_begin_attack_time) {
+            printf("haste begin: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = card_game->player_card_in_play.abilities.haste;
             card_game->opponent_card_attacking = card_game->opponent_card_in_play.abilities.haste;
             if (card_game->player_card_attacking) {
@@ -371,8 +371,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
             }
         }
-        if (card_game->phase_timer_prev < haste_end_attack_time && card_game->phase_timer > haste_end_attack_time) {
-            // printf("haste end: %f\n", card_game->phase_timer);
+        if (card_game->phase_timer_prev < haste_end_attack_time && card_game->phase_timer >= haste_end_attack_time) {
+            printf("haste end: %f\n", card_game->phase_timer);
             if (card_game->player_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
@@ -394,8 +394,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->visual_update = true;
             }
         }
-        if (card_game->phase_timer_prev < haste_resolve_time && card_game->phase_timer > haste_resolve_time) {
-            // printf("haste resolve: %f\n", card_game->phase_timer);
+        if (card_game->phase_timer_prev < haste_resolve_time && card_game->phase_timer >= haste_resolve_time) {
+            printf("haste resolve: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             resolve_damage(card_game, game_state);
@@ -404,8 +404,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
 
         // normal animation timer ticks
-        if (card_game->phase_timer_prev < begin_attack_time && card_game->phase_timer > begin_attack_time) {
-            // printf("attack begin: %f\n", card_game->phase_timer);
+        if (card_game->phase_timer_prev < begin_attack_time && card_game->phase_timer >= begin_attack_time) {
+            printf("attack begin: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = !card_game->player_card_in_play.abilities.haste;
             card_game->opponent_card_attacking = !card_game->opponent_card_in_play.abilities.haste;
             if (card_game->player_card_attacking) {
@@ -419,8 +419,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
                 set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
             }
         }
-        if (card_game->phase_timer_prev < end_attack_time && card_game->phase_timer > end_attack_time) {
-            // printf("attack end: %f\n", card_game->phase_timer);
+        if (card_game->phase_timer_prev < end_attack_time && card_game->phase_timer >= end_attack_time) {
+            printf("attack end: %f\n", card_game->phase_timer);
             if (card_game->player_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
@@ -445,8 +445,8 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             }
         }
         // normal battle tick
-        if (card_game->phase_timer_prev < attack_resolve_time && card_game->phase_timer > attack_resolve_time) {
-            // printf("attack resolve: %f\n", card_game->phase_timer);
+        if (card_game->phase_timer_prev < attack_resolve_time && card_game->phase_timer >= attack_resolve_time) {
+            printf("attack resolve: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             resolve_damage(card_game, game_state);
@@ -492,7 +492,7 @@ static void set_phase(card_game_state_t *card_game, enum card_game_phase phase) 
     card_game->phase = phase;
     card_game->phase_timer = 0.0f;
     card_game->phase_tick = 0;
-    //printf("SET PHASE: %s TIME: %f\n", get_phase_name(phase), card_game->game_timer);
+    printf("SET PHASE: %s TIME: %f\n", get_phase_name(phase), card_game->game_timer);
 }
 
 static void position_hand_cards(card_game_state_t *card_game, card_state_t *cards) {

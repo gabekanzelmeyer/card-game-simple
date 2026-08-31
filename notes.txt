@@ -27,7 +27,11 @@ x implement mass effects
 x implement simple eval function and search based decisions for AI
 x fix ai search / decisions. don't seem quite right, aren't playing mass cards when they can
 x implement simulating games
-- record statistics / win rates for cards / abilities
+x record statistics / win rates for cards
+
+card simulation / testing findings
+- 3/4 and 2/5 outperform all others pure stats in similar range by at least 50%
+- 2/3 strike 2 and 2/3 shield slightly better
 
 card property ideas
 - levels?

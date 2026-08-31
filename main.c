@@ -26,8 +26,11 @@ void update() {
         state.mode = gui_show_menu(&state);
         if (state.mode == GAME) {
             card_game.simulate_player = true;
-            card_game.game_speed = 15.0f;
-            card_game.simulation_count = 5;
+            card_game.game_speed = 60.0f;
+            card_game.simulation_count = 1000;
+            card_game.player_wins = 0;
+            card_game.opponent_wins = 0;
+            card_game.draws = 0;
             for (int i = 0; i < 100; i++) card_game.winning_card_counts[i] = 0;
             card_game_init(&card_game, &state);
         }

@@ -167,27 +167,26 @@ static void card_add_to_lookup(card_state_t card) {
 }
 
 static void card_populate_lookup() {
-    card_add_to_lookup(card_new("Dud", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Blank", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Gift Shield", 2, 2, true, false, false, (card_abilities_t){.gift_shield=true}));
-    card_add_to_lookup(card_new("Nil", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Nada", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Zilch", 2, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Zip", 2, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("2 3 Strike", 2, 3, true, false, false, (card_abilities_t){.strike=2}));
+    card_add_to_lookup(card_new("4 3", 4, 3, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("3 4", 3, 4, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("4 2", 4, 2, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("2 5", 2, 5, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("2 3 Shield", 2, 3, true, false, false, (card_abilities_t){.shield=true}));
 
-    card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
-    card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Boxling", 2, 1, false, true, false, (card_abilities_t){.regenerate=1}));
-    card_add_to_lookup(card_new("Bullwark", 1, 4, false, true, false, (card_abilities_t){.sacrifice=true}));
-    card_add_to_lookup(card_new("Cubeface", 3, 3, false, true, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.mass_heal=1}));
-
-    card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.dull=1}));
-    card_add_to_lookup(card_new("Loopwing", 4, 2, false, false, true, (card_abilities_t){.timebound=true}));
-    card_add_to_lookup(card_new("Circlet", 2, 3, false, false, true, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.mass_dull=1}));
-    card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
+    // card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Boxling", 2, 1, false, true, false, (card_abilities_t){.regenerate=1}));
+    // card_add_to_lookup(card_new("Bullwark", 1, 4, false, true, false, (card_abilities_t){.sacrifice=true}));
+    // card_add_to_lookup(card_new("Cubeface", 3, 3, false, true, false, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Quadlet", 1, 3, false, true, false, (card_abilities_t){.mass_heal=1}));
+    //
+    // card_add_to_lookup(card_new("Orbling", 2, 2, false, false, true, (card_abilities_t){.dull=1}));
+    // card_add_to_lookup(card_new("Loopwing", 4, 2, false, false, true, (card_abilities_t){.timebound=true}));
+    // card_add_to_lookup(card_new("Circlet", 2, 3, false, false, true, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Ringform", 1, 3, false, false, true, (card_abilities_t){.mass_dull=1}));
+    // card_add_to_lookup(card_new("Roundshell", 1, 4, false, false, true, (card_abilities_t){0}));
+    // card_add_to_lookup(card_new("Spheric", 3, 2, false, false, true, (card_abilities_t){0}));
 
     // card_add_to_lookup(card_new("Sunfish", 5, 5, false, false, true, (card_abilities_t){0}));
     // card_add_to_lookup(card_new("Immortal Jelly", 2, 1, false, false, true, (card_abilities_t){.regenerate=3}));
