@@ -26,10 +26,9 @@ void update() {
         state.mode = gui_show_menu(&state);
         if (state.mode == GAME) {
             card_game.simulate_player = true;
-            card_game.game_speed = 10.0f;
-            card_game.simulation_count = 10;
-            gs_hash_table_free(card_game.winning_card_counts);
-            card_game.winning_card_counts = NULL;
+            card_game.game_speed = 15.0f;
+            card_game.simulation_count = 5;
+            for (int i = 0; i < 100; i++) card_game.winning_card_counts[i] = 0;
             card_game_init(&card_game, &state);
         }
     }

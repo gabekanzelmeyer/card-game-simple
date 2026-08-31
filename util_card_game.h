@@ -78,7 +78,7 @@ typedef struct {
     bool visual_update;
     bool simulate_player;
     int simulation_count;
-    gs_hash_table(uint32_t, int) winning_card_counts;
+    int winning_card_counts[100];
     int player_wins, opponent_wins, draws;
     ai_selection_t player_selection;
     gs_dyn_array(card_state_t) player_hand_cache;
@@ -357,7 +357,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         float attack_resolve_time = 1.5;
 
         if (card_game->phase_timer_prev < haste_begin_attack_time && card_game->phase_timer > haste_begin_attack_time) {
-            printf("haste begin: %f\n", card_game->phase_timer);
+            // printf("haste begin: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = card_game->player_card_in_play.abilities.haste;
             card_game->opponent_card_attacking = card_game->opponent_card_in_play.abilities.haste;
             if (card_game->player_card_attacking) {
@@ -372,7 +372,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             }
         }
         if (card_game->phase_timer_prev < haste_end_attack_time && card_game->phase_timer > haste_end_attack_time) {
-            printf("haste end: %f\n", card_game->phase_timer);
+            // printf("haste end: %f\n", card_game->phase_timer);
             if (card_game->player_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
@@ -395,7 +395,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             }
         }
         if (card_game->phase_timer_prev < haste_resolve_time && card_game->phase_timer > haste_resolve_time) {
-            printf("haste resolve: %f\n", card_game->phase_timer);
+            // printf("haste resolve: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             resolve_damage(card_game, game_state);
@@ -405,7 +405,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
 
         // normal animation timer ticks
         if (card_game->phase_timer_prev < begin_attack_time && card_game->phase_timer > begin_attack_time) {
-            printf("attack begin: %f\n", card_game->phase_timer);
+            // printf("attack begin: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = !card_game->player_card_in_play.abilities.haste;
             card_game->opponent_card_attacking = !card_game->opponent_card_in_play.abilities.haste;
             if (card_game->player_card_attacking) {
@@ -420,7 +420,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
             }
         }
         if (card_game->phase_timer_prev < end_attack_time && card_game->phase_timer > end_attack_time) {
-            printf("attack end: %f\n", card_game->phase_timer);
+            // printf("attack end: %f\n", card_game->phase_timer);
             if (card_game->player_card_attacking) {
                 gs_vqs_t target_transform = gs_vqs_default();
                 target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
@@ -446,7 +446,7 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
         }
         // normal battle tick
         if (card_game->phase_timer_prev < attack_resolve_time && card_game->phase_timer > attack_resolve_time) {
-            printf("attack resolve: %f\n", card_game->phase_timer);
+            // printf("attack resolve: %f\n", card_game->phase_timer);
             card_game->player_card_attacking = false;
             card_game->opponent_card_attacking = false;
             resolve_damage(card_game, game_state);
@@ -537,25 +537,12 @@ static void update_card_visuals(card_game_state_t *card_game, game_state_t *game
 
 static void print_stats(card_game_state_t *card_game) {
     printf("player wins: %i, opponent wins: %i, draws: %i\n", card_game->player_wins, card_game->opponent_wins, card_game->draws);
-
-    printf("STATS 1: %i 2: %i\n", gs_hash_table_get(card_game->winning_card_counts, 1), gs_hash_table_get(card_game->winning_card_counts, 2));
-
-    for (gs_hash_table_iter it = gs_hash_table_iter_new(card_game->winning_card_counts);
-            gs_hash_table_iter_valid(card_game->winning_card_counts, it);
-            gs_hash_table_iter_advance(card_game->winning_card_counts, it)) {
-        uint32_t k = gs_hash_table_iter_getk(card_game->winning_card_counts, it);
-        int v = gs_hash_table_iter_get(card_game->winning_card_counts, it);
-        printf("stats %s: %i\n", gs_hash_table_get(card_util.card_lookup, k).name, v);
+    for (int i = 0; i < 100; i++) {
+        int count = card_game->winning_card_counts[i];
+        if (count > 0) {
+            printf("stats %s: %i\n", gs_hash_table_get(card_util.card_lookup, i).name, count);
+        }
     }
-
-//     gs_hash_table_iter it = 0;
-//     while (gs_hash_table_iter_valid(card_game->winning_card_counts, it)) {
-//
-//         uint32_t k = gs_hash_table_iter_getk(card_game->winning_card_counts, it);
-//         int v = gs_hash_table_iter_get(card_game->winning_card_counts, it);
-//         printf("stats %s: %i\n", gs_hash_table_get(card_util.card_lookup, k).name, v);
-//         gs_hash_table_iter_advance(card_game->winning_card_counts, it);
-//     }
 }
 
 void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
@@ -619,14 +606,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->simulation_count--;
                 card_game->player_wins++;
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
-                    printf("**** inserted lookup index pl %i\n", card_game->player_hand_cache[i].lookup_index);
-                    if (!gs_hash_table_key_exists(card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index)) {
-                        gs_hash_table_insert(card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index, 1);
-                    } else {
-                        gs_hash_table_insert(
-                            card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index,
-                            gs_hash_table_get(card_game->winning_card_counts, card_game->player_hand_cache[i].lookup_index) + 1);
-                    }
+                    card_game->winning_card_counts[card_game->player_hand_cache[i].lookup_index]++;
                 }
                 card_game_init(card_game, game_state);
             } else {
@@ -640,14 +620,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->simulation_count--;
                 card_game->opponent_wins++;
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
-                    printf("**** inserted lookup index opp %i\n", card_game->opponent_hand_cache[i].lookup_index);
-                    if (!gs_hash_table_key_exists(card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index)) {
-                        gs_hash_table_insert(card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index, 1);
-                    } else {
-                        gs_hash_table_insert(
-                            card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index,
-                            gs_hash_table_get(card_game->winning_card_counts, card_game->opponent_hand_cache[i].lookup_index) + 1);
-                    }
+                    card_game->winning_card_counts[card_game->opponent_hand_cache[i].lookup_index]++;
                 }
                 card_game_init(card_game, game_state);
             } else {
@@ -1066,7 +1039,7 @@ static card_game_state_t copy_state(card_game_state_t *card_game) {
 }
 
 static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) {
-    printf("--- decision start. is_player: %i\n", is_player);
+    // printf("--- decision start. is_player: %i\n", is_player);
     int hand_index = 0;
     int target_index = -1;
     float score = is_player ? -1000 : 1000;
@@ -1238,7 +1211,7 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
         tmp_cg = copy_state(card_game);
         hand = is_player ? tmp_cg.player_hand : tmp_cg.opponent_hand;
     }
-    printf("--- opp decision end (hand: %i target: %i)\n", hand_index, target_index);
+    // printf("--- opp decision end (hand: %i target: %i)\n", hand_index, target_index);
 
 
     return (ai_selection_t){.hand_index = hand_index, .target_index = target_index};
