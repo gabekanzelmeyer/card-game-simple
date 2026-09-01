@@ -28,35 +28,36 @@ x implement simple eval function and search based decisions for AI
 x fix ai search / decisions. don't seem quite right, aren't playing mass cards when they can
 x implement simulating games
 x record statistics / win rates for cards
+- make charge show up as a single ability text (ex "Charge +1/+1")
+- implement freeze / frozen (gift frozen)
+- implement ward (cant be targeted)
+- implement reset (return card to base stats / abilities)
+- implement cancel ability (removes ability from all cards)
+- implement channel ability (all cards with ability get it increased by 1)
+- 10 cards for each color
+- reorganize card structs, card_state_t, card_data_t etc. (card data should have all card props, and card state will have base and current structs, card_state holds transform etc.)
+- reorganize utils headers (just name them cards.h, card_game.h, combine util_game and util_gui)
+- load card library from a file, rethink how cards are stored / created / looked up in game...
+- implement card library / selection before playing
+- improve ai_eval function
 
 card simulation / testing findings
-- 3/4 and 2/5 outperform all others pure stats in similar range by at least 50%
-- 2/3 strike 2 and 2/3 shield slightly better
+- 3/4 and 2/5 outperform all others pure stats in similar range by at least 50% (4/3 slighly less but close, 2/5 consistently the best)
+- 2/3 strike 2 and 2/3 shield perform slightly better pure stats in the 2/5 - 5/2 range
+
+card color ability themes
+- red: strike, sharpen, haste
+- green: heal, regenerate, charge
+- blue: dull, freeze, ward
+- general: timebound, sacrifice, shield
 
 card property ideas
-- levels?
-- colors?
-- rarities?
-- cards that have abilities based on number of cards in either players hand (starting or dynamic)
-- cards that impact cards in either players hand
+- levels
+- colors
+- rarities
 
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)
 
-turn sequence
-- is game over? no cards in hand or in play for a player, end game if so
--- is player in play card empty? player selects card
---- animate card play
--- is opponent in pkay card empty? opponent selects card
---- animate card play
--- if player played card, does player in play card have on play abilities? if so, select target
--- if opponent played card, does opponent in play card have on play abilities? if so, opponent selects target
---- animate player target and effect
---- animate opponent target and effect
-- resolve damamge - start over at the top
-- start battle phase
-- perform / animate haste attacks
-- resolve damage - start over at top
-- perform / animate regular attacks
-- resolve damage - start over at top
+
 

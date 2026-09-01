@@ -27,11 +27,14 @@ typedef struct {
     bool haste; // attacks early in battle
     bool timebound; // if a cards with timebound is in hand, they must be played before other cards
     bool sacrifice; // when this card is played, you have to select one of your cards to be destroyed
-    bool gift_shield; // give shield to target card
-    bool gift_regenerate; // give regenerate to target card
-    bool gift_haste; // give haste to target card
-    bool gift_timebound; // give timebound to target card
-    bool gift_sacrifice; // give sacrifice to target card
+    bool frozen; // can't attack if frozen, gets removed at the first attack attempt
+
+    bool bestow_shield; // give shield to target card
+    bool bestow_regenerate; // give regenerate to target card
+    bool bestow_haste; // give haste to target card
+    bool bestow_timebound; // give timebound to target card
+    bool bestow_sacrifice; // give sacrifice to target card
+    bool bestow_frozen; // give frozen to target card
 } card_abilities_t;
 
 typedef struct card_state_t {
@@ -106,11 +109,12 @@ bool card_has_target_ability(card_abilities_t *abilities) {
     || abilities->dull > 0
     || abilities->heal > 0
     || abilities->sharpen > 0
-    || abilities->gift_shield > 0
-    || abilities->gift_regenerate > 0
-    || abilities->gift_haste > 0
-    || abilities->gift_timebound > 0
-    || abilities->gift_sacrifice > 0;
+    || abilities->bestow_shield
+    || abilities->bestow_regenerate
+    || abilities->bestow_haste
+    || abilities->bestow_timebound
+    || abilities->bestow_sacrifice
+    || abilities->bestow_frozen;
 }
 
 bool card_has_target_ability_self(card_abilities_t *abilities) {
@@ -167,11 +171,12 @@ static void card_add_to_lookup(card_state_t card) {
 }
 
 static void card_populate_lookup() {
-    card_add_to_lookup(card_new("2 3 Strike", 2, 3, true, false, false, (card_abilities_t){.strike=2}));
+    // red common cards
+    //card_add_to_lookup(card_new("2 3 Strike", 2, 3, true, false, false, (card_abilities_t){.strike=2}));
     card_add_to_lookup(card_new("4 3", 4, 3, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("3 4", 3, 4, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("4 2", 4, 2, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("2 5", 2, 5, true, false, false, (card_abilities_t){0}));
+    card_add_to_lookup(card_new("3 4 Bestow Frozen", 3, 4, true, false, false, (card_abilities_t){.bestow_frozen=true}));
+    card_add_to_lookup(card_new("4 1 Haste", 4, 2, true, false, false, (card_abilities_t){.haste=true}));
+    card_add_to_lookup(card_new("2 5 Frozen", 2, 5, true, false, false, (card_abilities_t){.frozen=true}));
     card_add_to_lookup(card_new("2 3 Shield", 2, 3, true, false, false, (card_abilities_t){.shield=true}));
 
     // card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
@@ -486,18 +491,10 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.charge_heal > 0) {
-        char ability_buffer[20] = "Charge Heal ";
+    if (card->current_abilities.charge_heal > 0 || card->current_abilities.charge_sharpen > 0) {
+        char ability_buffer[20] = "Charge ";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.charge_heal);
-        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
-        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card->current_abilities.charge_sharpen > 0) {
-        char ability_buffer[20] = "Charge Sharpen ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card->current_abilities.charge_sharpen);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "+%d/+%d", card->current_abilities.charge_sharpen, card->current_abilities.charge_heal);
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
@@ -533,33 +530,45 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
+    if (card->current_abilities.frozen) {
+        char ability_buffer[20] = "Frozen";
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
 
-    if (card->current_abilities.gift_shield) {
-        char ability_buffer[20] = "Gift: Shield";
+    if (card->current_abilities.bestow_shield) {
+        char ability_buffer[20] = "Bestow Shield";
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.gift_regenerate) {
-        char ability_buffer[20] = "Gift: Regenerate";
+    if (card->current_abilities.bestow_regenerate) {
+        char ability_buffer[20] = "Bestow Regenerate";
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.gift_haste) {
-        char ability_buffer[20] = "Gift: Haste";
+    if (card->current_abilities.bestow_haste) {
+        char ability_buffer[20] = "Bestow Haste";
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.gift_timebound) {
-        char ability_buffer[20] = "Gift: Timebound";
+    if (card->current_abilities.bestow_timebound) {
+        char ability_buffer[20] = "Bestow Timebound";
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.gift_sacrifice) {
-        char ability_buffer[20] = "Gift: Sacrifice";
+    if (card->current_abilities.bestow_sacrifice) {
+        char ability_buffer[20] = "Bestow Sacrifice";
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.bestow_frozen) {
+        char ability_buffer[20] = "Bestow Frozen";
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
