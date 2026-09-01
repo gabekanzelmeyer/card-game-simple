@@ -28,6 +28,8 @@ typedef struct {
     bool timebound; // if a cards with timebound is in hand, they must be played before other cards
     bool sacrifice; // when this card is played, you have to select one of your cards to be destroyed
     bool frozen; // can't attack if frozen, gets removed at the first attack attempt
+    bool ward; // the first time this card is targeted, ignore the targeted effect
+    bool cancel; // remove all abilities from target
 
     bool bestow_shield; // give shield to target card
     bool bestow_regenerate; // give regenerate to target card
@@ -35,6 +37,7 @@ typedef struct {
     bool bestow_timebound; // give timebound to target card
     bool bestow_sacrifice; // give sacrifice to target card
     bool bestow_frozen; // give frozen to target card
+    bool bestow_ward; // give ward to target card
 } card_abilities_t;
 
 typedef struct card_state_t {
@@ -109,12 +112,14 @@ bool card_has_target_ability(card_abilities_t *abilities) {
     || abilities->dull > 0
     || abilities->heal > 0
     || abilities->sharpen > 0
+    || abilities->cancel
     || abilities->bestow_shield
     || abilities->bestow_regenerate
     || abilities->bestow_haste
     || abilities->bestow_timebound
     || abilities->bestow_sacrifice
-    || abilities->bestow_frozen;
+    || abilities->bestow_frozen
+    || abilities->bestow_ward;
 }
 
 bool card_has_target_ability_self(card_abilities_t *abilities) {
@@ -173,11 +178,11 @@ static void card_add_to_lookup(card_state_t card) {
 static void card_populate_lookup() {
     // red common cards
     //card_add_to_lookup(card_new("2 3 Strike", 2, 3, true, false, false, (card_abilities_t){.strike=2}));
-    card_add_to_lookup(card_new("4 3", 4, 3, true, false, false, (card_abilities_t){0}));
-    card_add_to_lookup(card_new("3 4 Bestow Frozen", 3, 4, true, false, false, (card_abilities_t){.bestow_frozen=true}));
+    card_add_to_lookup(card_new("4 3 Ward", 4, 3, true, false, false, (card_abilities_t){.ward=true}));
+    card_add_to_lookup(card_new("3 4 Bestow Ward", 3, 4, true, false, false, (card_abilities_t){.bestow_ward=true}));
     card_add_to_lookup(card_new("4 1 Haste", 4, 2, true, false, false, (card_abilities_t){.haste=true}));
-    card_add_to_lookup(card_new("2 5 Frozen", 2, 5, true, false, false, (card_abilities_t){.frozen=true}));
-    card_add_to_lookup(card_new("2 3 Shield", 2, 3, true, false, false, (card_abilities_t){.shield=true}));
+    card_add_to_lookup(card_new("2 5 Strike", 2, 5, true, false, false, (card_abilities_t){.strike=1}));
+    card_add_to_lookup(card_new("2 3 Cancel", 2, 3, true, false, false, (card_abilities_t){.cancel=true}));
 
     // card_add_to_lookup(card_new("Blockheart", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
     // card_add_to_lookup(card_new("Squareback", 2, 3, false, true, false, (card_abilities_t){0}));
@@ -536,6 +541,18 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
+    if (card->current_abilities.ward) {
+        char ability_buffer[20] = "Ward";
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.cancel) {
+        char ability_buffer[20] = "Cancel";
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
 
     if (card->current_abilities.bestow_shield) {
         char ability_buffer[20] = "Bestow Shield";
@@ -569,6 +586,12 @@ void card_update_visuals(card_state_t *card, gs_immediate_draw_t *immediate_draw
     }
     if (card->current_abilities.bestow_frozen) {
         char ability_buffer[20] = "Bestow Frozen";
+        text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.bestow_ward) {
+        char ability_buffer[20] = "Bestow Ward";
         text_dimensions = gs_asset_font_text_dimensions(&card_util.card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_util.card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;

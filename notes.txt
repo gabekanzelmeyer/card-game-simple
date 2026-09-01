@@ -28,18 +28,16 @@ x implement simple eval function and search based decisions for AI
 x fix ai search / decisions. don't seem quite right, aren't playing mass cards when they can
 x implement simulating games
 x record statistics / win rates for cards
-- make charge show up as a single ability text (ex "Charge +1/+1")
-- implement freeze / frozen (gift frozen)
-- implement ward (cant be targeted)
-- implement reset (return card to base stats / abilities)
-- implement cancel ability (removes ability from all cards)
-- implement channel ability (all cards with ability get it increased by 1)
-- 10 cards for each color
+x make charge show up as a single ability text (ex "Charge +1/+1")
+x implement freeze / frozen (bestow frozen)
+x implement ward (cancel the first ability that targets)
+x implement cancel (removes all abilities from target)
+- 10 card for each color
 - reorganize card structs, card_state_t, card_data_t etc. (card data should have all card props, and card state will have base and current structs, card_state holds transform etc.)
 - reorganize utils headers (just name them cards.h, card_game.h, combine util_game and util_gui)
 - load card library from a file, rethink how cards are stored / created / looked up in game...
 - implement card library / selection before playing
-- improve ai_eval function
+- improve ai_eval function to account for abilities, hand state, battle projections etc.
 
 card simulation / testing findings
 - 3/4 and 2/5 outperform all others pure stats in similar range by at least 50% (4/3 slighly less but close, 2/5 consistently the best)
@@ -49,7 +47,7 @@ card color ability themes
 - red: strike, sharpen, haste
 - green: heal, regenerate, charge
 - blue: dull, freeze, ward
-- general: timebound, sacrifice, shield
+- general: timebound, sacrifice, shield, cancel
 
 card property ideas
 - levels

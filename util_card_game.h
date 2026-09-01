@@ -660,6 +660,12 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
 }
 
 void trigger_target_effects(card_state_t *source, card_state_t *target) {
+    // ward prevents a targeted effect, then is removed
+    if (target->current_abilities.ward) {
+        target->current_abilities.ward = false;
+        return;
+    }
+
     if (source->current_abilities.strike > 0) {
         damage_card(source, target, source->current_abilities.strike);
     }
@@ -675,6 +681,11 @@ void trigger_target_effects(card_state_t *source, card_state_t *target) {
     target->current_abilities.timebound = target->current_abilities.timebound || source->current_abilities.bestow_timebound;
     target->current_abilities.sacrifice = target->current_abilities.sacrifice || source->current_abilities.bestow_sacrifice;
     target->current_abilities.frozen = target->current_abilities.frozen || source->current_abilities.bestow_frozen;
+    target->current_abilities.ward = target->current_abilities.ward || source->current_abilities.ward;
+
+    if (source->current_abilities.cancel) {
+        target->current_abilities = (card_abilities_t){0};
+    }
 }
 
 void trigger_on_play_effects(card_game_state_t *card_game) {
