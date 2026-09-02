@@ -1,9 +1,14 @@
+#ifndef CARD_GAME_H
+#define CARD_GAME_H
+
 #include "gs.h"
 #include "util/gs_idraw.h"
 #include "util/gs_gui.h"
 
-#include "util_card.h"
-#include "util_game.h"
+#include "card_data.h"
+#include "card_renderer.h"
+#include "card_database.h"
+#include "game_util.h"
 
 #define HOVER_SCREEN_SIZE 300
 #define HAND_SPACING 1.5f
@@ -62,6 +67,9 @@ typedef struct {
     float game_timer;
     gs_dyn_array(card_state_t) player_hand;
     gs_dyn_array(card_state_t) opponent_hand;
+    // cache the initial hands of a game so that it can be used for post game statistics
+    gs_dyn_array(card_state_t) player_hand_cache;
+    gs_dyn_array(card_state_t) opponent_hand_cache;
     card_state_t player_card_in_play;
     card_state_t opponent_card_in_play;
     bool player_just_played_card;
@@ -81,8 +89,6 @@ typedef struct {
     int winning_card_counts[100];
     int player_wins, opponent_wins, draws;
     ai_selection_t player_selection;
-    gs_dyn_array(card_state_t) player_hand_cache;
-    gs_dyn_array(card_state_t) opponent_hand_cache;
     float game_speed;
 } card_game_state_t;
 
@@ -161,15 +167,15 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
     // NOTE: cards are drawn depth wise in order, so sort based on draw order before rendering
     // In that same spirit, we should iterate backwards over the cards to check if any are hovered
-    cards_render_instanced(card_game->player_hand, gs_dyn_array_size(card_game->player_hand), &game_state->command_buffer, view_projection);
-    cards_render_instanced(card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), &game_state->command_buffer, view_projection);
+    card_render_instanced(game_state->card_renderer, card_game->player_hand, gs_dyn_array_size(card_game->player_hand), &game_state->command_buffer, view_projection);
+    card_render_instanced(game_state->card_renderer, card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), &game_state->command_buffer, view_projection);
     // if there is a player card in play, position and rotate correctly
     if (card_game->player_card_in_play.name != NULL) {
-        cards_render_instanced(&card_game->player_card_in_play, 1, &game_state->command_buffer, view_projection);
+        card_render_instanced(game_state->card_renderer, &card_game->player_card_in_play, 1, &game_state->command_buffer, view_projection);
     }
     // if there is a opponent card in play, position and rotate correctly
     if (card_game->opponent_card_in_play.name != NULL) {
-        cards_render_instanced(&card_game->opponent_card_in_play, 1, &game_state->command_buffer, view_projection);
+        card_render_instanced(game_state->card_renderer, &card_game->opponent_card_in_play, 1, &game_state->command_buffer, view_projection);
     }
 }
 
@@ -544,16 +550,16 @@ static void position_hand_cards(card_game_state_t *card_game, card_state_t *card
 
 static void update_card_visuals(card_game_state_t *card_game, game_state_t *game_state) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); ++i) {
-        card_update_visuals(&card_game->player_hand[i], &game_state->immediate_draw);
+        card_update_visuals(game_state->card_renderer, &card_game->player_hand[i], &game_state->immediate_draw);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); ++i) {
-        card_update_visuals(&card_game->opponent_hand[i], &game_state->immediate_draw);
+        card_update_visuals(game_state->card_renderer, &card_game->opponent_hand[i], &game_state->immediate_draw);
     }
     if (card_game->player_card_in_play.name != NULL) {
-        card_update_visuals(&card_game->player_card_in_play, &game_state->immediate_draw);
+        card_update_visuals(game_state->card_renderer, &card_game->player_card_in_play, &game_state->immediate_draw);
     }
     if (card_game->opponent_card_in_play.name != NULL) {
-        card_update_visuals(&card_game->opponent_card_in_play, &game_state->immediate_draw);
+        card_update_visuals(game_state->card_renderer, &card_game->opponent_card_in_play, &game_state->immediate_draw);
     }
 }
 
@@ -562,7 +568,7 @@ static void print_stats(card_game_state_t *card_game) {
     for (int i = 0; i < 100; i++) {
         int count = card_game->winning_card_counts[i];
         if (count > 0) {
-            printf("stats %s: %i\n", gs_hash_table_get(card_util.card_lookup, i).name, count);
+            printf("stats %s: %i\n", card_database[i].name, count);
         }
     }
 }
@@ -571,7 +577,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
     bool was_a_card_destroyed = false;
     if (card_game->player_card_in_play.current_health <= 0) {
         if (card_game->player_card_in_play.abilities.regenerate) {
-            card_reset_stats(&card_game->player_card_in_play);
+            card_reset(&card_game->player_card_in_play);
             card_game->player_card_in_play.abilities.regenerate = false;
             gs_dyn_array_push(card_game->player_hand, card_game->player_card_in_play);
         }
@@ -580,7 +586,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
     }
     if (card_game->opponent_card_in_play.current_health <= 0) {
         if (card_game->opponent_card_in_play.abilities.regenerate > 0) {
-            card_reset_stats(&card_game->opponent_card_in_play);
+            card_reset(&card_game->opponent_card_in_play);
             card_game->opponent_card_in_play.abilities.regenerate = false;
             gs_dyn_array_push(card_game->opponent_hand, card_game->opponent_card_in_play);
         }
@@ -628,7 +634,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->simulation_count--;
                 card_game->player_wins++;
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
-                    card_game->winning_card_counts[card_game->player_hand_cache[i].lookup_index]++;
+                    card_game->winning_card_counts[card_game->player_hand_cache[i].database_index]++;
                 }
                 card_game_init(card_game, game_state);
             } else {
@@ -642,7 +648,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 card_game->simulation_count--;
                 card_game->opponent_wins++;
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
-                    card_game->winning_card_counts[card_game->opponent_hand_cache[i].lookup_index]++;
+                    card_game->winning_card_counts[card_game->opponent_hand_cache[i].database_index]++;
                 }
                 card_game_init(card_game, game_state);
             } else {
@@ -681,7 +687,7 @@ void trigger_target_effects(card_state_t *source, card_state_t *target) {
     target->current_abilities.timebound = target->current_abilities.timebound || source->current_abilities.bestow_timebound;
     target->current_abilities.sacrifice = target->current_abilities.sacrifice || source->current_abilities.bestow_sacrifice;
     target->current_abilities.frozen = target->current_abilities.frozen || source->current_abilities.bestow_frozen;
-    target->current_abilities.ward = target->current_abilities.ward || source->current_abilities.ward;
+    target->current_abilities.ward = target->current_abilities.ward || source->current_abilities.bestow_ward;
 
     if (source->current_abilities.cancel) {
         target->current_abilities = (card_abilities_t){0};
@@ -1250,3 +1256,5 @@ static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player) 
 
     return (ai_selection_t){.hand_index = hand_index, .target_index = target_index};
 }
+
+#endif

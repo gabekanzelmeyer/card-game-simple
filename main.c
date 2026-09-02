@@ -3,17 +3,20 @@
 #define GS_GUI_IMPL
 #include "gs.h"
 
-#include "util_game.h"
-#include "util_card_game.h"
-#include "util_gui.h"
-
+#include "card_renderer.h"
+#include "card_database.h"
+#include "card_game.h"
+#include "game_util.h"
 
 static game_state_t state = {0};
 static card_game_state_t card_game = {0};
+static card_render_data_t card_renderer = {0};
 
 void init() {
     srand(time(NULL));
-    game_state_init(&state);
+    card_renderer_init(&card_renderer);
+    card_database_init();
+    game_state_init(&state, &card_renderer);
 }
 
 void update() {

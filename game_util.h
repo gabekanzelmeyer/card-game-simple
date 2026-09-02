@@ -1,12 +1,11 @@
-#ifndef UTIL_GAME_H
-#define UTIL_GAME_H
+#ifndef GAME_UTIL_H
+#define GAME_UTIL_H
 
 #include "gs.h"
 #include "util/gs_idraw.h"
 #include "util/gs_gui.h"
 
-#define UTIL_CARD_IMPL
-#include "util_card.h"
+#include "card_renderer.h"
 
 // macro that allows for erasing and element from a gs_dyn_array and keeping the order
 // used to remove cards from player / opponent hands
@@ -33,10 +32,12 @@ typedef struct {
     gs_gui_context_t gui_ctx;
     gs_camera_t camera;
     enum game_mode mode;
+
+    gs_asset_font_t ui_font;
+    card_render_data_t *card_renderer;
 } game_state_t;
 
-void game_state_init(game_state_t *state) {
-    card_util_init();
+void game_state_init(game_state_t *state, card_render_data_t *card_renderer) {
 
     gs_gui_init(&state->gui_ctx, gs_platform_main_window());
 
@@ -45,13 +46,19 @@ void game_state_init(game_state_t *state) {
     state->camera = gs_camera_perspective();
     state->camera .transform.position = gs_v3(0.f, 0.f, 6.5f);
 
-    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &card_util.card_name_font}};
+
+    if (!gs_asset_font_load_from_file("assets/font.otf", &state->ui_font, 120)) {
+        gs_println("WARNING: failed to load assets/font.otf (100pt)");
+    }
+
+    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &state->ui_font}};
 
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
 
     state->mode = MENU;
+    state->card_renderer = card_renderer;
 }
 
 void game_render_begin(game_state_t *state) {
@@ -92,6 +99,33 @@ bool world_to_screen(gs_vec3 world_pos, gs_vec2* out_screen, gs_mat4 view_proj, 
     out_screen->y = ((1.0f - ndc_y) * 0.5f) * screen_height; // Inverted Y for standard 2D screen coordinate spaces
 
     return true;
+}
+
+enum game_mode gui_show_menu(game_state_t *state) {
+    enum game_mode result = MENU;
+    if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
+        | GS_GUI_OPT_NORESIZE
+        | GS_GUI_OPT_NOMOVE
+        | GS_GUI_OPT_NOSCROLL
+        | GS_GUI_OPT_NOCLOSE
+        | GS_GUI_OPT_NOFRAME
+        | GS_GUI_OPT_NOSTYLEBORDER
+        | GS_GUI_OPT_NOSTYLESHADOW
+        | GS_GUI_OPT_NOSTYLEBACKGROUND
+        | GS_GUI_OPT_FULLSCREEN)) {
+        gs_gui_rect_t centered = gs_gui_layout_anchor(
+            &state->gui_ctx.viewport, // parent rect to center within (full screen viewport)
+        500, 300, // button size
+        0, 0, // x/y offset from the centered position
+        GS_GUI_LAYOUT_ANCHOR_CENTER
+        );
+        gs_gui_layout_set_next(&state->gui_ctx, centered, 0);
+        if (gs_gui_button(&state->gui_ctx, "Play")) {
+            result = GAME;
+        }
+        }
+        gs_gui_window_end(&state->gui_ctx);
+        return result;
 }
 
 #endif
