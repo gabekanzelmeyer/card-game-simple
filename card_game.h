@@ -1011,31 +1011,33 @@ static void update_input_indices(card_game_state_t *card_game, game_state_t *gam
     }
 }
 
-static float ai_evaluate_card(card_state_t *card) {
+static float ai_evaluate_card(card_state_t *card, float other_attack, float other_health) {
     float attack_weight = 1.f;
     float health_weight = 1.f;
+    float shield_weight = 1.f;
+    float haste_weight = 1.f;
+    float renegerate_weight = 1.f;
+    float timebound_weight = 0.f;
+    float sacrifice_weight = 0.f;
+    float frozen_weight = -0.2f;
+    float ward_weight = 0.5f;
+    float cancel_weight = 0.f;
+
     float score = 0;
+    float base_score = card->current_attack * attack_weight + card->current_health * health_weight;
 
-    score += card->current_attack * attack_weight + card->current_health * health_weight;
+    score = base_score;
+    score += card->current_abilities.shield * shield_weight * base_score;
+    score += card->current_abilities.haste * haste_weight * base_score;
+    score += card->current_abilities.regenerate * renegerate_weight * score;
+    score += card->current_abilities.timebound * timebound_weight * score;
+    score += card->current_abilities.sacrifice * sacrifice_weight * score;
+    score += card->current_abilities.frozen * frozen_weight * score;
+    score += card->current_abilities.ward * ward_weight * score;
+    score += card->current_abilities.cancel * cancel_weight * score;
 
-    // TODO: should pass in the card_game to get context info, maybe for shield / haste the opposing card is relevant
-    //  for sacrifice the average score of cards in hand might be relevant etc.
-
-    if (card->current_abilities.shield) {
-        score += card->current_attack * attack_weight + card->current_health * health_weight;
-    }
-    if (card->current_abilities.haste) {
-        score += card->current_attack * attack_weight;
-    }
-    if (card->current_abilities.regenerate) {
-        score += card->current_attack * attack_weight + card->current_health * health_weight;
-    }
-    if (card->current_abilities.timebound) {
-        score -= 4;
-    }
-    if (card->current_abilities.sacrifice) {
-        score -= 4;
-    }
+    if (card->current_attack >= other_health) score += other_attack + other_health;
+    if (card->current_health <= other_attack) score -= card->current_attack + card->current_health;
 
     return score;
 }
@@ -1052,13 +1054,40 @@ static float ai_evaluate(card_game_state_t *card_game) {
     float attack_weight = 1.f;
     float health_weight = 1.f;
     float score = 0;
-    score += ai_evaluate_card(&card_game->player_card_in_play);
-    for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        score += ai_evaluate_card(&card_game->player_hand[i]);
+    // if the opponent has a card in play, pass that into evaluate card
+
+    bool has_opposing_card = card_game->opponent_card_in_play.name != NULL;
+    float other_avg_attack = 0;
+    float other_avg_health = 0;
+    int hand_size = gs_dyn_array_size(card_game->player_hand);
+    for (int i = 0; i < hand_size; i++) {
+        score += ai_evaluate_card(&card_game->player_hand[i], 0, 0);
+        if (!has_opposing_card) {
+            other_avg_attack += card_game->player_hand[i].current_attack;
+            other_avg_health += card_game->player_hand[i].current_health;
+        }
     }
-    score -= ai_evaluate_card(&card_game->opponent_card_in_play);
-    for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        score -= ai_evaluate_card(&card_game->opponent_hand[i]);
+    if (has_opposing_card) {
+        score += ai_evaluate_card(&card_game->player_card_in_play, card_game->opponent_card_in_play.current_attack, card_game->opponent_card_in_play.current_health);
+    } else {
+        score += ai_evaluate_card(&card_game->player_card_in_play, hand_size == 0 ? 0 : other_avg_attack/ hand_size, hand_size == 0 ? 0 : other_avg_health/ hand_size);
+    }
+
+    has_opposing_card = card_game->player_card_in_play.name != NULL;
+    other_avg_attack = 0;
+    other_avg_health = 0;
+    hand_size = gs_dyn_array_size(card_game->opponent_hand);
+    for (int i = 0; i < hand_size; i++) {
+        score -= ai_evaluate_card(&card_game->opponent_hand[i], 0, 0);
+        if (!has_opposing_card) {
+            other_avg_attack += card_game->opponent_hand[i].current_attack;
+            other_avg_health += card_game->opponent_hand[i].current_health;
+        }
+    }
+    if (has_opposing_card) {
+        score -= ai_evaluate_card(&card_game->opponent_card_in_play, card_game->player_card_in_play.current_attack, card_game->player_card_in_play.current_health);
+    } else {
+        score -= ai_evaluate_card(&card_game->opponent_card_in_play, hand_size == 0 ? 0 : other_avg_attack/ hand_size, hand_size == 0 ? 0 : other_avg_health/ hand_size);
     }
 
     return score;

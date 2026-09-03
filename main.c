@@ -28,9 +28,9 @@ void update() {
     if (state.mode == MENU) {
         state.mode = gui_show_menu(&state);
         if (state.mode == GAME) {
-            card_game.simulate_player = false;
-            card_game.game_speed = 1.0f;
-            card_game.simulation_count = 200;
+            card_game.simulate_player = true;
+            card_game.game_speed = card_game.simulate_player ? 60.0f : 1.0f;
+            card_game.simulation_count = 1000;
             card_game.player_wins = 0;
             card_game.opponent_wins = 0;
             card_game.draws = 0;

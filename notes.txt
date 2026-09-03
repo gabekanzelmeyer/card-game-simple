@@ -32,10 +32,8 @@ x make charge show up as a single ability text (ex "Charge +1/+1")
 x implement freeze / frozen (bestow frozen)
 x implement ward (cancel the first ability that targets)
 x implement cancel (removes all abilities from target)
+x reorganize utils headers (just name them cards.h, card_game.h, combine util_game and util_gui)
 - 9 cards for each color
-- reorganize card structs, card_state_t, card_data_t etc. (card data should have all card props, and card state will have base and current structs, card_state holds transform etc.)
-- reorganize utils headers (just name them cards.h, card_game.h, combine util_game and util_gui)
-- load card library from a file, rethink how cards are stored / created / looked up in game...
 - implement card library / selection before playing
 - improve ai_eval function to account for abilities, hand state, battle projections etc.
 
