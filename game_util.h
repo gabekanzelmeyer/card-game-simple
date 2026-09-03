@@ -53,6 +53,9 @@ void game_state_init(game_state_t *state, card_render_data_t *card_renderer) {
 
     gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &state->ui_font}};
 
+    gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
@@ -99,6 +102,27 @@ bool world_to_screen(gs_vec3 world_pos, gs_vec2* out_screen, gs_mat4 view_proj, 
     out_screen->y = ((1.0f - ndc_y) * 0.5f) * screen_height; // Inverted Y for standard 2D screen coordinate spaces
 
     return true;
+}
+
+void gui_show_simulation_count(game_state_t *state, int count) {
+    if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
+        | GS_GUI_OPT_NORESIZE
+        | GS_GUI_OPT_NOMOVE
+        | GS_GUI_OPT_NOSCROLL
+        | GS_GUI_OPT_NOCLOSE
+        | GS_GUI_OPT_NOFRAME
+        | GS_GUI_OPT_NOSTYLEBORDER
+        | GS_GUI_OPT_NOSTYLESHADOW
+        | GS_GUI_OPT_NOSTYLEBACKGROUND
+        | GS_GUI_OPT_FULLSCREEN)) {
+
+        char buf[64];
+        gs_gui_layout_row(&state->gui_ctx, 1, (int32_t[]){-1}, 0);
+        snprintf(buf, sizeof(buf), "Count: %u", count);
+        gs_gui_text(&state->gui_ctx, buf);
+
+        gs_gui_window_end(&state->gui_ctx);
+    }
 }
 
 enum game_mode gui_show_menu(game_state_t *state) {
