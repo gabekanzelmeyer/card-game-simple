@@ -46,10 +46,9 @@ void card_database_init() {
     card_database_add(card_new("1 3 Freeze", 1, 3, false, false, true, (card_abilities_t){.bestow_frozen=true}));
 }
 
-card_state_t card_get_random(uint32_t render_index) {
+card_state_t card_get_random() {
     int random_index = (rand() % gs_dyn_array_size(card_database));
     card_state_t card = card_database[random_index];
-    card.render_index = render_index;
     return card;
 }
 

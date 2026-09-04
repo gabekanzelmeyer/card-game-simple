@@ -125,10 +125,12 @@ void card_game_init(card_game_state_t *card_game, game_state_t *game_state) {
 
     int render_index = 0;
     for (int i = 0; i < 6; i++) {
-        card_state_t player_card = card_get_random(render_index++);
+        card_state_t player_card = card_get_random();
+        player_card.render_index = render_index++;
         gs_dyn_array_push(card_game->player_hand, player_card);
         gs_dyn_array_push(card_game->player_hand_cache, player_card);
-        card_state_t opponent_card = card_get_random(render_index++);
+        card_state_t opponent_card = card_get_random();
+        opponent_card.render_index = render_index++;
         gs_dyn_array_push(card_game->opponent_hand, opponent_card);
         gs_dyn_array_push(card_game->opponent_hand_cache, opponent_card);
     }

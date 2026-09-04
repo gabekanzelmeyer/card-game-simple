@@ -8,7 +8,8 @@
 
 #define CARD_TEXTURE_WIDTH  600
 #define CARD_TEXTURE_HEIGHT 800
-#define CARD_ATLAS_MAX_SLOTS 16
+#define CARD_ATLAS_SLOTS_PER_ROW 8
+#define CARD_ATLAS_MAX_SLOTS 32
 
 typedef struct {
     float x, y, z, u, v;
@@ -184,8 +185,8 @@ void card_renderer_init(card_render_data_t *card_renderer) {
     // create the render target texture, each card gets rendered to a specific position in this texture
     card_renderer->render_target_texture = gs_graphics_texture_create(
         &(gs_graphics_texture_desc_t){
-            .width = CARD_TEXTURE_WIDTH,
-            .height = CARD_TEXTURE_HEIGHT * CARD_ATLAS_MAX_SLOTS,
+            .width = CARD_TEXTURE_WIDTH * CARD_ATLAS_SLOTS_PER_ROW,
+            .height = CARD_TEXTURE_HEIGHT * (CARD_ATLAS_MAX_SLOTS / CARD_ATLAS_SLOTS_PER_ROW),
             .format = GS_GRAPHICS_TEXTURE_FORMAT_RGBA8,
             .min_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR,
             .mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR,
@@ -204,31 +205,31 @@ void card_renderer_init(card_render_data_t *card_renderer) {
 
 // Returns this card's row within the shared atlas, in normalized UV space.
 static gs_vec4_t card_render_target_uv_rect(const card_state_t* card) {
-    float uv_height = 1.f / (float)CARD_ATLAS_MAX_SLOTS;
-    float y_offset = (float) card->render_index * uv_height;
+    float uv_width = 1.f / CARD_ATLAS_SLOTS_PER_ROW;
+    float uv_height = 1.f / (float)(CARD_ATLAS_MAX_SLOTS / CARD_ATLAS_SLOTS_PER_ROW);
+    float x_offset = (float) (card->render_index % CARD_ATLAS_SLOTS_PER_ROW) * uv_width;
+    float y_offset = (float) (card->render_index / CARD_ATLAS_SLOTS_PER_ROW) * uv_height;
     gs_vec4_t r;
-    r.x = 0.f;
+    r.x = x_offset;
     r.y = y_offset;
-    r.z = 1.f;
+    r.z = uv_width;
     r.w = uv_height;
     return r;
 }
 
 void card_update_visuals(card_render_data_t *card_renderer, card_state_t *card, gs_immediate_draw_t *immediate_draw) {
-    uint32_t y_offset = (float)card->render_index * CARD_TEXTURE_HEIGHT;
 
     gsi_camera2D(immediate_draw, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
 
     gsi_texture(immediate_draw, card_renderer->card_atlas_texture);
-
     gsi_rectvd(immediate_draw,
         gs_v2(0.f, 0.f),
         gs_v2(CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT),
-        gs_v2(0.f, 0.f), gs_v2(1.f, 1.f),
+        gs_v2(0.f, 0.f),
+        gs_v2(1.f, 1.f),
         gs_color(50, card->selectable ? 255 : 50, 50, 255),
         GS_GRAPHICS_PRIMITIVE_TRIANGLES);
 
-    // TODO: this will change once more textures are added to the atlas
     gsi_rectvd(immediate_draw,
         gs_v2(12.f, 12.f),
         gs_v2(CARD_TEXTURE_WIDTH - 24, CARD_TEXTURE_HEIGHT - 24),
@@ -429,8 +430,10 @@ void card_update_visuals(card_render_data_t *card_renderer, card_state_t *card, 
 
     // set viewport and sizor to this cards position in the render target
     // scissor makes sure the clear doesn't wipe out other already-baked textures
-    gs_graphics_set_viewport(&command_buffer, 0, y_offset, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
-    gs_graphics_set_view_scissor(&command_buffer, 0, y_offset, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
+    float x_offset = (float) (card->render_index % CARD_ATLAS_SLOTS_PER_ROW);
+    float y_offset = (float) (card->render_index / CARD_ATLAS_SLOTS_PER_ROW);
+    gs_graphics_set_viewport(&command_buffer, x_offset * CARD_TEXTURE_WIDTH, y_offset * CARD_TEXTURE_HEIGHT, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
+    gs_graphics_set_view_scissor(&command_buffer, x_offset * CARD_TEXTURE_WIDTH, y_offset * CARD_TEXTURE_HEIGHT, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
 
     gs_graphics_clear_desc_t clear_desc = {.actions = &clear, .size = sizeof(clear)};
     gs_graphics_clear(&command_buffer, &clear_desc);
@@ -456,14 +459,11 @@ void card_render_instanced(card_render_data_t *card_renderer,
         gs_mat4 mvp = gs_mat4_mul(view_projection, model);
         memcpy(instance_data[i].mvp, mvp.elements, sizeof(instance_data[i].mvp));
 
-        float uv_height = 1.f / (float)CARD_ATLAS_MAX_SLOTS;
-        float y_offset = (float)cards[i].render_index * uv_height;
-
         gs_vec4 r = card_render_target_uv_rect(&cards[i]);
         instance_data[i].uv_rect[0] = r.x;
         instance_data[i].uv_rect[1] = r.y;
-        instance_data[i].uv_rect[2]  = r.z;
-        instance_data[i].uv_rect[3]  = r.w;
+        instance_data[i].uv_rect[2] = r.z;
+        instance_data[i].uv_rect[3] = r.w;
     }
 
     // update the per instance data buffer

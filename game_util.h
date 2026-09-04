@@ -23,6 +23,7 @@ do {\
 
 enum game_mode {
     MENU,
+    LIBRARY,
     GAME
 };
 
@@ -137,16 +138,16 @@ enum game_mode gui_show_menu(game_state_t *state) {
         | GS_GUI_OPT_NOSTYLESHADOW
         | GS_GUI_OPT_NOSTYLEBACKGROUND
         | GS_GUI_OPT_FULLSCREEN)) {
-        gs_gui_rect_t centered = gs_gui_layout_anchor(
-            &state->gui_ctx.viewport, // parent rect to center within (full screen viewport)
-        500, 300, // button size
-        0, 0, // x/y offset from the centered position
-        GS_GUI_LAYOUT_ANCHOR_CENTER
-        );
-        gs_gui_layout_set_next(&state->gui_ctx, centered, 0);
-        if (gs_gui_button(&state->gui_ctx, "Play")) {
-            result = GAME;
-        }
+            gs_gui_rect_t centered = gs_gui_layout_anchor(
+                &state->gui_ctx.viewport, // parent rect to center within (full screen viewport)
+            500, 300, // button size
+            0, 0, // x/y offset from the centered position
+            GS_GUI_LAYOUT_ANCHOR_CENTER
+            );
+            gs_gui_layout_set_next(&state->gui_ctx, centered, 0);
+            if (gs_gui_button(&state->gui_ctx, "Play")) {
+                result = LIBRARY;
+            }
         }
         gs_gui_window_end(&state->gui_ctx);
         return result;

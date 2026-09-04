@@ -5,6 +5,7 @@
 
 #include "card_renderer.h"
 #include "card_database.h"
+#include "card_library.h"
 #include "card_game.h"
 #include "game_util.h"
 
@@ -27,6 +28,9 @@ void update() {
     gs_gui_begin(&state.gui_ctx, NULL);
     if (state.mode == MENU) {
         state.mode = gui_show_menu(&state);
+        if (state.mode == LIBRARY) {
+            card_library_init();
+        }
         if (state.mode == GAME) {
             card_game.simulate_player = true;
             card_game.game_speed = card_game.simulate_player ? 60.0f : 1.0f;
@@ -37,12 +41,17 @@ void update() {
             for (int i = 0; i < 100; i++) card_game.winning_card_counts[i] = 0;
             card_game_init(&card_game, &state);
         }
+    } else if (state.mode == LIBRARY) {
+
     } else if (state.mode == GAME && card_game.simulate_player) {
         gui_show_simulation_count(&state, card_game.simulation_count);
     }
     gs_gui_end(&state.gui_ctx);
 
     game_render_begin(&state);
+    if (state.mode == LIBRARY) {
+        card_library_update(&state);
+    }
     if (state.mode == GAME) {
         card_game_update(&card_game, &state);
     }
