@@ -33,9 +33,10 @@ x implement freeze / frozen (bestow frozen)
 x implement ward (cancel the first ability that targets)
 x implement cancel (removes all abilities from target)
 x reorganize utils headers (just name them cards.h, card_game.h, combine util_game and util_gui)
-- 9 cards for each color
+x 9 cards for each color
+x improve ai_eval function to account for abilities, hand state, battle projections etc.
 - implement card library / selection before playing
-- improve ai_eval function to account for abilities, hand state, battle projections etc.
+
 
 card simulation / testing findings
 - 3/4 and 2/5 outperform all others pure stats in similar range by at least 50% (4/3 slighly less but close, 2/5 consistently the best)

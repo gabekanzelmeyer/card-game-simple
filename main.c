@@ -30,7 +30,7 @@ void update() {
         if (state.mode == GAME) {
             card_game.simulate_player = true;
             card_game.game_speed = card_game.simulate_player ? 60.0f : 1.0f;
-            card_game.simulation_count = 300;
+            card_game.simulation_count = 100;
             card_game.player_wins = 0;
             card_game.opponent_wins = 0;
             card_game.draws = 0;

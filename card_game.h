@@ -565,10 +565,31 @@ static void update_card_visuals(card_game_state_t *card_game, game_state_t *game
 
 static void print_stats(card_game_state_t *card_game) {
     printf("player wins: %i, opponent wins: %i, draws: %i\n", card_game->player_wins, card_game->opponent_wins, card_game->draws);
+
+    int sorted_indices[100] = {0};
+    int tmp_card_counts[100] = {0};
     for (int i = 0; i < 100; i++) {
-        int count = card_game->winning_card_counts[i];
+        tmp_card_counts[i] = card_game->winning_card_counts[i];
+    }
+
+    for (int i = 0; i < 100; i++) {
+        for (int j = 1; j < 100; j++) {
+            if (tmp_card_counts[j] > tmp_card_counts[j - 1]) {
+                int tmp = tmp_card_counts[j - 1];
+                tmp_card_counts[j - 1] = tmp_card_counts[j];
+                tmp_card_counts[j] = tmp;
+
+                sorted_indices[j - 1] = j;
+                sorted_indices[j] = j - 1;
+            }
+        }
+    }
+    printf("finished sorting\n");
+    for (int i = 0; i < 100; i++) {
+        int index = sorted_indices[i];
+        int count = tmp_card_counts[i];
         if (count > 0) {
-            printf("stats %s: %i\n", card_database[i].name, count);
+            printf("wins: %i - %s\n", count, card_database[index].name);
         }
     }
 }
