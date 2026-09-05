@@ -10,12 +10,6 @@
 #include "card_database.h"
 #include "game_util.h"
 
-#define HOVER_SCREEN_SIZE 300
-#define HAND_SPACING 1.5f
-#define HAND_FAN_ANGLE 2.0f
-#define HAND_CURVE_AMOUNT 0.02f
-#define HAND_Y_POSITION_OFFSET 2.6f
-
 enum card_game_phase {
     INIT,
     PLAYER_SELECT_CARD_TO_PLAY,
@@ -92,12 +86,10 @@ typedef struct {
     float game_speed;
 } card_game_state_t;
 
-static void position_hand_cards(card_game_state_t *card_game, card_state_t *cards);
 static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *game_state);
 static void highlight_playable_cards(card_game_state_t *card_game,  game_state_t *game_state);
 static void highlight_targetable_cards(card_game_state_t *card_game,  game_state_t *game_state, enum card_game_target_type type);
 static void set_phase(card_game_state_t *card_game, enum card_game_phase phase);
-static void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration);
 static void update_input_indices(card_game_state_t *card_game, game_state_t *game_state);
 static void update_card_visuals(card_game_state_t *card_game, game_state_t *game_state);
 static void update_card_animations(card_game_state_t *card_game, float dt);
@@ -189,8 +181,8 @@ static void set_phase(card_game_state_t *card_game, enum card_game_phase phase) 
 }
 
 static void phase_init(card_game_state_t *card_game, game_state_t *game_state) {
-    position_hand_cards(card_game, card_game->player_hand);
-    position_hand_cards(card_game, card_game->opponent_hand);
+    position_hand_cards(card_game->player_hand, true);
+    position_hand_cards(card_game->opponent_hand, false);
     set_phase(card_game, PLAYER_SELECT_CARD_TO_PLAY);
 }
 
@@ -251,13 +243,13 @@ static void phase_animate_playing_cards(card_game_state_t *card_game, game_state
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(-2., 0.f, 0.f);
             set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
-            position_hand_cards(card_game, card_game->player_hand);
+            position_hand_cards(card_game->player_hand, true);
         }
         if (card_game->opponent_just_played_card) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(2., 0.f, 0.f);
             set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
-            position_hand_cards(card_game, card_game->opponent_hand);
+            position_hand_cards(card_game->opponent_hand, false);
         }
     }
 
@@ -271,8 +263,8 @@ static void phase_trigger_on_play_effects(card_game_state_t *card_game, game_sta
         if (card_game->phase_tick == 1) {
             trigger_on_play_effects(card_game);
             resolve_damage(card_game, game_state);
-            position_hand_cards(card_game, card_game->player_hand);
-            position_hand_cards(card_game, card_game->opponent_hand);
+            position_hand_cards(card_game->player_hand, true);
+            position_hand_cards(card_game->opponent_hand, false);
             card_game->visual_update = true; // on play effects will very likely cause a visual update, so just always do it
         }
         if (card_game->phase_timer > 0.3) { // let animations finish before changing phase
@@ -308,8 +300,8 @@ static void phase_player_select_target(card_game_state_t *card_game, game_state_
             }
             trigger_target_effects(&card_game->player_card_in_play, card_game->target);
             resolve_damage(card_game, game_state);
-            position_hand_cards(card_game, card_game->player_hand);
-            position_hand_cards(card_game, card_game->opponent_hand);
+            position_hand_cards(card_game->player_hand, true);
+            position_hand_cards(card_game->opponent_hand, false);
             card_game->visual_update = true;
             card_game->player_selecting_target_type = NONE;
             set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
@@ -328,8 +320,8 @@ static void phase_player_select_target(card_game_state_t *card_game, game_state_
                 }
                 trigger_target_effects(&card_game->player_card_in_play, card_game->target);
                 resolve_damage(card_game, game_state);
-                position_hand_cards(card_game, card_game->player_hand);
-                position_hand_cards(card_game, card_game->opponent_hand);
+                position_hand_cards(card_game->player_hand, true);
+                position_hand_cards(card_game->opponent_hand, false);
                 card_game->visual_update = true;
                 card_game->player_selecting_target_type = NONE;
                 set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
@@ -389,8 +381,8 @@ static void phase_opponent_select_target(card_game_state_t *card_game, game_stat
 
         trigger_target_effects(&card_game->opponent_card_in_play, card_game->target);
         resolve_damage(card_game, game_state);
-        position_hand_cards(card_game, card_game->player_hand);
-        position_hand_cards(card_game, card_game->opponent_hand);
+        position_hand_cards(card_game->player_hand, true);
+        position_hand_cards(card_game->opponent_hand, false);
         card_game->visual_update = true;
         card_game->opponent_selecting_target_type = NONE;
         set_phase(card_game, OPPONENT_SELECT_TARGET); // set to same phase to reset phase timer
@@ -465,8 +457,8 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
         resolve_damage(card_game, game_state);
-        position_hand_cards(card_game, card_game->player_hand);
-        position_hand_cards(card_game, card_game->opponent_hand);
+        position_hand_cards(card_game->player_hand, true);
+        position_hand_cards(card_game->opponent_hand, false);
     }
 
     // normal animation timer ticks
@@ -516,37 +508,12 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
         resolve_damage(card_game, game_state);
-        position_hand_cards(card_game, card_game->player_hand);
-        position_hand_cards(card_game, card_game->opponent_hand);
+        position_hand_cards(card_game->player_hand, true);
+        position_hand_cards(card_game->opponent_hand, false);
         // if resolving damage doesn't result in a card being destroyed, re-set the phase to battle to reset the phase timer
         if (card_game->player_card_in_play.name != NULL && card_game->opponent_card_in_play.name != NULL) {
             set_phase(card_game, BATTLE);
         }
-    }
-}
-
-static void position_hand_cards(card_game_state_t *card_game, card_state_t *cards) {
-    float spacing, fan_angle, curve_amount, y_offset;
-    spacing = HAND_SPACING;
-    if (cards == card_game->player_hand) {
-        fan_angle = HAND_FAN_ANGLE;
-        curve_amount = -HAND_CURVE_AMOUNT;
-        y_offset = -HAND_Y_POSITION_OFFSET;
-    } else {
-        fan_angle = -HAND_FAN_ANGLE;
-        curve_amount = HAND_CURVE_AMOUNT;
-        y_offset = HAND_Y_POSITION_OFFSET;
-    }
-
-    int count = gs_dyn_array_size(cards);
-    float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
-    float start_tilt = fan_angle * (float)count / 2.f - fan_angle / 2.f;
-    for (int i = 0; i < count; i++) {
-        gs_vqs_t target = gs_vqs_default();
-        target.position.x = start_x + i * spacing;
-        target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
-        target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 0, 1));
-        set_card_animation(&cards[i], target, 0.2f);
     }
 }
 
@@ -765,80 +732,18 @@ static void damage_card(card_state_t *source, card_state_t *target, int damage) 
     }
 }
 
-static void card_game_lerp_card_transform(card_state_t *card, float dt) {
-    card->transform.position.x = gs_interp_smoothstep(card->prev_transform.position.x,
-                         card->target_transform.position.x,
-                         card->lerp);
-    card->transform.position.y = gs_interp_smoothstep(card->prev_transform.position.y,
-                         card->target_transform.position.y,
-                         card->lerp);
-    card->transform.position.z = gs_interp_smoothstep(card->prev_transform.position.z,
-                         card->target_transform.position.z,
-                         card->lerp);
-
-    card->transform.scale.x = gs_interp_smoothstep(card->prev_transform.scale.x,
-                         card->target_transform.scale.x,
-                         card->lerp);
-    card->transform.scale.y = gs_interp_smoothstep(card->prev_transform.scale.y,
-                         card->target_transform.scale.y,
-                         card->lerp);
-    card->transform.scale.z = gs_interp_smoothstep(card->prev_transform.scale.z,
-                         card->target_transform.scale.z,
-                         card->lerp);
-
-    card->transform.rotation.x = gs_interp_smoothstep(card->prev_transform.rotation.x,
-                         card->target_transform.rotation.x,
-                         card->lerp);
-    card->transform.rotation.y = gs_interp_smoothstep(card->prev_transform.rotation.y,
-                         card->target_transform.rotation.y,
-                         card->lerp);
-    card->transform.rotation.z = gs_interp_smoothstep(card->prev_transform.rotation.z,
-                         card->target_transform.rotation.z,
-                         card->lerp);
-    card->transform.rotation.w = gs_interp_smoothstep(card->prev_transform.rotation.w,
-                         card->target_transform.rotation.w,
-                         card->lerp);
-}
-
-static void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
-    card->prev_transform.position = card->transform.position;
-    card->prev_transform.rotation = card->transform.rotation;
-    card->prev_transform.scale = card->transform.scale;
-    card->target_transform.position = target_transform.position;
-    card->target_transform.rotation = target_transform.rotation;
-    card->target_transform.scale = target_transform.scale;
-    card->anim_duration = duration;
-    card->lerp = 0.0f;
-}
-
 static void update_card_animations(card_game_state_t *card_game, float dt) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        card_game->player_hand[i].lerp += dt / card_game->player_hand[i].anim_duration;
-        if (card_game->player_hand[i].lerp >= 1) {
-            card_game->player_hand[i].lerp = 1;
-        }
-        card_game_lerp_card_transform(&card_game->player_hand[i], dt);
+        lerp_card_transform(&card_game->player_hand[i], dt);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        card_game->opponent_hand[i].lerp += dt / card_game->opponent_hand[i].anim_duration;
-        if (card_game->opponent_hand[i].lerp >= 1) {
-            card_game->opponent_hand[i].lerp = 1;
-        }
-        card_game_lerp_card_transform(&card_game->opponent_hand[i], dt);
+        lerp_card_transform(&card_game->opponent_hand[i], dt);
     }
     if (card_game->player_card_in_play.name != NULL) {
-        card_game->player_card_in_play.lerp += dt / card_game->player_card_in_play.anim_duration;
-        if (card_game->player_card_in_play.lerp >= 1) {
-            card_game->player_card_in_play.lerp = 1;
-        }
-        card_game_lerp_card_transform(&card_game->player_card_in_play, dt);
+        lerp_card_transform(&card_game->player_card_in_play, dt);
     }
     if (card_game->opponent_card_in_play.name != NULL) {
-        card_game->opponent_card_in_play.lerp += dt / card_game->opponent_card_in_play.anim_duration;
-        if (card_game->opponent_card_in_play.lerp >= 1) {
-            card_game->opponent_card_in_play.lerp = 1;
-        }
-        card_game_lerp_card_transform(&card_game->opponent_card_in_play, dt);
+        lerp_card_transform(&card_game->opponent_card_in_play, dt);
     }
 }
 

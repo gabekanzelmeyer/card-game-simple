@@ -21,6 +21,12 @@ do {\
     }\
 } while (0)
 
+#define HOVER_SCREEN_SIZE 300
+#define HAND_SPACING 1.5f
+#define HAND_FAN_ANGLE 2.0f
+#define HAND_CURVE_AMOUNT 0.02f
+#define HAND_Y_POSITION_OFFSET 2.6f
+
 enum game_mode {
     MENU,
     LIBRARY,
@@ -103,6 +109,82 @@ bool world_to_screen(gs_vec3 world_pos, gs_vec2* out_screen, gs_mat4 view_proj, 
     out_screen->y = ((1.0f - ndc_y) * 0.5f) * screen_height; // Inverted Y for standard 2D screen coordinate spaces
 
     return true;
+}
+
+void lerp_card_transform(card_state_t *card, float dt) {
+    card->lerp += dt / card->anim_duration;
+    if (card->lerp >= 1) {
+        card->lerp = 1;
+    }
+
+    card->transform.position.x = gs_interp_smoothstep(card->prev_transform.position.x,
+                                                      card->target_transform.position.x,
+                                                      card->lerp);
+    card->transform.position.y = gs_interp_smoothstep(card->prev_transform.position.y,
+                                                      card->target_transform.position.y,
+                                                      card->lerp);
+    card->transform.position.z = gs_interp_smoothstep(card->prev_transform.position.z,
+                                                      card->target_transform.position.z,
+                                                      card->lerp);
+
+    card->transform.scale.x = gs_interp_smoothstep(card->prev_transform.scale.x,
+                                                   card->target_transform.scale.x,
+                                                   card->lerp);
+    card->transform.scale.y = gs_interp_smoothstep(card->prev_transform.scale.y,
+                                                   card->target_transform.scale.y,
+                                                   card->lerp);
+    card->transform.scale.z = gs_interp_smoothstep(card->prev_transform.scale.z,
+                                                   card->target_transform.scale.z,
+                                                   card->lerp);
+
+    card->transform.rotation.x = gs_interp_smoothstep(card->prev_transform.rotation.x,
+                                                      card->target_transform.rotation.x,
+                                                      card->lerp);
+    card->transform.rotation.y = gs_interp_smoothstep(card->prev_transform.rotation.y,
+                                                      card->target_transform.rotation.y,
+                                                      card->lerp);
+    card->transform.rotation.z = gs_interp_smoothstep(card->prev_transform.rotation.z,
+                                                      card->target_transform.rotation.z,
+                                                      card->lerp);
+    card->transform.rotation.w = gs_interp_smoothstep(card->prev_transform.rotation.w,
+                                                      card->target_transform.rotation.w,
+                                                      card->lerp);
+}
+
+void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
+    card->prev_transform.position = card->transform.position;
+    card->prev_transform.rotation = card->transform.rotation;
+    card->prev_transform.scale = card->transform.scale;
+    card->target_transform.position = target_transform.position;
+    card->target_transform.rotation = target_transform.rotation;
+    card->target_transform.scale = target_transform.scale;
+    card->anim_duration = duration;
+    card->lerp = 0.0f;
+}
+
+void position_hand_cards(card_state_t *cards, bool bottom_of_screen) {
+    float spacing, fan_angle, curve_amount, y_offset;
+    spacing = HAND_SPACING;
+    if (bottom_of_screen) {
+        fan_angle = HAND_FAN_ANGLE;
+        curve_amount = -HAND_CURVE_AMOUNT;
+        y_offset = -HAND_Y_POSITION_OFFSET;
+    } else {
+        fan_angle = -HAND_FAN_ANGLE;
+        curve_amount = HAND_CURVE_AMOUNT;
+        y_offset = HAND_Y_POSITION_OFFSET;
+    }
+
+    int count = gs_dyn_array_size(cards);
+    float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
+    float start_tilt = fan_angle * (float)count / 2.f - fan_angle / 2.f;
+    for (int i = 0; i < count; i++) {
+        gs_vqs_t target = gs_vqs_default();
+        target.position.x = start_x + i * spacing;
+        target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
+        target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 0, 1));
+        set_card_animation(&cards[i], target, 0.2f);
+    }
 }
 
 void gui_show_simulation_count(game_state_t *state, int count) {

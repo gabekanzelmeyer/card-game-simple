@@ -42,6 +42,7 @@ void update() {
             card_game_init(&card_game, &state);
         }
     } else if (state.mode == LIBRARY) {
+        card_library_gui(&state);
 
     } else if (state.mode == GAME && card_game.simulate_player) {
         gui_show_simulation_count(&state, card_game.simulation_count);
