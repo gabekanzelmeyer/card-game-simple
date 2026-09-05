@@ -17,6 +17,7 @@ typedef struct {
     int charge_sharpen; // increase this cards attack by X whenever you play a card
 
     bool shield; // when damaged, prevent damage and remove shield
+    bool evade; // when attacked in battle, 50% of time prevent damage
     bool regenerate; // if the card is destroyed, return to hand and remove shield
     bool haste; // attacks early in battle
     bool timebound; // if a cards with timebound is in hand, they must be played before other cards

@@ -117,38 +117,18 @@ void lerp_card_transform(card_state_t *card, float dt) {
         card->lerp = 1;
     }
 
-    card->transform.position.x = gs_interp_smoothstep(card->prev_transform.position.x,
-                                                      card->target_transform.position.x,
-                                                      card->lerp);
-    card->transform.position.y = gs_interp_smoothstep(card->prev_transform.position.y,
-                                                      card->target_transform.position.y,
-                                                      card->lerp);
-    card->transform.position.z = gs_interp_smoothstep(card->prev_transform.position.z,
-                                                      card->target_transform.position.z,
-                                                      card->lerp);
+    card->transform.position.x = gs_interp_smoothstep(card->prev_transform.position.x, card->target_transform.position.x, card->lerp);
+    card->transform.position.y = gs_interp_smoothstep(card->prev_transform.position.y, card->target_transform.position.y, card->lerp);
+    card->transform.position.z = gs_interp_smoothstep(card->prev_transform.position.z, card->target_transform.position.z, card->lerp);
 
-    card->transform.scale.x = gs_interp_smoothstep(card->prev_transform.scale.x,
-                                                   card->target_transform.scale.x,
-                                                   card->lerp);
-    card->transform.scale.y = gs_interp_smoothstep(card->prev_transform.scale.y,
-                                                   card->target_transform.scale.y,
-                                                   card->lerp);
-    card->transform.scale.z = gs_interp_smoothstep(card->prev_transform.scale.z,
-                                                   card->target_transform.scale.z,
-                                                   card->lerp);
+    card->transform.scale.x = gs_interp_smoothstep(card->prev_transform.scale.x, card->target_transform.scale.x, card->lerp);
+    card->transform.scale.y = gs_interp_smoothstep(card->prev_transform.scale.y, card->target_transform.scale.y, card->lerp);
+    card->transform.scale.z = gs_interp_smoothstep(card->prev_transform.scale.z, card->target_transform.scale.z, card->lerp);
 
-    card->transform.rotation.x = gs_interp_smoothstep(card->prev_transform.rotation.x,
-                                                      card->target_transform.rotation.x,
-                                                      card->lerp);
-    card->transform.rotation.y = gs_interp_smoothstep(card->prev_transform.rotation.y,
-                                                      card->target_transform.rotation.y,
-                                                      card->lerp);
-    card->transform.rotation.z = gs_interp_smoothstep(card->prev_transform.rotation.z,
-                                                      card->target_transform.rotation.z,
-                                                      card->lerp);
-    card->transform.rotation.w = gs_interp_smoothstep(card->prev_transform.rotation.w,
-                                                      card->target_transform.rotation.w,
-                                                      card->lerp);
+    card->transform.rotation.x = gs_interp_smoothstep(card->prev_transform.rotation.x, card->target_transform.rotation.x, card->lerp);
+    card->transform.rotation.y = gs_interp_smoothstep(card->prev_transform.rotation.y, card->target_transform.rotation.y, card->lerp);
+    card->transform.rotation.z = gs_interp_smoothstep(card->prev_transform.rotation.z, card->target_transform.rotation.z, card->lerp);
+    card->transform.rotation.w = gs_interp_smoothstep(card->prev_transform.rotation.w, card->target_transform.rotation.w, card->lerp);
 }
 
 void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
@@ -200,8 +180,14 @@ void gui_show_simulation_count(game_state_t *state, int count) {
         | GS_GUI_OPT_FULLSCREEN)) {
 
         char buf[64];
-        gs_gui_layout_row(&state->gui_ctx, 1, (int32_t[]){-1}, 0);
         snprintf(buf, sizeof(buf), "Count: %u", count);
+
+        gs_gui_rect_t rect = gs_gui_layout_anchor(
+            &state->gui_ctx.viewport,
+            500, 200, // size
+            10, 10, // x/y offset from the centered position
+            GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+        gs_gui_layout_set_next(&state->gui_ctx, rect, 0);
         gs_gui_text(&state->gui_ctx, buf);
 
         gs_gui_window_end(&state->gui_ctx);
@@ -220,15 +206,23 @@ enum game_mode gui_show_menu(game_state_t *state) {
         | GS_GUI_OPT_NOSTYLESHADOW
         | GS_GUI_OPT_NOSTYLEBACKGROUND
         | GS_GUI_OPT_FULLSCREEN)) {
-            gs_gui_rect_t centered = gs_gui_layout_anchor(
-                &state->gui_ctx.viewport, // parent rect to center within (full screen viewport)
-            500, 300, // button size
-            0, 0, // x/y offset from the centered position
-            GS_GUI_LAYOUT_ANCHOR_CENTER
-            );
-            gs_gui_layout_set_next(&state->gui_ctx, centered, 0);
+            gs_gui_rect_t play_rect = gs_gui_layout_anchor(
+                &state->gui_ctx.viewport,
+                500, 200, // button size
+                0, -150, // x/y offset from the centered position
+                GS_GUI_LAYOUT_ANCHOR_CENTER);
+            gs_gui_layout_set_next(&state->gui_ctx, play_rect, 0);
             if (gs_gui_button(&state->gui_ctx, "Play")) {
                 result = LIBRARY;
+            }
+            gs_gui_rect_t sim_rect = gs_gui_layout_anchor(
+                &state->gui_ctx.viewport,
+                500, 200, // button size
+                0, 150, // x/y offset from the centered position
+                GS_GUI_LAYOUT_ANCHOR_CENTER);
+            gs_gui_layout_set_next(&state->gui_ctx, sim_rect, 0);
+            if (gs_gui_button(&state->gui_ctx, "Sim")) {
+                result = GAME;
             }
         }
         gs_gui_window_end(&state->gui_ctx);

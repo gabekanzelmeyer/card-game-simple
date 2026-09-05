@@ -25,7 +25,7 @@ void card_database_init() {
     card_database_add(card_new("1 1 Mass Sharp 1", 1, 3, true, false, false, (card_abilities_t){.mass_sharpen=1}));
     card_database_add(card_new("1 1 Strike 2", 1, 1, true, false, false, (card_abilities_t){.strike=2}));
 
-    card_database_add(card_new("3 2 Green", 3, 2, false, true, false, (card_abilities_t){0}));
+    card_database_add(card_new("3 2 Green Evade", 3, 2, false, true, false, (card_abilities_t){.evade=true}));
     card_database_add(card_new("2 3 Green", 2, 3, false, true, false, (card_abilities_t){0}));
     card_database_add(card_new("2 3 Green2", 2, 3, false, true, false, (card_abilities_t){0}));
     card_database_add(card_new("2 2 Heal 1", 2, 2, false, true, false, (card_abilities_t){.heal=1}));
@@ -48,14 +48,23 @@ void card_database_init() {
 
 card_state_t card_get_random() {
     int random_index = (rand() % gs_dyn_array_size(card_database));
-    card_state_t card = card_database[random_index];
-    return card;
+    return card_database[random_index];
+}
+
+bool hand_contains_card(gs_dyn_array(card_state_t) hand, card_state_t card) {
+    for (int i = 0; i < gs_dyn_array_size(hand); i++) {
+        if (hand[i].database_index == card.database_index) return true;
+    }
+    return false;
 }
 
 gs_dyn_array(card_state_t) hand_get_random() {
     gs_dyn_array(card_state_t) hand = NULL;
     for (int i = 0; i < 6; i++) {
         card_state_t card = card_get_random();
+        while (hand_contains_card(hand, card)) { // only one of each card can go in a hand
+            card = card_get_random();
+        }
         gs_dyn_array_push(hand, card);
     }
     return hand;

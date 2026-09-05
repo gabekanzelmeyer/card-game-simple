@@ -35,7 +35,12 @@ x implement cancel (removes all abilities from target)
 x reorganize utils headers (just name them cards.h, card_game.h, combine util_game and util_gui)
 x 9 cards for each color
 x improve ai_eval function to account for abilities, hand state, battle projections etc.
-- implement card library / selection before playing
+x implement card library / selection before playing
+x implement Evade ability (50% chance of dodging an attack in battle)
+- implement one of each card restriction
+- implement card library filters
+- implement opponent hand matching filters
+
 
 
 card simulation / testing findings

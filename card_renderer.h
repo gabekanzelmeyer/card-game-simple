@@ -325,6 +325,12 @@ void card_update_visuals(card_render_data_t *card_renderer, card_state_t *card, 
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_renderer->card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
+    if (card->current_abilities.evade) {
+        char ability_buffer[20] = "Evade";
+        text_dimensions = gs_asset_font_text_dimensions(&card_renderer->card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_renderer->card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
     if (card->current_abilities.regenerate) {
         char ability_buffer[20] = "Regenerate";
         text_dimensions = gs_asset_font_text_dimensions(&card_renderer->card_abilities_font, ability_buffer, strlen(ability_buffer));

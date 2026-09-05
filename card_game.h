@@ -535,30 +535,26 @@ static void update_card_visuals(card_game_state_t *card_game, game_state_t *game
 static void print_stats(card_game_state_t *card_game) {
     printf("player wins: %i, opponent wins: %i, draws: %i\n", card_game->player_wins, card_game->opponent_wins, card_game->draws);
 
+    int size = gs_dyn_array_size(card_database);
     int sorted_indices[100] = {0};
-    int tmp_card_counts[100] = {0};
-    for (int i = 0; i < 100; i++) {
-        tmp_card_counts[i] = card_game->winning_card_counts[i];
+    for (int i = 0; i < size; i++) {
+        sorted_indices[i] = i;
     }
-
-    for (int i = 0; i < 100; i++) {
-        for (int j = 1; j < 100; j++) {
-            if (tmp_card_counts[j] > tmp_card_counts[j - 1]) {
-                int tmp = tmp_card_counts[j - 1];
-                tmp_card_counts[j - 1] = tmp_card_counts[j];
-                tmp_card_counts[j] = tmp;
-
-                sorted_indices[j - 1] = j;
-                sorted_indices[j] = j - 1;
-            }
+    for (int i = 1; i < size; i++) {
+        int key = sorted_indices[i];
+        int val = card_game->winning_card_counts[key];
+        int j = i - 1;
+        while (j >= 0 && card_game->winning_card_counts[sorted_indices[j]] < val) {
+            sorted_indices[j + 1] = sorted_indices[j];
+            j--;
         }
+        sorted_indices[j + 1] = key;
     }
-    printf("finished sorting\n");
-    for (int i = 0; i < 100; i++) {
+
+    for (int i = 0; i < size; i++) {
         int index = sorted_indices[i];
-        int count = tmp_card_counts[i];
-        if (count > 0) {
-            printf("wins: %i - %s\n", count, card_database[index].name);
+        if (card_game->winning_card_counts[index] > 0) {
+            printf("wins: %i - %s\n", card_game->winning_card_counts[index], card_database[index].name);
         }
     }
 }
@@ -566,18 +562,18 @@ static void print_stats(card_game_state_t *card_game) {
 void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
     bool was_a_card_destroyed = false;
     if (card_game->player_card_in_play.current_health <= 0) {
-        if (card_game->player_card_in_play.abilities.regenerate) {
+        if (card_game->player_card_in_play.current_abilities.regenerate) {
             card_reset(&card_game->player_card_in_play);
-            card_game->player_card_in_play.abilities.regenerate = false;
+            card_game->player_card_in_play.current_abilities.regenerate = false;
             gs_dyn_array_push(card_game->player_hand, card_game->player_card_in_play);
         }
         card_game->player_card_in_play = (card_state_t){0};
         was_a_card_destroyed = true;
     }
     if (card_game->opponent_card_in_play.current_health <= 0) {
-        if (card_game->opponent_card_in_play.abilities.regenerate > 0) {
+        if (card_game->opponent_card_in_play.current_abilities.regenerate) {
             card_reset(&card_game->opponent_card_in_play);
-            card_game->opponent_card_in_play.abilities.regenerate = false;
+            card_game->opponent_card_in_play.current_abilities.regenerate = false;
             gs_dyn_array_push(card_game->opponent_hand, card_game->opponent_card_in_play);
         }
         card_game->opponent_card_in_play = (card_state_t){0};
@@ -737,9 +733,16 @@ void trigger_on_play_effects(card_game_state_t *card_game) {
 static void damage_card(card_state_t *source, card_state_t *target, int damage) {
     if (damage <= 0) return;
 
+    bool damage_prevented = false;
     if (target->current_abilities.shield) {
         target->current_abilities.shield = false;
-    } else {
+        damage_prevented = true;
+    }
+    if (target->current_abilities.evade) {
+        damage_prevented = damage_prevented || rand() % 2 == 0;
+    }
+
+    if (!damage_prevented) {
         target->current_health -= damage;
     }
 }
@@ -955,6 +958,7 @@ static float ai_evaluate_card(card_state_t *card, float other_attack, float othe
     float attack_weight = 1.f;
     float health_weight = 1.f;
     float shield_weight = 1.f;
+    float evade_weight = 0.7f;
     float haste_weight = 1.f;
     float renegerate_weight = 1.f;
     float timebound_weight = 0.f;
@@ -968,6 +972,7 @@ static float ai_evaluate_card(card_state_t *card, float other_attack, float othe
 
     score = base_score;
     score += card->current_abilities.shield * shield_weight * base_score;
+    score += card->current_abilities.evade * evade_weight * base_score;
     score += card->current_abilities.haste * haste_weight * base_score;
     score += card->current_abilities.regenerate * renegerate_weight * score;
     score += card->current_abilities.timebound * timebound_weight * score;

@@ -18,7 +18,7 @@ static gs_dyn_array(card_state_t) card_library_view;
 static gs_dyn_array(card_state_t) card_library_hand;
 
 static int num_pages = 1;
-static int current_page = 0;
+static int current_page_index = 0;
 static int prev_page = -1;
 
 void card_library_init() {
@@ -31,6 +31,7 @@ void card_library_init() {
     }
 
     num_pages = (gs_dyn_array_size(card_library) / CARDS_PER_PAGE) + 1;
+    current_page_index = 0;
 }
 
 enum game_mode card_library_gui(game_state_t *state) {
@@ -48,14 +49,14 @@ enum game_mode card_library_gui(game_state_t *state) {
 
             char buf[64];
             gs_gui_layout_row(&state->gui_ctx, 4, (int32_t[]){400, 200, 200, 300}, 160);
-            snprintf(buf, sizeof(buf), "Page: %i/%i", (current_page + 1), num_pages);
+            snprintf(buf, sizeof(buf), "Page: %i/%i", (current_page_index + 1), num_pages);
             gs_gui_text(&state->gui_ctx, buf);
             if (gs_gui_button(&state->gui_ctx, "Prev")) {
-                current_page = current_page - 1;
-                if (current_page < 0) current_page = num_pages - 1;
+                current_page_index = current_page_index - 1;
+                if (current_page_index < 0) current_page_index = num_pages - 1;
             }
             if (gs_gui_button(&state->gui_ctx, "Next")) {
-                current_page = (current_page + 1) % num_pages;
+                current_page_index = (current_page_index + 1) % num_pages;
             }
             if (gs_gui_button(&state->gui_ctx, "Play")) {
                 if (gs_dyn_array_size(card_library_hand) == 6) {
@@ -69,10 +70,10 @@ enum game_mode card_library_gui(game_state_t *state) {
 }
 
 void card_library_update(game_state_t *game_state) {
-    if (prev_page != current_page) {
+    if (prev_page != current_page_index) {
         gs_dyn_array_free(card_library_view);
 
-        int page_start_index = current_page * CARDS_PER_PAGE;
+        int page_start_index = current_page_index * CARDS_PER_PAGE;
         int page_end_index = fmin(gs_dyn_array_size(card_library) - 1, page_start_index + CARDS_PER_PAGE - 1);
         int render_index = 0;
         for (int i = page_end_index; i >= page_start_index; i--) {
@@ -86,7 +87,7 @@ void card_library_update(game_state_t *game_state) {
             card_update_visuals(game_state->card_renderer, &card, &game_state->immediate_draw);
         }
 
-        prev_page = current_page;
+        prev_page = current_page_index;
     }
 
     gs_vec2 mouse_pos = gs_platform_mouse_positionv();
