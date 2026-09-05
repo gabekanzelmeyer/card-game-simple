@@ -109,7 +109,7 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
 static float ai_evaluate(card_game_state_t *card_game);
 static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player);
 
-void card_game_init(card_game_state_t *card_game, game_state_t *game_state) {
+void card_game_init(card_game_state_t *card_game, game_state_t *game_state, gs_dyn_array(card_state_t) player_hand, gs_dyn_array(card_state_t) opponent_hand) {
     gs_dyn_array_free(card_game->player_hand);
     gs_dyn_array_free(card_game->opponent_hand);
     gs_dyn_array_free(card_game->player_hand_cache);
@@ -117,11 +117,11 @@ void card_game_init(card_game_state_t *card_game, game_state_t *game_state) {
 
     int render_index = 0;
     for (int i = 0; i < 6; i++) {
-        card_state_t player_card = card_get_random();
+        card_state_t player_card = player_hand[i];
         player_card.render_index = render_index++;
         gs_dyn_array_push(card_game->player_hand, player_card);
         gs_dyn_array_push(card_game->player_hand_cache, player_card);
-        card_state_t opponent_card = card_get_random();
+        card_state_t opponent_card = opponent_hand[i];
         opponent_card.render_index = render_index++;
         gs_dyn_array_push(card_game->opponent_hand, opponent_card);
         gs_dyn_array_push(card_game->opponent_hand_cache, opponent_card);
@@ -612,7 +612,11 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->draws++;
-                card_game_init(card_game, game_state);
+                gs_dyn_array(card_state_t) player_hand = hand_get_random();
+                gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+                card_game_init(card_game, game_state, player_hand, opponent_hand);
+                gs_dyn_array_free(player_hand);
+                gs_dyn_array_free(opponent_hand);
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -626,7 +630,11 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->player_hand_cache[i].database_index]++;
                 }
-                card_game_init(card_game, game_state);
+                gs_dyn_array(card_state_t) player_hand = hand_get_random();
+                gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+                card_game_init(card_game, game_state, player_hand, opponent_hand);
+                gs_dyn_array_free(player_hand);
+                gs_dyn_array_free(opponent_hand);
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -640,7 +648,11 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->opponent_hand_cache[i].database_index]++;
                 }
-                card_game_init(card_game, game_state);
+                gs_dyn_array(card_state_t) player_hand = hand_get_random();
+                gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+                card_game_init(card_game, game_state, player_hand, opponent_hand);
+                gs_dyn_array_free(player_hand);
+                gs_dyn_array_free(opponent_hand);
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;

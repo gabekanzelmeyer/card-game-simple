@@ -52,4 +52,13 @@ card_state_t card_get_random() {
     return card;
 }
 
+gs_dyn_array(card_state_t) hand_get_random() {
+    gs_dyn_array(card_state_t) hand = NULL;
+    for (int i = 0; i < 6; i++) {
+        card_state_t card = card_get_random();
+        gs_dyn_array_push(hand, card);
+    }
+    return hand;
+}
+
 #endif

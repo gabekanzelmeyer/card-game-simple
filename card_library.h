@@ -33,7 +33,8 @@ void card_library_init() {
     num_pages = (gs_dyn_array_size(card_library) / CARDS_PER_PAGE) + 1;
 }
 
-void card_library_gui(game_state_t *state) {
+enum game_mode card_library_gui(game_state_t *state) {
+    enum game_mode result = LIBRARY;
     if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
         | GS_GUI_OPT_NORESIZE
         | GS_GUI_OPT_NOMOVE
@@ -58,12 +59,13 @@ void card_library_gui(game_state_t *state) {
             }
             if (gs_gui_button(&state->gui_ctx, "Play")) {
                 if (gs_dyn_array_size(card_library_hand) == 6) {
-                    printf("PLAY\n");
+                    result = GAME;
                 }
             }
-
-        gs_gui_window_end(&state->gui_ctx);
         }
+        gs_gui_window_end(&state->gui_ctx);
+        return result;
+
 }
 
 void card_library_update(game_state_t *game_state) {
@@ -95,6 +97,7 @@ void card_library_update(game_state_t *game_state) {
 
     int hovered_index = -1;
     bool added = false;
+
     for (int i = gs_dyn_array_size(card_library_view) - 1; i >= 0; i--) {
         world_to_screen(card_library_view[i].transform.position, &screen_pos, view_projection, fbw, fbh);
         if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300
@@ -103,6 +106,13 @@ void card_library_update(game_state_t *game_state) {
             added = true;
             gs_dyn_array_push(card_library_hand, card_library_view[i]);
             position_hand_cards(card_library_hand, true);
+
+            int render_index = CARDS_PER_PAGE;
+            for (int i = gs_dyn_array_size(card_library_hand) - 1; i >= 0; i--) {
+                card_library_hand[i].render_index = render_index++;
+                card_update_visuals(game_state->card_renderer, &card_library_hand[i], &game_state->immediate_draw);
+            }
+
             break;
         }
     }
@@ -111,6 +121,13 @@ void card_library_update(game_state_t *game_state) {
         if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && !added) {
             gs_dyn_array_erase(card_library_hand, i);
             position_hand_cards(card_library_hand, true);
+
+            int render_index = CARDS_PER_PAGE;
+            for (int i = gs_dyn_array_size(card_library_hand) - 1; i >= 0; i--) {
+                card_library_hand[i].render_index = render_index++;
+                card_update_visuals(game_state->card_renderer, &card_library_hand[i], &game_state->immediate_draw);
+            }
+
             break;
         }
     }

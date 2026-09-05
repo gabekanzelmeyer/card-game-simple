@@ -31,6 +31,8 @@ void update() {
         if (state.mode == LIBRARY) {
             card_library_init();
         }
+    } else if (state.mode == LIBRARY) {
+        state.mode = card_library_gui(&state);
         if (state.mode == GAME) {
             card_game.simulate_player = true;
             card_game.game_speed = card_game.simulate_player ? 60.0f : 1.0f;
@@ -39,11 +41,13 @@ void update() {
             card_game.opponent_wins = 0;
             card_game.draws = 0;
             for (int i = 0; i < 100; i++) card_game.winning_card_counts[i] = 0;
-            card_game_init(&card_game, &state);
-        }
-    } else if (state.mode == LIBRARY) {
-        card_library_gui(&state);
 
+            gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+            printf("count %i\n", gs_dyn_array_size(opponent_hand));
+            card_game_init(&card_game, &state, card_library_hand, opponent_hand);
+            gs_dyn_array_free(card_library_hand);
+            gs_dyn_array_free(opponent_hand);
+        }
     } else if (state.mode == GAME && card_game.simulate_player) {
         gui_show_simulation_count(&state, card_game.simulation_count);
     }
