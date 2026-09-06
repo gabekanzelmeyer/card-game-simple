@@ -37,9 +37,9 @@ x 9 cards for each color
 x improve ai_eval function to account for abilities, hand state, battle projections etc.
 x implement card library / selection before playing
 x implement Evade ability (50% chance of dodging an attack in battle)
-- implement one of each card restriction
-- implement card library filters
-- implement opponent hand matching filters
+x implement one of each card restriction
+x implement card library filters
+x implement opponent hand matching filters
 
 
 

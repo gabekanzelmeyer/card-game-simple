@@ -182,11 +182,7 @@ void gui_show_simulation_count(game_state_t *state, int count) {
         char buf[64];
         snprintf(buf, sizeof(buf), "Count: %u", count);
 
-        gs_gui_rect_t rect = gs_gui_layout_anchor(
-            &state->gui_ctx.viewport,
-            500, 200, // size
-            10, 10, // x/y offset from the centered position
-            GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+        gs_gui_rect_t rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 10, 10, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
         gs_gui_layout_set_next(&state->gui_ctx, rect, 0);
         gs_gui_text(&state->gui_ctx, buf);
 
@@ -206,20 +202,12 @@ enum game_mode gui_show_menu(game_state_t *state) {
         | GS_GUI_OPT_NOSTYLESHADOW
         | GS_GUI_OPT_NOSTYLEBACKGROUND
         | GS_GUI_OPT_FULLSCREEN)) {
-            gs_gui_rect_t play_rect = gs_gui_layout_anchor(
-                &state->gui_ctx.viewport,
-                500, 200, // button size
-                0, -150, // x/y offset from the centered position
-                GS_GUI_LAYOUT_ANCHOR_CENTER);
+            gs_gui_rect_t play_rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 0, -150, GS_GUI_LAYOUT_ANCHOR_CENTER);
             gs_gui_layout_set_next(&state->gui_ctx, play_rect, 0);
             if (gs_gui_button(&state->gui_ctx, "Play")) {
                 result = LIBRARY;
             }
-            gs_gui_rect_t sim_rect = gs_gui_layout_anchor(
-                &state->gui_ctx.viewport,
-                500, 200, // button size
-                0, 150, // x/y offset from the centered position
-                GS_GUI_LAYOUT_ANCHOR_CENTER);
+            gs_gui_rect_t sim_rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 0, 150, GS_GUI_LAYOUT_ANCHOR_CENTER);
             gs_gui_layout_set_next(&state->gui_ctx, sim_rect, 0);
             if (gs_gui_button(&state->gui_ctx, "Sim")) {
                 result = GAME;

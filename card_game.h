@@ -608,8 +608,8 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->draws++;
-                gs_dyn_array(card_state_t) player_hand = hand_get_random();
-                gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+                gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
+                gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
                 card_game_init(card_game, game_state, player_hand, opponent_hand);
                 gs_dyn_array_free(player_hand);
                 gs_dyn_array_free(opponent_hand);
@@ -626,8 +626,8 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->player_hand_cache[i].database_index]++;
                 }
-                gs_dyn_array(card_state_t) player_hand = hand_get_random();
-                gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+                gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
+                gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
                 card_game_init(card_game, game_state, player_hand, opponent_hand);
                 gs_dyn_array_free(player_hand);
                 gs_dyn_array_free(opponent_hand);
@@ -644,8 +644,8 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->opponent_hand_cache[i].database_index]++;
                 }
-                gs_dyn_array(card_state_t) player_hand = hand_get_random();
-                gs_dyn_array(card_state_t) opponent_hand = hand_get_random();
+                gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
+                gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
                 card_game_init(card_game, game_state, player_hand, opponent_hand);
                 gs_dyn_array_free(player_hand);
                 gs_dyn_array_free(opponent_hand);

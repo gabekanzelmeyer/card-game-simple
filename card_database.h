@@ -46,9 +46,18 @@ void card_database_init() {
     card_database_add(card_new("1 3 Freeze", 1, 3, false, false, true, (card_abilities_t){.bestow_frozen=true}));
 }
 
-card_state_t card_get_random() {
-    int random_index = (rand() % gs_dyn_array_size(card_database));
-    return card_database[random_index];
+card_state_t card_get_random(bool red, bool green, bool blue) {
+    gs_dyn_array(card_state_t) filtered_cards = NULL;
+    bool all_disabled = !(red || green || blue);
+    for (int i = 0; i < gs_dyn_array_size(card_database); i++) {
+        if (card_database[i].red && (red || all_disabled)) gs_dyn_array_push(filtered_cards, card_database[i]);
+        else if (card_database[i].green && (green || all_disabled)) gs_dyn_array_push(filtered_cards, card_database[i]);
+        else if (card_database[i].blue && (blue || all_disabled))  gs_dyn_array_push(filtered_cards, card_database[i]);
+    }
+    int random_index = (rand() % gs_dyn_array_size(filtered_cards));
+    card_state_t card = filtered_cards[random_index];
+    gs_dyn_array_free(filtered_cards);
+    return card;
 }
 
 bool hand_contains_card(gs_dyn_array(card_state_t) hand, card_state_t card) {
@@ -58,12 +67,12 @@ bool hand_contains_card(gs_dyn_array(card_state_t) hand, card_state_t card) {
     return false;
 }
 
-gs_dyn_array(card_state_t) hand_get_random() {
+gs_dyn_array(card_state_t) hand_get_random(bool red, bool green, bool blue) {
     gs_dyn_array(card_state_t) hand = NULL;
     for (int i = 0; i < 6; i++) {
-        card_state_t card = card_get_random();
+        card_state_t card = card_get_random(red, green, blue);
         while (hand_contains_card(hand, card)) { // only one of each card can go in a hand
-            card = card_get_random();
+            card = card_get_random(red, green, blue);
         }
         gs_dyn_array_push(hand, card);
     }
