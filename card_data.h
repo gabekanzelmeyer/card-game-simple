@@ -13,8 +13,8 @@ typedef struct {
     int mass_heal; // heal all your cards by X
     int mass_dull; // reduce attack of all opponent cards by X
     int mass_sharpen; // increase attack of all your cards by X
-    int charge_heal; // increase this cards health by X whenever you play a card
-    int charge_sharpen; // increase this cards attack by X whenever you play a card
+    int charge_health; // increase this cards health by X whenever you play a card
+    int charge_attack; // increase this cards attack by X whenever you play a card
 
     bool shield; // when damaged, prevent damage and remove shield
     bool evade; // when attacked in battle, 50% of time prevent damage

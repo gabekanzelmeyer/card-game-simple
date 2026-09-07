@@ -78,12 +78,21 @@ typedef struct {
     card_state_t *target;
     int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
     bool visual_update;
+    float game_speed;
+
     bool simulate_player;
+    bool simulate_color_v_color;
     int simulation_count;
     int winning_card_counts[100];
     int player_wins, opponent_wins, draws;
+    int red_v_green_wins, red_v_green_loss, red_v_green_draws;
+    int red_v_red_wins, red_v_red_loss, red_v_red_draws;
+    int green_v_green_wins, green_v_green_loss, green_v_green_draws;
+    int green_v_blue_wins, green_v_blue_loss, green_v_blue_draws;
+    int blue_v_blue_wins, blue_v_blue_loss, blue_v_blue_draws;
+    int blue_v_red_wins, blue_v_red_loss, blue_v_red_draws;
     ai_selection_t player_selection;
-    float game_speed;
+
 } card_game_state_t;
 
 static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *game_state);
@@ -110,15 +119,10 @@ static float ai_evaluate(card_game_state_t *card_game);
 static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player);
 
 void card_game_init(card_game_state_t *card_game, game_state_t *game_state, gs_dyn_array(card_state_t) player_hand, gs_dyn_array(card_state_t) opponent_hand) {
-    printf("init\n");
     gs_dyn_array_free(card_game->player_hand);
-    printf("player\n");
     gs_dyn_array_free(card_game->opponent_hand);
-    printf("opp\n");
     gs_dyn_array_free(card_game->player_hand_cache);
-    printf("player cache\n");
     gs_dyn_array_free(card_game->opponent_hand_cache);
-    printf("free hands\n");
 
     int render_index = 0;
     for (int i = 0; i < 6; i++) {
@@ -136,6 +140,9 @@ void card_game_init(card_game_state_t *card_game, game_state_t *game_state, gs_d
     card_game->opponent_card_in_play = (card_state_t){0};
     card_game->phase = INIT;
     update_card_visuals(card_game, game_state);
+
+    gs_dyn_array_free(player_hand);
+    gs_dyn_array_free(opponent_hand);
 }
 
 void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
@@ -175,6 +182,34 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->opponent_card_in_play.name != NULL) {
         card_render_instanced(game_state->card_renderer, &card_game->opponent_card_in_play, 1, &game_state->command_buffer, view_projection);
     }
+}
+
+void card_game_show_simulation_gui(card_game_state_t *card_game, game_state_t *state) {
+    if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
+        | GS_GUI_OPT_NORESIZE
+        | GS_GUI_OPT_NOMOVE
+        | GS_GUI_OPT_NOSCROLL
+        | GS_GUI_OPT_NOCLOSE
+        | GS_GUI_OPT_NOFRAME
+        | GS_GUI_OPT_NOSTYLEBORDER
+        | GS_GUI_OPT_NOSTYLESHADOW
+        | GS_GUI_OPT_NOSTYLEBACKGROUND
+        | GS_GUI_OPT_FULLSCREEN)) {
+
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Count: %u", card_game->simulation_count);
+
+            gs_gui_rect_t rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 10, 10, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+            gs_gui_layout_set_next(&state->gui_ctx, rect, 0);
+            gs_gui_text(&state->gui_ctx, buf);
+
+            gs_gui_rect_t button_rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 300, 200, 0, 200, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+            gs_gui_layout_set_next(&state->gui_ctx, button_rect, 0);
+            if (gs_gui_button(&state->gui_ctx, "Stop")) {
+                card_game->simulation_count = 0;
+            }
+            gs_gui_window_end(&state->gui_ctx);
+        }
 }
 
 static void set_phase(card_game_state_t *card_game, enum card_game_phase phase) {
@@ -539,6 +574,15 @@ static void update_card_visuals(card_game_state_t *card_game, game_state_t *game
 static void print_stats(card_game_state_t *card_game) {
     printf("player wins: %i, opponent wins: %i, draws: %i\n", card_game->player_wins, card_game->opponent_wins, card_game->draws);
 
+    if (card_game->simulate_color_v_color) {
+        printf("Red v Red wins: %i, losses: %i, draws: %i\n", card_game->red_v_red_wins, card_game->red_v_red_loss, card_game->red_v_red_draws);
+        printf("Red v Green wins: %i, losses: %i, draws: %i\n", card_game->red_v_green_wins, card_game->red_v_green_loss, card_game->red_v_green_draws);
+        printf("Green v Green wins: %i, losses: %i, draws: %i\n", card_game->green_v_green_wins, card_game->green_v_green_loss, card_game->green_v_green_draws);
+        printf("Green v Blue wins: %i, losses: %i, draws: %i\n", card_game->green_v_blue_wins, card_game->green_v_blue_loss, card_game->green_v_blue_draws);
+        printf("Blue v Blue wins: %i, losses: %i, draws: %i\n", card_game->blue_v_blue_wins, card_game->blue_v_blue_loss, card_game->blue_v_blue_draws);
+        printf("Blue v Red wins: %i, losses: %i, draws: %i\n", card_game->blue_v_red_wins, card_game->blue_v_red_loss, card_game->blue_v_red_draws);
+    }
+
     int size = gs_dyn_array_size(card_database);
     int sorted_indices[100] = {0};
     for (int i = 0; i < size; i++) {
@@ -612,7 +656,17 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->draws++;
-                card_game_init(card_game, game_state, hand_get_random(true, true, true), hand_get_random(true, true, true));
+                if (card_game->simulate_color_v_color) {
+                    if (card_game->opponent_hand_cache[0].red && card_game->player_hand_cache[0].red) card_game->red_v_red_draws++;
+                    if (card_game->opponent_hand_cache[0].red && card_game->player_hand_cache[0].green) card_game->red_v_green_draws++;
+                    if (card_game->opponent_hand_cache[0].green && card_game->player_hand_cache[0].green) card_game->green_v_green_draws++;
+                    if (card_game->opponent_hand_cache[0].green && card_game->player_hand_cache[0].blue) card_game->green_v_blue_draws++;
+                    if (card_game->opponent_hand_cache[0].blue && card_game->player_hand_cache[0].blue) card_game->blue_v_blue_draws++;
+                    if (card_game->opponent_hand_cache[0].blue && card_game->player_hand_cache[0].red) card_game->blue_v_red_draws++;
+                }
+                gs_dyn_array(card_state_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                gs_dyn_array(card_state_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                card_game_init(card_game, game_state, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -626,7 +680,17 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->player_hand_cache[i].database_index]++;
                 }
-                card_game_init(card_game, game_state, hand_get_random(true, true, true), hand_get_random(true, true, true));
+                if (card_game->simulate_color_v_color) {
+                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].red) card_game->red_v_red_wins++;
+                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].green) card_game->red_v_green_wins++;
+                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].green) card_game->green_v_green_wins++;
+                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].blue) card_game->green_v_blue_wins++;
+                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].blue) card_game->blue_v_blue_wins++;
+                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].red) card_game->blue_v_red_wins++;
+                }
+                gs_dyn_array(card_state_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                gs_dyn_array(card_state_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                card_game_init(card_game, game_state, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -637,10 +701,20 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->opponent_wins++;
+                if (card_game->simulate_color_v_color) {
+                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].red) card_game->red_v_red_loss++;
+                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].green) card_game->red_v_green_loss++;
+                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].green) card_game->green_v_green_loss++;
+                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].blue) card_game->green_v_blue_loss++;
+                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].blue) card_game->blue_v_blue_loss++;
+                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].red) card_game->blue_v_red_loss++;
+                }
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->opponent_hand_cache[i].database_index]++;
                 }
-                card_game_init(card_game, game_state, hand_get_random(true, true, true), hand_get_random(true, true, true));
+                gs_dyn_array(card_state_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                gs_dyn_array(card_state_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                card_game_init(card_game, game_state, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -695,8 +769,8 @@ void trigger_on_play_effects(card_game_state_t *card_game) {
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
             card_game->player_hand[i].current_health += card_game->player_card_in_play.current_abilities.mass_heal;
             card_game->player_hand[i].current_attack += card_game->player_card_in_play.current_abilities.mass_sharpen;
-            card_game->player_hand[i].current_health += card_game->player_hand[i].current_abilities.charge_heal;
-            card_game->player_hand[i].current_attack += card_game->player_hand[i].current_abilities.charge_sharpen;
+            card_game->player_hand[i].current_health += card_game->player_hand[i].current_abilities.charge_health;
+            card_game->player_hand[i].current_attack += card_game->player_hand[i].current_abilities.charge_attack;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
             card_game->opponent_hand[i].current_attack = fmax(1, card_game->opponent_hand[i].current_attack - card_game->player_card_in_play.current_abilities.mass_dull);
@@ -712,8 +786,8 @@ void trigger_on_play_effects(card_game_state_t *card_game) {
         for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
             card_game->opponent_hand[i].current_health += card_game->opponent_card_in_play.current_abilities.mass_heal;
             card_game->opponent_hand[i].current_attack += card_game->opponent_card_in_play.current_abilities.mass_sharpen;
-            card_game->opponent_hand[i].current_health += card_game->opponent_hand[i].current_abilities.charge_heal;
-            card_game->opponent_hand[i].current_attack += card_game->opponent_hand[i].current_abilities.charge_sharpen;
+            card_game->opponent_hand[i].current_health += card_game->opponent_hand[i].current_abilities.charge_health;
+            card_game->opponent_hand[i].current_attack += card_game->opponent_hand[i].current_abilities.charge_attack;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
             card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->opponent_card_in_play.current_abilities.mass_dull);

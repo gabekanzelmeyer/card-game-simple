@@ -35,6 +35,7 @@ void card_library_init() {
 
     num_pages = (gs_dyn_array_size(card_library) / CARDS_PER_PAGE) + 1;
     current_page_index = 0;
+    prev_page = -1;
 }
 
 static void card_library_filter_view(game_state_t *game_state, int page_index) {

@@ -33,9 +33,9 @@ void card_database_init() {
     card_database_add(card_new("Green 3/4 (2)", 3, 4, false, true, false, (card_abilities_t){0}));
     card_database_add(card_new("Green 2/3 Heal 2", 2, 3, false, true, false, (card_abilities_t){.heal=2}));
     card_database_add(card_new("Green 2/2 Heal 3", 2, 3, false, true, false, (card_abilities_t){.heal=3}));
-    card_database_add(card_new("Green 2/2 Charge 0/1", 2, 2, false, true, false, (card_abilities_t){.charge_heal=1}));
+    card_database_add(card_new("Green 2/2 Charge 0/1", 2, 2, false, true, false, (card_abilities_t){.charge_health=1}));
     card_database_add(card_new("Green 2/2 Regen", 2, 2, false, true, false, (card_abilities_t){.regenerate=true}));
-    card_database_add(card_new("Green 1/1 Charge 1/1", 2, 2, false, true, false, (card_abilities_t){.charge_heal=1, .charge_sharpen=1}));
+    card_database_add(card_new("Green 1/1 Charge 1/1", 2, 2, false, true, false, (card_abilities_t){.charge_health=1, .charge_attack=1}));
     card_database_add(card_new("Green 4/1 Regen", 4, 1, false, true, false, (card_abilities_t){.regenerate=true}));
     card_database_add(card_new("Green 2/1 Mass Heal 1", 2, 1, false, true, false, (card_abilities_t){.mass_heal=1}));
     card_database_add(card_new("Green 1/2 Regen Heal 2", 1, 2, false, true, false, (card_abilities_t){.heal=2, .regenerate=true}));
@@ -50,9 +50,9 @@ void card_database_init() {
     card_database_add(card_new("Blue 3/3 Ward", 3, 3, false, false, true, (card_abilities_t){.ward=true}));
     card_database_add(card_new("Blue 3/2 Evade", 3, 2, false, false, true, (card_abilities_t){.evade=true}));
     card_database_add(card_new("Blue 5/6 Frozen", 5, 6, false, false, true, (card_abilities_t){.frozen=true}));
-    card_database_add(card_new("2 2 Cancel", 2, 2, false, false, true, (card_abilities_t){.cancel=true}));
-    card_database_add(card_new("2 3 Freeze", 2, 3, false, false, true, (card_abilities_t){.bestow_frozen=true}));
-    card_database_add(card_new("3 2 Freeze", 3, 2, false, false, true, (card_abilities_t){.bestow_frozen=true}));
+    card_database_add(card_new("Blue 2/2 Cancel", 2, 2, false, false, true, (card_abilities_t){.cancel=true}));
+    card_database_add(card_new("Blue 2/3 Freeze", 2, 3, false, false, true, (card_abilities_t){.bestow_frozen=true}));
+    card_database_add(card_new("Blue 3/2 Freeze", 3, 2, false, false, true, (card_abilities_t){.bestow_frozen=true}));
 }
 
 card_state_t card_get_random(bool red, bool green, bool blue) {
@@ -86,6 +86,14 @@ gs_dyn_array(card_state_t) hand_get_random(bool red, bool green, bool blue) {
         gs_dyn_array_push(hand, card);
     }
     return hand;
+}
+
+gs_dyn_array(card_state_t) hand_get_random_color() {
+    int color = rand() % 3;
+    bool red = color == 0;
+    bool green = color == 1;
+    bool blue = color == 2;
+    return hand_get_random(red, green, blue);
 }
 
 #endif

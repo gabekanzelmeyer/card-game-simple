@@ -310,10 +310,18 @@ void card_update_visuals(card_render_data_t *card_renderer, card_state_t *card, 
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_renderer->card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;
     }
-    if (card->current_abilities.charge_heal > 0 || card->current_abilities.charge_sharpen > 0) {
-        char ability_buffer[20] = "Charge ";
+    if (card->current_abilities.charge_health > 0) {
+        char ability_buffer[20] = "Charge Health ";
         size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "+%d/+%d", card->current_abilities.charge_sharpen, card->current_abilities.charge_heal);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "+%d", card->current_abilities.charge_health);
+        text_dimensions = gs_asset_font_text_dimensions(&card_renderer->card_abilities_font, ability_buffer, strlen(ability_buffer));
+        gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_renderer->card_abilities_font, false, 20, 20, 20, 255);
+        ability_y_offset += offset_increment;
+    }
+    if (card->current_abilities.charge_attack > 0) {
+        char ability_buffer[20] = "Charge Attack ";
+        size_t current_len = strlen(ability_buffer);
+        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "+%d", card->current_abilities.charge_attack);
         text_dimensions = gs_asset_font_text_dimensions(&card_renderer->card_abilities_font, ability_buffer, strlen(ability_buffer));
         gsi_text(immediate_draw, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &card_renderer->card_abilities_font, false, 20, 20, 20, 255);
         ability_y_offset += offset_increment;

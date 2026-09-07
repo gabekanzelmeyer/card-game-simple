@@ -167,29 +167,6 @@ void position_hand_cards(card_state_t *cards, bool bottom_of_screen) {
     }
 }
 
-void gui_show_simulation_count(game_state_t *state, int count) {
-    if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
-        | GS_GUI_OPT_NORESIZE
-        | GS_GUI_OPT_NOMOVE
-        | GS_GUI_OPT_NOSCROLL
-        | GS_GUI_OPT_NOCLOSE
-        | GS_GUI_OPT_NOFRAME
-        | GS_GUI_OPT_NOSTYLEBORDER
-        | GS_GUI_OPT_NOSTYLESHADOW
-        | GS_GUI_OPT_NOSTYLEBACKGROUND
-        | GS_GUI_OPT_FULLSCREEN)) {
-
-        char buf[64];
-        snprintf(buf, sizeof(buf), "Count: %u", count);
-
-        gs_gui_rect_t rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 10, 10, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
-        gs_gui_layout_set_next(&state->gui_ctx, rect, 0);
-        gs_gui_text(&state->gui_ctx, buf);
-
-        gs_gui_window_end(&state->gui_ctx);
-    }
-}
-
 enum game_mode gui_show_menu(game_state_t *state) {
     enum game_mode result = MENU;
     if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE

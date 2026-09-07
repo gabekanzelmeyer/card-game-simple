@@ -32,31 +32,27 @@ void update() {
             card_library_init();
         }
         if (state.mode == GAME) {
+            card_game = (card_game_state_t){0};
             card_game.simulate_player = true;
             card_game.game_speed = 500.0f;
             card_game.simulation_count = 2000;
-            card_game.player_wins = 0;
-            card_game.opponent_wins = 0;
-            card_game.draws = 0;
+            card_game.simulate_color_v_color = false;
             for (int i = 0; i < 100; i++) card_game.winning_card_counts[i] = 0;
-            gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
-            gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
+
+            gs_dyn_array(card_state_t) player_hand = card_game.simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+            gs_dyn_array(card_state_t) opponent_hand = card_game.simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
             card_game_init(&card_game, &state, player_hand, opponent_hand);
-            gs_dyn_array_free(player_hand);
-            gs_dyn_array_free(opponent_hand);
         }
     } else if (state.mode == LIBRARY) {
         state.mode = card_library_gui(&state);
         if (state.mode == GAME) {
-            card_game.simulate_player = false;
+            card_game = (card_game_state_t){0};
             card_game.game_speed = 1.0f;
             gs_dyn_array(card_state_t) opponent_hand = hand_get_random(card_library_red_enabled, card_library_green_enabled, card_library_blue_enabled);
             card_game_init(&card_game, &state, card_library_hand, opponent_hand);
-            gs_dyn_array_free(card_library_hand);
-            gs_dyn_array_free(opponent_hand);
         }
     } else if (state.mode == GAME && card_game.simulate_player) {
-        gui_show_simulation_count(&state, card_game.simulation_count);
+        card_game_show_simulation_gui(&card_game, &state);
     }
     gs_gui_end(&state.gui_ctx);
 

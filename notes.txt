@@ -41,13 +41,14 @@ x implement one of each card restriction
 x implement card library filters
 x implement opponent hand matching filters
 x 12 cards for each color
-- allow stopping a simulation and getting stats
-- implement simulation with color filters
-- change charge heal / sharpen to charge health / attack and split back out to separate abilities
+x allow stopping a simulation and getting stats
+x change charge heal / sharpen to charge health / attack and split back out to separate abilities
+x implement simulation with random colors
+- allow setting sim properties in game without needint to rebuild
+- library showing extra last page if the previous pages are full
+- ai sim has about 2:1 advantage for opponent - need to investigate ai_eval
 
-card simulation / testing findings
-- 3/4 and 2/5 outperform all others pure stats in similar range by at least 50% (4/3 slighly less but close, 2/5 consistently the best)
-- 2/3 strike 2 and 2/3 shield perform slightly better pure stats in the 2/5 - 5/2 range
+
 
 card color ability themes
 - red: strike, sharpen, haste
