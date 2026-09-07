@@ -40,8 +40,10 @@ x implement Evade ability (50% chance of dodging an attack in battle)
 x implement one of each card restriction
 x implement card library filters
 x implement opponent hand matching filters
-
-
+x 12 cards for each color
+- allow stopping a simulation and getting stats
+- implement simulation with color filters
+- change charge heal / sharpen to charge health / attack and split back out to separate abilities
 
 card simulation / testing findings
 - 3/4 and 2/5 outperform all others pure stats in similar range by at least 50% (4/3 slighly less but close, 2/5 consistently the best)
@@ -51,7 +53,7 @@ card color ability themes
 - red: strike, sharpen, haste
 - green: heal, regenerate, charge
 - blue: dull, freeze, ward
-- general: timebound, sacrifice, shield, cancel
+- general: timebound, sacrifice, shield, cancel, evade
 
 card property ideas
 - levels

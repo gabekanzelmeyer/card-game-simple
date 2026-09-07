@@ -110,10 +110,15 @@ static float ai_evaluate(card_game_state_t *card_game);
 static ai_selection_t ai_decision(card_game_state_t *card_game, bool is_player);
 
 void card_game_init(card_game_state_t *card_game, game_state_t *game_state, gs_dyn_array(card_state_t) player_hand, gs_dyn_array(card_state_t) opponent_hand) {
+    printf("init\n");
     gs_dyn_array_free(card_game->player_hand);
+    printf("player\n");
     gs_dyn_array_free(card_game->opponent_hand);
+    printf("opp\n");
     gs_dyn_array_free(card_game->player_hand_cache);
+    printf("player cache\n");
     gs_dyn_array_free(card_game->opponent_hand_cache);
+    printf("free hands\n");
 
     int render_index = 0;
     for (int i = 0; i < 6; i++) {
@@ -129,7 +134,6 @@ void card_game_init(card_game_state_t *card_game, game_state_t *game_state, gs_d
 
     card_game->player_card_in_play = (card_state_t){0};
     card_game->opponent_card_in_play = (card_state_t){0};
-
     card_game->phase = INIT;
     update_card_visuals(card_game, game_state);
 }
@@ -277,11 +281,11 @@ static void phase_trigger_on_play_effects(card_game_state_t *card_game, game_sta
 
 static void phase_player_select_target(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->player_just_played_card) {
-        if (card_has_target_ability(&card_game->player_card_in_play.abilities)) {
+        if (card_has_target_ability(&card_game->player_card_in_play.current_abilities)) {
             card_game->player_selecting_target_type = ANY;
-        } else if (card_has_target_ability_self(&card_game->player_card_in_play.abilities)) {
+        } else if (card_has_target_ability_self(&card_game->player_card_in_play.current_abilities)) {
             card_game->player_selecting_target_type = SELF;
-        } else if (card_has_target_ability_other(&card_game->player_card_in_play.abilities)) {
+        } else if (card_has_target_ability_other(&card_game->player_card_in_play.current_abilities)) {
             card_game->player_selecting_target_type = OTHER;
         }
         card_game->player_just_played_card = false;
@@ -355,11 +359,11 @@ static void phase_player_select_target(card_game_state_t *card_game, game_state_
 
 static void phase_opponent_select_target(card_game_state_t *card_game, game_state_t *game_state) {
     if (card_game->opponent_just_played_card) {
-        if (card_has_target_ability(&card_game->opponent_card_in_play.abilities)) {
+        if (card_has_target_ability(&card_game->opponent_card_in_play.current_abilities)) {
             card_game->opponent_selecting_target_type = ANY;
-        } else if (card_has_target_ability_self(&card_game->opponent_card_in_play.abilities)) {
+        } else if (card_has_target_ability_self(&card_game->opponent_card_in_play.current_abilities)) {
             card_game->opponent_selecting_target_type = SELF;
-        } else if (card_has_target_ability_other(&card_game->opponent_card_in_play.abilities)) {
+        } else if (card_has_target_ability_other(&card_game->opponent_card_in_play.current_abilities)) {
             card_game->opponent_selecting_target_type = OTHER;
         }
 
@@ -608,11 +612,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->draws++;
-                gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
-                gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
-                card_game_init(card_game, game_state, player_hand, opponent_hand);
-                gs_dyn_array_free(player_hand);
-                gs_dyn_array_free(opponent_hand);
+                card_game_init(card_game, game_state, hand_get_random(true, true, true), hand_get_random(true, true, true));
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -626,11 +626,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->player_hand_cache[i].database_index]++;
                 }
-                gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
-                gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
-                card_game_init(card_game, game_state, player_hand, opponent_hand);
-                gs_dyn_array_free(player_hand);
-                gs_dyn_array_free(opponent_hand);
+                card_game_init(card_game, game_state, hand_get_random(true, true, true), hand_get_random(true, true, true));
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -644,11 +640,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
                     card_game->winning_card_counts[card_game->opponent_hand_cache[i].database_index]++;
                 }
-                gs_dyn_array(card_state_t) player_hand = hand_get_random(true, true, true);
-                gs_dyn_array(card_state_t) opponent_hand = hand_get_random(true, true, true);
-                card_game_init(card_game, game_state, player_hand, opponent_hand);
-                gs_dyn_array_free(player_hand);
-                gs_dyn_array_free(opponent_hand);
+                card_game_init(card_game, game_state, hand_get_random(true, true, true), hand_get_random(true, true, true));
             } else {
                 print_stats(card_game);
                 game_state->mode = MENU;
@@ -974,12 +966,12 @@ static float ai_evaluate_card(card_state_t *card, float other_attack, float othe
     score += card->current_abilities.shield * shield_weight * base_score;
     score += card->current_abilities.evade * evade_weight * base_score;
     score += card->current_abilities.haste * haste_weight * base_score;
-    score += card->current_abilities.regenerate * renegerate_weight * score;
-    score += card->current_abilities.timebound * timebound_weight * score;
-    score += card->current_abilities.sacrifice * sacrifice_weight * score;
-    score += card->current_abilities.frozen * frozen_weight * score;
-    score += card->current_abilities.ward * ward_weight * score;
-    score += card->current_abilities.cancel * cancel_weight * score;
+    score += card->current_abilities.regenerate * renegerate_weight * base_score;
+    score += card->current_abilities.timebound * timebound_weight * base_score;
+    score += card->current_abilities.sacrifice * sacrifice_weight * base_score;
+    score += card->current_abilities.frozen * frozen_weight * base_score;
+    score += card->current_abilities.ward * ward_weight * base_score;
+    score += card->current_abilities.cancel * cancel_weight * base_score;
 
     if (card->current_attack >= other_health) score += other_attack + other_health;
     if (card->current_health <= other_attack) score -= card->current_attack + card->current_health;
