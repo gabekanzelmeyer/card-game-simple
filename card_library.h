@@ -33,7 +33,7 @@ void card_library_init() {
         gs_dyn_array_push(card_library, card_database[i]);
     }
 
-    num_pages = (gs_dyn_array_size(card_library) / CARDS_PER_PAGE) + 1;
+    num_pages = (fmax(gs_dyn_array_size(card_library) - 1, 0) / CARDS_PER_PAGE) + 1;
     current_page_index = 0;
     prev_page = -1;
 }

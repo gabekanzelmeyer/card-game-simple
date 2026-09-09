@@ -45,9 +45,8 @@ x allow stopping a simulation and getting stats
 x change charge heal / sharpen to charge health / attack and split back out to separate abilities
 x implement simulation with random colors
 x ai sim has about 2:1 advantage for opponent - split out hand seleciton function from target selection and only do target once both cards are in play
+x library showing extra last page if the previous pages are full
 - allow setting sim properties in game without needing to rebuild
-- library showing extra last page if the previous pages are full
-
 
 
 card color ability themes
