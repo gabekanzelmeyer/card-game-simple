@@ -15,44 +15,44 @@ static void card_database_add(card_state_t card) {
 void card_database_init() {
     gs_dyn_array_free(card_database);
 
-    card_database_add(card_new("Red 5/3", 5, 3, true, false, false, (card_abilities_t){0}));
-    card_database_add(card_new("Red 2/5", 2, 5, true, false, false, (card_abilities_t){0}));
-    card_database_add(card_new("Red 2/5 (2)", 2, 5, true, false, false, (card_abilities_t){0}));
-    card_database_add(card_new("Red 2/2 Strike 2", 2, 2, true, false, false, (card_abilities_t){.strike=2,}));
-    card_database_add(card_new("Red 3/1 Haste", 3, 1, true, false, false, (card_abilities_t){.haste=true}));
-    card_database_add(card_new("Red 3/1 Haste (2)", 3, 1, true, false, false, (card_abilities_t){.haste=true}));
-    card_database_add(card_new("Red 1/1 Strike 3", 1, 1, true, false, false, (card_abilities_t){.strike=3}));
-    card_database_add(card_new("Red 1/2 Mass Sharp 1", 1, 2, true, false, false, (card_abilities_t){.mass_sharpen=1}));
-    card_database_add(card_new("Red 1/3 Sharp 3", 1, 3, true, false, false, (card_abilities_t){.sharpen=3}));
-    card_database_add(card_new("Red 2/2 Haste", 2, 2, true, false, false, (card_abilities_t){.haste=true}));
-    card_database_add(card_new("Red 2/3 Sharp 2", 2, 3, true, false, false, (card_abilities_t){.sharpen=2}));
-    card_database_add(card_new("Red 3/1 Strike 2", 3, 1, true, false, false, (card_abilities_t){.strike=2}));
+    card_database_add(card_new("Red 2/3", 2, 3, true, false, false, COMMON, 1, (card_abilities_t){0}));
+    card_database_add(card_new("Red 3/2", 3, 2, true, false, false, COMMON, 1, (card_abilities_t){0}));
+    card_database_add(card_new("Red 2/2 Sharpen 2", 2, 2, true, false, false, COMMON, 1, (card_abilities_t){.sharpen=2}));
+    card_database_add(card_new("Red 2/2 Strike 2", 2, 2, true, false, false, COMMON, 1, (card_abilities_t){.strike=2}));
+    card_database_add(card_new("Red 3/1 Haste", 3, 1, true, false, false, COMMON, 1, (card_abilities_t){.haste=true}));
+    card_database_add(card_new("Red 1/2 Mass Sharp 1", 1, 2, true, false, false, COMMON, 1, (card_abilities_t){.mass_sharpen=1}));
+    // card_database_add(card_new("Red 1/1 Strike 3", 1, 1, true, false, false, (card_abilities_t){.strike=3}));
+    // card_database_add(card_new("Red 1/2 Mass Sharp 1", 1, 2, true, false, false, (card_abilities_t){.mass_sharpen=1}));
+    // card_database_add(card_new("Red 1/3 Sharp 3", 1, 3, true, false, false, (card_abilities_t){.sharpen=3}));
+    // card_database_add(card_new("Red 2/2 Haste", 2, 2, true, false, false, (card_abilities_t){.haste=true}));
+    // card_database_add(card_new("Red 2/3 Sharp 2", 2, 3, true, false, false, (card_abilities_t){.sharpen=2}));
+    // card_database_add(card_new("Red 3/1 Strike 2", 3, 1, true, false, false, (card_abilities_t){.strike=2}));
 
-    card_database_add(card_new("Green 4/3", 4, 3, false, true, false, (card_abilities_t){0}));
-    card_database_add(card_new("Green 3/4", 3, 4, false, true, false, (card_abilities_t){0}));
-    card_database_add(card_new("Green 3/4 (2)", 3, 4, false, true, false, (card_abilities_t){0}));
-    card_database_add(card_new("Green 2/3 Heal 2", 2, 3, false, true, false, (card_abilities_t){.heal=2}));
-    card_database_add(card_new("Green 2/2 Heal 3", 2, 3, false, true, false, (card_abilities_t){.heal=3}));
-    card_database_add(card_new("Green 2/2 Charge 0/1", 2, 2, false, true, false, (card_abilities_t){.charge_health=1}));
-    card_database_add(card_new("Green 2/2 Regen", 2, 2, false, true, false, (card_abilities_t){.regenerate=true}));
-    card_database_add(card_new("Green 1/1 Charge 1/1", 2, 2, false, true, false, (card_abilities_t){.charge_health=1, .charge_attack=1}));
-    card_database_add(card_new("Green 4/1 Regen", 4, 1, false, true, false, (card_abilities_t){.regenerate=true}));
-    card_database_add(card_new("Green 2/1 Mass Heal 1", 2, 1, false, true, false, (card_abilities_t){.mass_heal=1}));
-    card_database_add(card_new("Green 1/2 Regen Heal 2", 1, 2, false, true, false, (card_abilities_t){.heal=2, .regenerate=true}));
-    card_database_add(card_new("Green 2/2 Evade", 2, 2, false, true, false, (card_abilities_t){.evade=true}));
+    card_database_add(card_new("Green 3/2", 3, 2, false, true, false, COMMON, 1, (card_abilities_t){0}));
+    card_database_add(card_new("Green 2/3", 2, 3, false, true, false, COMMON, 1, (card_abilities_t){0}));
+    card_database_add(card_new("Green 2/1 Heal 3", 2, 1, false, true, false, COMMON, 1, (card_abilities_t){.heal=3}));
+    card_database_add(card_new("Green 2/2 Shield", 2, 2, false, true, false, COMMON, 1, (card_abilities_t){.shield=true}));
+    card_database_add(card_new("Green 3/1 Regenerate", 3, 1, false, true, false, COMMON, 1, (card_abilities_t){.regenerate=true}));
+    card_database_add(card_new("Green 1/2 Mass heal 1", 1, 2, false, true, false, COMMON, 1, (card_abilities_t){.mass_heal=1}));
+    // card_database_add(card_new("Green 2/2 Regen", 2, 2, false, true, false, (card_abilities_t){.regenerate=true}));
+    // card_database_add(card_new("Green 1/1 Charge 1/1", 2, 2, false, true, false, (card_abilities_t){.charge_health=1, .charge_attack=1}));
+    // card_database_add(card_new("Green 4/1 Regen", 4, 1, false, true, false, (card_abilities_t){.regenerate=true}));
+    // card_database_add(card_new("Green 2/1 Mass Heal 1", 2, 1, false, true, false, (card_abilities_t){.mass_heal=1}));
+    // card_database_add(card_new("Green 1/2 Regen Heal 2", 1, 2, false, true, false, (card_abilities_t){.heal=2, .regenerate=true}));
+    // card_database_add(card_new("Green 2/2 Evade", 2, 2, false, true, false, (card_abilities_t){.evade=true}));
 
-    card_database_add(card_new("Blue 2/5", 2, 5, false, false, true, (card_abilities_t){0}));
-    card_database_add(card_new("Blue 2/5 (2)", 2, 5, false, false, true, (card_abilities_t){0}));
-    card_database_add(card_new("Blue 4/3", 4, 3, false, false, true, (card_abilities_t){0}));
-    card_database_add(card_new("Blue 2/2 Dull 3", 2, 2, false, false, true, (card_abilities_t){.dull=3}));
-    card_database_add(card_new("Blue 1/3 Dull 3", 1, 3, false, false, true, (card_abilities_t){.dull=3}));
-    card_database_add(card_new("Blue 2/2 Mass Dull 1", 2, 2, false, false, true, (card_abilities_t){.mass_dull=1}));
-    card_database_add(card_new("Blue 3/3 Ward", 3, 3, false, false, true, (card_abilities_t){.ward=true}));
-    card_database_add(card_new("Blue 3/2 Evade", 3, 2, false, false, true, (card_abilities_t){.evade=true}));
-    card_database_add(card_new("Blue 5/6 Frozen", 5, 6, false, false, true, (card_abilities_t){.frozen=true}));
-    card_database_add(card_new("Blue 2/2 Cancel", 2, 2, false, false, true, (card_abilities_t){.cancel=true}));
-    card_database_add(card_new("Blue 2/3 Freeze", 2, 3, false, false, true, (card_abilities_t){.bestow_frozen=true}));
-    card_database_add(card_new("Blue 3/2 Freeze", 3, 2, false, false, true, (card_abilities_t){.bestow_frozen=true}));
+    card_database_add(card_new("Blue 1/4", 1, 4, false, false, true, COMMON, 1, (card_abilities_t){0}));
+    card_database_add(card_new("Blue 2/3", 2, 3, false, false, true, COMMON, 1, (card_abilities_t){0}));
+    card_database_add(card_new("Blue 1/3 Dull 2", 1, 3, false, false, true, COMMON, 1, (card_abilities_t){.dull=2}));
+    card_database_add(card_new("Blue 3/5 Frozen", 3, 5, false, false, true, COMMON, 1, (card_abilities_t){.frozen=true}));
+    card_database_add(card_new("Blue 2/2 Evade", 2, 2, false, false, true, COMMON, 1, (card_abilities_t){.evade=true}));
+    card_database_add(card_new("Blue 1/2 Mass Dull 1", 1, 2, false, false, true, COMMON, 1, (card_abilities_t){.mass_dull=1}));
+    // card_database_add(card_new("Blue 3/3 Ward", 3, 3, false, false, true, (card_abilities_t){.ward=true}));
+    // card_database_add(card_new("Blue 3/2 Evade", 3, 2, false, false, true, (card_abilities_t){.evade=true}));
+    // card_database_add(card_new("Blue 5/6 Frozen", 5, 6, false, false, true, (card_abilities_t){.frozen=true}));
+    // card_database_add(card_new("Blue 2/2 Cancel", 2, 2, false, false, true, (card_abilities_t){.cancel=true}));
+    // card_database_add(card_new("Blue 2/3 Freeze", 2, 3, false, false, true, (card_abilities_t){.bestow_frozen=true}));
+    // card_database_add(card_new("Blue 3/2 Freeze", 3, 2, false, false, true, (card_abilities_t){.bestow_frozen=true}));
 }
 
 card_state_t card_get_random(bool red, bool green, bool blue) {

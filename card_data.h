@@ -35,6 +35,12 @@ typedef struct {
     bool bestow_ward; // give ward to target card
 } card_abilities_t;
 
+enum card_rarity {
+    COMMON,
+    UNCOMMON,
+    RARE
+};
+
 typedef struct card_state_t {
     const char *name;
     uint16_t attack;
@@ -42,6 +48,8 @@ typedef struct card_state_t {
     bool red;
     bool green;
     bool blue;
+    enum card_rarity rarity;
+    int level;
     card_abilities_t abilities;
     int current_attack;
     int current_health;
@@ -60,14 +68,16 @@ typedef struct card_state_t {
     uint32_t database_index;
 } card_state_t;
 
-card_state_t card_new(const char *name, uint16_t attack, uint16_t health, bool red, bool green, bool blue, card_abilities_t abilities);
+card_state_t card_new(const char *name, uint16_t attack, uint16_t health, bool red, bool green, bool blue, enum card_rarity rarity, int level, card_abilities_t abilities);
 void card_reset(card_state_t *card);
 bool card_has_target_ability(card_abilities_t *abilities);
 bool card_has_target_ability_self(card_abilities_t *abilities);
 bool card_has_target_ability_other(card_abilities_t *abilities);
 
-card_state_t card_new(const char *name, uint16_t attack, uint16_t health,
-    bool red, bool green, bool blue, card_abilities_t abilities) {
+card_state_t card_new(
+    const char *name, uint16_t attack, uint16_t health,
+    bool red, bool green, bool blue, enum card_rarity rarity, int level,
+    card_abilities_t abilities) {
     card_state_t card = {0};
     card.name = name;
     card.attack = attack;
@@ -76,6 +86,8 @@ card_state_t card_new(const char *name, uint16_t attack, uint16_t health,
     card.green = green;
     card.blue = blue;
     card.abilities = abilities;
+    card.rarity = rarity;
+    card.level = level;
 
     card_reset(&card);
     card.transform = gs_vqs_default();

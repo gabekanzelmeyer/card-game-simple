@@ -35,8 +35,8 @@ void update() {
             card_game = (card_game_state_t){0};
             card_game.simulate_player = true;
             card_game.game_speed = 500.0f;
-            card_game.simulation_count = 2000;
-            card_game.simulate_color_v_color = true;
+            card_game.simulation_count = 5000;
+            card_game.simulate_color_v_color = false;
             for (int i = 0; i < 100; i++) card_game.winning_card_counts[i] = 0;
 
             gs_dyn_array(card_state_t) player_hand = card_game.simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
