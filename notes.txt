@@ -47,12 +47,12 @@ x implement simulation with random colors
 x ai sim has about 2:1 advantage for opponent - split out hand seleciton function from target selection and only do target once both cards are in play
 x library showing extra last page if the previous pages are full
 x add levels and rarities to cards
-- allow setting sim properties in game without needing to rebuild
 - implement game mode for 3d world, render 3D plane and spere
 - implement basic movement and camera
 - implement card library view overlay
 - implement triggering and transitioning into card game with key press
 - start some basic worldbuilding to get ideas for cards
+- allow setting sim properties in game without needing to rebuild
 
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)

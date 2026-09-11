@@ -17,7 +17,7 @@ typedef struct {
 
 typedef struct {
     float mvp[16];
-    float uv_rect[4];
+    float atlas_uv_rect[4];
 } card_instance_data_t;
 
 typedef struct {
@@ -474,10 +474,10 @@ void card_render_instanced(card_render_data_t *card_renderer,
         memcpy(instance_data[i].mvp, mvp.elements, sizeof(instance_data[i].mvp));
 
         gs_vec4 r = card_render_target_uv_rect(&cards[i]);
-        instance_data[i].uv_rect[0] = r.x;
-        instance_data[i].uv_rect[1] = r.y;
-        instance_data[i].uv_rect[2] = r.z;
-        instance_data[i].uv_rect[3] = r.w;
+        instance_data[i].atlas_uv_rect[0] = r.x;
+        instance_data[i].atlas_uv_rect[1] = r.y;
+        instance_data[i].atlas_uv_rect[2] = r.z;
+        instance_data[i].atlas_uv_rect[3] = r.w;
     }
 
     // update the per instance data buffer

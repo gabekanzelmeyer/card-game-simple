@@ -30,7 +30,8 @@ do {\
 enum game_mode {
     MENU,
     LIBRARY,
-    GAME
+    CARD_GAME,
+    WORLD
 };
 
 typedef struct {
@@ -67,7 +68,7 @@ void game_state_init(game_state_t *state, card_render_data_t *card_renderer) {
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
     gs_gui_set_element_style(&state->gui_ctx, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
 
-    state->mode = MENU;
+    state->mode = WORLD;
     state->card_renderer = card_renderer;
 }
 
@@ -187,7 +188,7 @@ enum game_mode gui_show_menu(game_state_t *state) {
             gs_gui_rect_t sim_rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 0, 150, GS_GUI_LAYOUT_ANCHOR_CENTER);
             gs_gui_layout_set_next(&state->gui_ctx, sim_rect, 0);
             if (gs_gui_button(&state->gui_ctx, "Sim")) {
-                result = GAME;
+                result = CARD_GAME;
             }
         }
         gs_gui_window_end(&state->gui_ctx);

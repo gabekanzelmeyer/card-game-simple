@@ -121,7 +121,7 @@ enum game_mode card_library_gui(game_state_t *state) {
             gs_gui_layout_set_next(&state->gui_ctx, play_button_rect, 0);
             if (gs_gui_button(&state->gui_ctx, "Play")) {
                 if (gs_dyn_array_size(card_library_hand) == 6) {
-                    result = GAME;
+                    result = CARD_GAME;
                 }
             }
         }
