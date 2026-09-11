@@ -5,6 +5,9 @@
 #include "util/gs_idraw.h"
 #include "util/gs_gui.h"
 
+// #define CGLTF_IMPLEMENTATION
+// #include "external/cgltf/cgltf.h"
+
 #include "card_renderer.h"
 
 // macro that allows for erasing and element from a gs_dyn_array and keeping the order
@@ -26,6 +29,19 @@ do {\
 #define HAND_FAN_ANGLE 2.0f
 #define HAND_CURVE_AMOUNT 0.02f
 #define HAND_Y_POSITION_OFFSET 2.6f
+
+typedef struct vertex_t {
+    gs_vec3 position;
+    gs_vec3 normal;
+    gs_vec2 uv;
+} vertex_t;
+
+typedef struct mesh_t {
+    gs_handle(gs_graphics_vertex_buffer_t) vbo;
+    gs_handle(gs_graphics_index_buffer_t) ibo;
+    uint32_t index_count;
+} mesh_t;
+
 
 enum game_mode {
     MENU,
@@ -194,5 +210,147 @@ enum game_mode gui_show_menu(game_state_t *state) {
         gs_gui_window_end(&state->gui_ctx);
         return result;
 }
+
+// static mesh_t load_gltf_mesh(const char* filename) {
+//     mesh_t result = gs_default_val();
+//
+//     cgltf_options options = {0};
+//     cgltf_data* data = NULL;
+//
+//     cgltf_result res =
+//     cgltf_parse_file(&options, filename, &data);
+//
+//     if (res != cgltf_result_success)
+//     {
+//         printf("Failed to parse glTF: %s\n", filename);
+//         return result;
+//     }
+//
+//     res = cgltf_load_buffers(&options, data, filename);
+//
+//     if (res != cgltf_result_success)
+//     {
+//         printf("Failed to load glTF buffers: %s\n", filename);
+//         cgltf_free(data);
+//         return result;
+//     }
+//
+//     if (data->meshes_count == 0)
+//     {
+//         printf("glTF contains no meshes: %s\n", filename);
+//         cgltf_free(data);
+//         return result;
+//     }
+//
+//     cgltf_mesh* src_mesh = &data->meshes[0];
+//     cgltf_primitive* primitive = &src_mesh->primitives[0];
+//
+//     cgltf_accessor* position_accessor = NULL;
+//     cgltf_accessor* normal_accessor = NULL;
+//     cgltf_accessor* uv_accessor = NULL;
+//
+//     for (cgltf_size i = 0; i < primitive->attributes_count; ++i)
+//     {
+//         cgltf_attribute* attr = &primitive->attributes[i];
+//
+//         if (attr->type == cgltf_attribute_type_position)
+//             position_accessor = attr->data;
+//
+//         else if (attr->type == cgltf_attribute_type_normal)
+//             normal_accessor = attr->data;
+//
+//         else if (attr->type == cgltf_attribute_type_texcoord)
+//             uv_accessor = attr->data;
+//     }
+//
+//     if (!position_accessor)
+//     {
+//         printf("Mesh has no positions\n");
+//         cgltf_free(data);
+//         return result;
+//     }
+//
+//     cgltf_size vertex_count = position_accessor->count;
+//
+//     gs_dyn_array(vertex_t) vertices = NULL;
+//
+//     for (cgltf_size i = 0; i < vertex_count; ++i)
+//     {
+//         vertex_t v = gs_default_val();
+//
+//         cgltf_accessor_read_float(
+//             position_accessor,
+//             i,
+//             &v.position.x,
+//             3
+//         );
+//
+//         if (normal_accessor)
+//         {
+//             cgltf_accessor_read_float(
+//                 normal_accessor,
+//                 i,
+//                 &v.normal.x,
+//                 3
+//             );
+//         }
+//
+//         if (uv_accessor)
+//         {
+//             cgltf_accessor_read_float(
+//                 uv_accessor,
+//                 i,
+//                 &v.uv.x,
+//                 2
+//             );
+//         }
+//
+//         gs_dyn_array_push(vertices, v);
+//     }
+//     gs_dyn_array(uint32_t) indices = NULL;
+//
+//     if (primitive->indices)
+//     {
+//         cgltf_accessor* index_accessor = primitive->indices;
+//
+//         for (cgltf_size i = 0; i < index_accessor->count; ++i)
+//         {
+//             cgltf_uint index =
+//             cgltf_accessor_read_index(index_accessor, i);
+//
+//             gs_dyn_array_push(indices, (uint32_t)index);
+//         }
+//     }
+//     gs_graphics_vertex_buffer_desc_t vdesc = gs_default_val();
+//
+//     vdesc.data = vertices;
+//     vdesc.size = gs_dyn_array_size(vertices) * sizeof(vertex_t);
+//     vdesc.usage = GS_GRAPHICS_BUFFER_USAGE_STATIC;
+//
+//     result.vbo =
+//     gs_graphics_vertex_buffer_create(&vdesc);
+//
+//
+//     gs_graphics_index_buffer_desc_t idesc = gs_default_val();
+//
+//     idesc.data = indices;
+//     idesc.size =
+//     gs_dyn_array_size(indices) * sizeof(uint32_t);
+//     idesc.usage = GS_GRAPHICS_BUFFER_USAGE_STATIC;
+//
+//     result.ibo =
+//     gs_graphics_index_buffer_create(&idesc);
+//
+//     result.index_count =
+//     (uint32_t)gs_dyn_array_size(indices);
+//
+//     gs_dyn_array_free(vertices);
+//     gs_dyn_array_free(indices);
+//
+//     cgltf_free(data);
+//
+//     return result;
+// }
+
 
 #endif

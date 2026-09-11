@@ -2,13 +2,7 @@
 #define WORLD_RENDERER_H
 
 #include "gs.h"
-
-typedef struct mesh_t {
-    gs_handle(gs_graphics_vertex_buffer_t) vbo;
-    gs_handle(gs_graphics_index_buffer_t) ibo;
-    uint32_t index_count;
-} mesh_t;
-
+#include "game_util.h"
 
 typedef struct {
     gs_command_buffer_t cb;
@@ -251,10 +245,7 @@ void world_init(void)
                 world_renderer.camera_offset);
 
     world_renderer.camera.transform.rotation =
-    gs_quat_angle_axis(
-        gs_deg2rad(-30.f),
-                       gs_v3(1.f, 0.f, 0.f)
-    );
+    gs_quat_angle_axis(gs_deg2rad(-30.f), gs_v3(1.f, 0.f, 0.f));
 
     world_renderer.camera.transform.scale = gs_v3s(1.f);
 
