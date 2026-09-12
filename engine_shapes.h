@@ -5,11 +5,11 @@
 #include "engine.h"
 
 mesh_t mesh_plane() {
-    gs_vec3 verts[4] = {
-        gs_v3(-0.5f, 0.f, -0.5f),
-        gs_v3( 0.5f, 0.f, -0.5f),
-        gs_v3( 0.5f, 0.f,  0.5f),
-        gs_v3(-0.5f, 0.f, 0.5f),
+    vertex_t verts[4] = {
+        {{-0.5f, 0.f, -0.5f}, {0.0, 1.0, 0.0}, {0.0, 1.0}},
+        {{0.5f, 0.f, -0.5f}, {0.0, 1.0, 0.0}, {1.0, 1.0}},
+        {{0.5f, 0.f,  0.5f}, {0.0, 1.0, 0.0}, {1.0, 0.0}},
+        {{-0.5f, 0.f, 0.5f}, {0.0, 1.0, 0.0}, {0.0, 0.0}}
     };
 
     uint16_t indices[6] = {
@@ -21,7 +21,7 @@ mesh_t mesh_plane() {
 }
 
 mesh_t mesh_sphere(float radius, int32_t stacks, int32_t slices) {
-    gs_dyn_array(gs_vec3) verts = NULL;
+    gs_dyn_array(vertex_t) verts = NULL;
     gs_dyn_array(uint16_t) indices = NULL;
 
     for (int32_t i = 0; i <= stacks; ++i)
@@ -35,7 +35,12 @@ mesh_t mesh_sphere(float radius, int32_t stacks, int32_t slices) {
             float x = sinf(phi) * cosf(theta);
             float y = cosf(phi);
             float z = sinf(phi) * sinf(theta);
-            gs_dyn_array_push(verts, gs_v3(x * radius, y * radius, z * radius));
+
+            vertex_t vert = {0};
+            vert.position = gs_v3(x * radius, y * radius, z * radius);
+            vert.normal = gs_vec3_norm(vert.position);
+            vert.uv = gs_v2(u, v);
+            gs_dyn_array_push(verts, vert);
         }
     }
 
@@ -49,11 +54,11 @@ mesh_t mesh_sphere(float radius, int32_t stacks, int32_t slices) {
             uint16_t c = (uint16_t)(a + 1);
             uint16_t d = (uint16_t)(b + 1);
             gs_dyn_array_push(indices, a);
-            gs_dyn_array_push(indices, b);
-            gs_dyn_array_push(indices, c);
             gs_dyn_array_push(indices, c);
             gs_dyn_array_push(indices, b);
+            gs_dyn_array_push(indices, c);
             gs_dyn_array_push(indices, d);
+            gs_dyn_array_push(indices, b);
         }
     }
 

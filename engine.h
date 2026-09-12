@@ -26,21 +26,89 @@ typedef struct {
 } shader_t;
 
 typedef struct {
+    gs_handle(gs_graphics_texture_t) texture;
+    gs_vec4_t color;
+} material_t;
+
+typedef struct {
     mesh_t mesh;
     gs_vqs_t transform;
+    material_t material;
 } entity_t;
 
 typedef struct {
+    gs_handle(gs_graphics_texture_t) texture;
+    uint32_t width;
+    uint32_t height;
+} render_texture_t;
+
+typedef struct {
     gs_command_buffer_t cb;
+    gs_immediate_draw_t gsi;
     gs_camera_t camera;
 } engine_t;
 
-mesh_t mesh_create(gs_vec3* verts, uint32_t vert_count, uint16_t* indices, uint32_t index_count) {
+render_texture_t render_texture_create(uint32_t width, uint32_t height) {
+    gs_graphics_texture_desc_t desc = gs_default_val();
+    desc.width = width;
+    desc.height = height;
+    desc.format = GS_GRAPHICS_TEXTURE_FORMAT_RGBA8;
+    desc.min_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
+    desc.mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
+
+    render_texture_t rt = {0};
+    rt.texture = gs_graphics_texture_create(&desc);
+    rt.width = width;
+    rt.height = height;
+    return rt;
+}
+
+void render_text_on_texture(gs_immediate_draw_t *gsi,
+                            gs_handle(gs_graphics_texture_t) source_texture,
+                            gs_handle(gs_graphics_renderpass_t) target_renderpass,
+                            uint32_t width,
+                            uint32_t height,
+                            char *text,
+                            gs_asset_font_t *font,
+                            uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+
+    gsi_camera2D(gsi, width, height);
+    if (source_texture.id != 0) {
+        gsi_texture(gsi, source_texture);
+    }
+
+    gs_command_buffer_t command_buffer = gs_command_buffer_new();
+    gs_graphics_clear_action_t clear_action = gs_default_val();
+    clear_action.flag = GS_GRAPHICS_CLEAR_COLOR | GS_GRAPHICS_CLEAR_DEPTH;
+    clear_action.color[0] = 0.08f;
+    clear_action.color[1] = 0.08f;
+    clear_action.color[2] = 0.10f;
+    clear_action.color[3] = 1.f;
+    gs_graphics_clear_desc_t clear = gs_default_val();
+    clear.actions = &clear_action;
+    clear.size = sizeof(clear_action);
+
+    gs_graphics_renderpass_begin(&command_buffer, target_renderpass);
+    gs_graphics_set_viewport(&command_buffer, 0, 0, width, height);
+    gs_graphics_clear(&command_buffer, &clear);
+
+    gs_vec2 text_dimensions = gs_asset_font_text_dimensions(font, text, -1); // -1 means null-terminated string
+
+    // gsi_text(gsi, width * 0.5f - text_dimensions.x * 0.5f, 24.f, text, font, false, r, g, b, a);
+    gsi_text(gsi, 10.f, 10.f, text, font, false, r, g, b, a);
+
+
+    gsi_draw(gsi, &command_buffer);
+    gs_graphics_renderpass_end(&command_buffer);
+    gs_graphics_command_buffer_submit(&command_buffer);
+}
+
+mesh_t mesh_create(vertex_t* verts, uint32_t vert_count, uint16_t* indices, uint32_t index_count) {
     mesh_t m = {0};
 
     gs_graphics_vertex_buffer_desc_t vdesc = gs_default_val();
     vdesc.data = verts;
-    vdesc.size = vert_count * sizeof(gs_vec3);
+    vdesc.size = vert_count * sizeof(vertex_t);
     vdesc.usage = GS_GRAPHICS_BUFFER_USAGE_STATIC;
     m.vbo = gs_graphics_vertex_buffer_create(&vdesc);
 
@@ -104,13 +172,13 @@ static gs_handle(gs_graphics_uniform_t) uniform_create(const char* name, gs_grap
 }
 
 static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_shader_t) shader) {
-    gs_graphics_vertex_attribute_desc_t attrs[1] = gs_default_val();
+    gs_graphics_vertex_attribute_desc_t attrs[3] = gs_default_val();
     attrs[0].format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT3;
     memcpy(attrs[0].name, "a_position", sizeof("a_position"));
-    // attrs[1].format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT3;
-    // memcpy(attrs[1].name, "a_normal", sizeof("a_normal"));
-    // attrs[2].format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT2;
-    // memcpy(attrs[2].name, "a_uv", sizeof("a_uv"));
+    attrs[1].format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT3;
+    memcpy(attrs[1].name, "a_normal", sizeof("a_normal"));
+    attrs[2].format = GS_GRAPHICS_VERTEX_ATTRIBUTE_FLOAT2;
+    memcpy(attrs[2].name, "a_uv", sizeof("a_uv"));
 
     gs_graphics_pipeline_desc_t pdesc = gs_default_val();
     pdesc.raster.shader = shader;
@@ -130,11 +198,11 @@ shader_t shader_standard() {
     shader.pipeline = pipeline_create(shader.shader);
     shader.u_mvp = uniform_create("u_mvp", GS_GRAPHICS_UNIFORM_MAT4, GS_GRAPHICS_SHADER_STAGE_VERTEX);
     shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
-    // shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
+    shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
     return shader;
 }
 
-void draw_entity(entity_t *entity, gs_mat4 view_projection, gs_vec4 color, shader_t *shader, engine_t *engine) {
+void draw_entity(entity_t *entity, gs_mat4 view_projection, shader_t *shader, engine_t *engine) {
     gs_mat4 model = gs_vqs_to_mat4(&entity->transform);
     gs_mat4 mvp = gs_mat4_mul(view_projection, model);
 
@@ -144,13 +212,13 @@ void draw_entity(entity_t *entity, gs_mat4 view_projection, gs_vec4 color, shade
     gs_graphics_bind_index_buffer_desc_t ib = gs_default_val();
     ib.buffer = entity->mesh.ibo;
 
-    gs_graphics_bind_uniform_desc_t uniforms[2] = gs_default_val();
+    gs_graphics_bind_uniform_desc_t uniforms[3] = gs_default_val();
     uniforms[0].uniform = shader->u_mvp;
     uniforms[0].data = &mvp;
     uniforms[1].uniform = shader->u_color;
-    uniforms[1].data = &color;
-    // uniforms[2].uniform = shader.u_texture;
-    // uniforms[2].data = &color;
+    uniforms[1].data = &entity->material.color;
+    uniforms[2].uniform = shader->u_texture;
+    uniforms[2].data = &entity->material.texture;
 
     gs_graphics_bind_desc_t binds = gs_default_val();
     binds.vertex_buffers.desc = &vb;
