@@ -19,11 +19,13 @@
 // static card_render_data_t card_renderer = {0};
 
 gs_vec3 player_pos;
+float player_speed = 6.f;
 gs_vec3 camera_offset;
 static engine_t engine;
 static shader_t standard_shader;
-mesh_t sphere;
-mesh_t plane;
+entity_t sphere;
+entity_t plane;
+
 
 void init() {
     srand(time(NULL));
@@ -50,8 +52,12 @@ void init() {
 
     standard_shader = shader_standard();
 
-    sphere = mesh_sphere(0.5f, 16, 24);
-    plane = mesh_plane();
+    sphere.mesh = mesh_sphere(0.5f, 16, 24);
+    sphere.transform = gs_vqs_default();
+
+    plane.mesh = mesh_plane();
+    plane.transform = gs_vqs_default();
+    plane.transform.scale = gs_v3s(30.f);
 }
 
 void update() {
@@ -102,6 +108,24 @@ void update() {
     // gs_gui_render(&state.gui_ctx, &state.command_buffer);
    // game_render_end(&state);
 
+    float dt = gs_platform_delta_time();
+
+    // ---- WASD movement ----
+    gs_vec3 move = gs_v3(0.f, 0.f, 0.f);
+    if (gs_platform_key_down(GS_KEYCODE_W)) move.z -= 1.f;
+    if (gs_platform_key_down(GS_KEYCODE_S)) move.z += 1.f;
+    if (gs_platform_key_down(GS_KEYCODE_A)) move.x -= 1.f;
+    if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
+
+    if (gs_vec3_len(move) > 0.f)
+    {
+        move = gs_vec3_norm(move);
+        move = gs_vec3_scale(move, player_speed * dt);
+        player_pos = gs_vec3_add(player_pos, move);
+    }
+
+    engine.camera.transform.position = gs_vec3_add(player_pos, camera_offset);
+
     gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
     gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
 
@@ -121,17 +145,12 @@ void update() {
     gs_graphics_set_viewport(&engine.cb, 0, 0, (uint32_t)fbs.x, (uint32_t)fbs.y);
     gs_graphics_pipeline_bind(&engine.cb, standard_shader.pipeline);
 
-    gs_vqs ground_xform = gs_default_val();
-    ground_xform.position = gs_v3(0.f, 0.f, 0.f);
-    ground_xform.rotation = gs_quat_default();
-    ground_xform.scale = gs_v3s(3.f);
-    draw_mesh(&plane, gs_vqs_to_mat4(&ground_xform), vp, gs_v4(0.31f, 0.55f, 0.31f, 1.f), standard_shader, engine);
 
-    gs_vqs sphere_xform = gs_default_val();
-    sphere_xform.position = player_pos;
-    sphere_xform.rotation = gs_quat_default();
-    sphere_xform.scale = gs_v3s(1.f);
-    draw_mesh(&sphere, gs_vqs_to_mat4(&sphere_xform), vp, gs_v4(0.86f, 0.24f, 0.24f, 1.f), standard_shader, engine);
+    draw_entity(&plane, vp, gs_v4(0.31f, 0.55f, 0.31f, 1.f), &standard_shader, &engine);
+
+    sphere.transform.position = player_pos;
+    draw_entity(&sphere, vp, gs_v4(0.86f, 0.24f, 0.24f, 1.f), &standard_shader, &engine);
+
     gs_graphics_renderpass_end(&engine.cb);
 
     gs_graphics_command_buffer_submit(&engine.cb);

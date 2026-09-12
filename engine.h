@@ -26,9 +26,13 @@ typedef struct {
 } shader_t;
 
 typedef struct {
+    mesh_t mesh;
+    gs_vqs_t transform;
+} entity_t;
+
+typedef struct {
     gs_command_buffer_t cb;
     gs_camera_t camera;
-    gs_dyn_array(mesh_t) meshes;
 } engine_t;
 
 mesh_t mesh_create(gs_vec3* verts, uint32_t vert_count, uint16_t* indices, uint32_t index_count) {
@@ -123,26 +127,27 @@ static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_s
 shader_t shader_standard() {
     shader_t shader = {0};
     shader.shader = shader_create("shaders/standard.vert", "shaders/standard.frag");
+    shader.pipeline = pipeline_create(shader.shader);
     shader.u_mvp = uniform_create("u_mvp", GS_GRAPHICS_UNIFORM_MAT4, GS_GRAPHICS_SHADER_STAGE_VERTEX);
     shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
-    shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
-    shader.pipeline = pipeline_create(shader.shader);
+    // shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
     return shader;
 }
 
-void draw_mesh(mesh_t* mesh, gs_mat4 model, gs_mat4 view_projection, gs_vec4 color, shader_t shader, engine_t engine) {
+void draw_entity(entity_t *entity, gs_mat4 view_projection, gs_vec4 color, shader_t *shader, engine_t *engine) {
+    gs_mat4 model = gs_vqs_to_mat4(&entity->transform);
     gs_mat4 mvp = gs_mat4_mul(view_projection, model);
 
     gs_graphics_bind_vertex_buffer_desc_t vb = gs_default_val();
-    vb.buffer = mesh->vbo;
+    vb.buffer = entity->mesh.vbo;
 
     gs_graphics_bind_index_buffer_desc_t ib = gs_default_val();
-    ib.buffer = mesh->ibo;
+    ib.buffer = entity->mesh.ibo;
 
     gs_graphics_bind_uniform_desc_t uniforms[2] = gs_default_val();
-    uniforms[0].uniform = shader.u_mvp;
+    uniforms[0].uniform = shader->u_mvp;
     uniforms[0].data = &mvp;
-    uniforms[1].uniform = shader.u_color;
+    uniforms[1].uniform = shader->u_color;
     uniforms[1].data = &color;
     // uniforms[2].uniform = shader.u_texture;
     // uniforms[2].data = &color;
@@ -155,12 +160,12 @@ void draw_mesh(mesh_t* mesh, gs_mat4 model, gs_mat4 view_projection, gs_vec4 col
     binds.uniforms.desc = uniforms;
     binds.uniforms.size = sizeof(uniforms);
 
-    gs_graphics_apply_bindings(&engine.cb, &binds);
+    gs_graphics_apply_bindings(&engine->cb, &binds);
 
     gs_graphics_draw_desc_t draw = gs_default_val();
     draw.start = 0;
-    draw.count = mesh->index_count;
-    gs_graphics_draw(&engine.cb, &draw);
+    draw.count = entity->mesh.index_count;
+    gs_graphics_draw(&engine->cb, &draw);
 }
 
 #endif
