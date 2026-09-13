@@ -41,7 +41,7 @@ enum card_rarity {
     RARE
 };
 
-typedef struct card_state_t {
+typedef struct card_data_t {
     const char *name;
     uint16_t attack;
     uint16_t health;
@@ -66,19 +66,19 @@ typedef struct card_state_t {
 
     uint32_t render_index;
     uint32_t database_index;
-} card_state_t;
+} card_data_t;
 
-card_state_t card_new(const char *name, uint16_t attack, uint16_t health, bool red, bool green, bool blue, enum card_rarity rarity, int level, card_abilities_t abilities);
-void card_reset(card_state_t *card);
+card_data_t card_create(const char *name, uint16_t attack, uint16_t health, bool red, bool green, bool blue, enum card_rarity rarity, int level, card_abilities_t abilities);
+void card_reset(card_data_t *card);
 bool card_has_target_ability(card_abilities_t *abilities);
 bool card_has_target_ability_self(card_abilities_t *abilities);
 bool card_has_target_ability_other(card_abilities_t *abilities);
 
-card_state_t card_new(
+card_data_t card_create(
     const char *name, uint16_t attack, uint16_t health,
     bool red, bool green, bool blue, enum card_rarity rarity, int level,
     card_abilities_t abilities) {
-    card_state_t card = {0};
+    card_data_t card = {0};
     card.name = name;
     card.attack = attack;
     card.health = health;
@@ -94,7 +94,7 @@ card_state_t card_new(
     return card;
 }
 
-void card_reset(card_state_t *card) {
+void card_reset(card_data_t *card) {
     card->current_attack = card->attack;
     card->current_health = card->health;
     card->current_abilities = card->abilities;

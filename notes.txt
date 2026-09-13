@@ -54,6 +54,7 @@ x implement basic movement and camera
 - implement triggering and transitioning into card game with key press
 - start some basic worldbuilding to get ideas for cards
 - allow setting sim properties in game without needing to rebuild
+- improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
 
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)

@@ -30,10 +30,11 @@ typedef struct {
     gs_vec4_t color;
 } material_t;
 
-typedef struct {
+typedef struct entity_t {
     mesh_t mesh;
     gs_vqs_t transform;
     material_t material;
+    struct gs_dyn_array(entity_t) children;
 } entity_t;
 
 typedef struct {
@@ -48,6 +49,35 @@ typedef struct {
     gs_camera_t camera;
 } engine_t;
 
+gs_handle(gs_graphics_texture_t) NO_TEXTURE;
+
+engine_t engine_init() {
+    engine_t engine = (engine_t){0};
+    engine.cb = gs_command_buffer_new();
+    engine.gsi = gs_immediate_draw_new();
+
+    engine.camera = gs_camera_perspective();
+    engine.camera.fov = 60.f;
+    engine.camera.near_plane = 0.1f;
+    engine.camera.far_plane = 1000.f;
+    // engine.camera = gs_camera_default();
+    // engine.camera.proj_type = GS_PROJECTION_TYPE_ORTHOGRAPHIC;
+    // engine.camera.ortho_scale = 10.f;
+
+    // create a simple 1x1 white texture to be used for NO_TEXTURE
+    uint8_t white[4] = {255, 255, 255, 255};
+    gs_graphics_texture_desc_t no_texture_desc = gs_default_val();
+    no_texture_desc.width = 1;
+    no_texture_desc.height = 1;
+    no_texture_desc.format = GS_GRAPHICS_TEXTURE_FORMAT_RGBA8;
+    no_texture_desc.data[0] = white;
+    no_texture_desc.min_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
+    no_texture_desc.mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
+    NO_TEXTURE = gs_graphics_texture_create(&no_texture_desc);
+
+    return engine;
+}
+
 render_texture_t render_texture_create(uint32_t width, uint32_t height) {
     gs_graphics_texture_desc_t desc = gs_default_val();
     desc.width = width;
@@ -61,46 +91,6 @@ render_texture_t render_texture_create(uint32_t width, uint32_t height) {
     rt.width = width;
     rt.height = height;
     return rt;
-}
-
-void render_text_on_texture(gs_immediate_draw_t *gsi,
-                            gs_handle(gs_graphics_texture_t) source_texture,
-                            gs_handle(gs_graphics_renderpass_t) target_renderpass,
-                            uint32_t width,
-                            uint32_t height,
-                            char *text,
-                            gs_asset_font_t *font,
-                            uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-
-    gsi_camera2D(gsi, width, height);
-    if (source_texture.id != 0) {
-        gsi_texture(gsi, source_texture);
-    }
-
-    gs_command_buffer_t command_buffer = gs_command_buffer_new();
-    gs_graphics_clear_action_t clear_action = gs_default_val();
-    clear_action.flag = GS_GRAPHICS_CLEAR_COLOR | GS_GRAPHICS_CLEAR_DEPTH;
-    clear_action.color[0] = 0.08f;
-    clear_action.color[1] = 0.08f;
-    clear_action.color[2] = 0.10f;
-    clear_action.color[3] = 1.f;
-    gs_graphics_clear_desc_t clear = gs_default_val();
-    clear.actions = &clear_action;
-    clear.size = sizeof(clear_action);
-
-    gs_graphics_renderpass_begin(&command_buffer, target_renderpass);
-    gs_graphics_set_viewport(&command_buffer, 0, 0, width, height);
-    gs_graphics_clear(&command_buffer, &clear);
-
-    gs_vec2 text_dimensions = gs_asset_font_text_dimensions(font, text, -1); // -1 means null-terminated string
-
-    // gsi_text(gsi, width * 0.5f - text_dimensions.x * 0.5f, 24.f, text, font, false, r, g, b, a);
-    gsi_text(gsi, 10.f, 10.f, text, font, false, r, g, b, a);
-
-
-    gsi_draw(gsi, &command_buffer);
-    gs_graphics_renderpass_end(&command_buffer);
-    gs_graphics_command_buffer_submit(&command_buffer);
 }
 
 mesh_t mesh_create(vertex_t* verts, uint32_t vert_count, uint16_t* indices, uint32_t index_count) {
@@ -123,8 +113,8 @@ mesh_t mesh_create(vertex_t* verts, uint32_t vert_count, uint16_t* indices, uint
 }
 
 char* load_file(const char* filename) {
-    char *buffer = 0;
-    long length;
+    char *buffer = NULL;
+    long length = 0;
     FILE *f = fopen(filename, "rb");
     if (f) {
         fseek(f, 0, SEEK_END);
@@ -135,8 +125,9 @@ char* load_file(const char* filename) {
             fread(buffer, 1, length, f);
         }
         fclose(f);
+        buffer[length] = '\0';
     }
-    buffer[length] = '\0';
+
     return buffer;
 }
 
@@ -186,6 +177,9 @@ static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_s
     pdesc.raster.face_culling = GS_GRAPHICS_FACE_CULLING_BACK;
     pdesc.raster.primitive = GS_GRAPHICS_PRIMITIVE_TRIANGLES;
     pdesc.depth.func = GS_GRAPHICS_DEPTH_FUNC_LESS;
+    pdesc.blend.func = GS_GRAPHICS_BLEND_EQUATION_ADD;
+    pdesc.blend.src = GS_GRAPHICS_BLEND_MODE_SRC_ALPHA;
+    pdesc.blend.dst = GS_GRAPHICS_BLEND_MODE_ONE_MINUS_SRC_ALPHA;
     pdesc.layout.attrs = attrs;
     pdesc.layout.size = sizeof(attrs);
 
