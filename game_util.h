@@ -128,7 +128,7 @@ bool world_to_screen(gs_vec3 world_pos, gs_vec2* out_screen, gs_mat4 view_proj, 
     return true;
 }
 
-void lerp_card_transform(card_state_t *card, float dt) {
+void lerp_card_transform(card_data_t *card, float dt) {
     card->lerp += dt / card->anim_duration;
     if (card->lerp >= 1) {
         card->lerp = 1;
@@ -148,7 +148,7 @@ void lerp_card_transform(card_state_t *card, float dt) {
     card->transform.rotation.w = gs_interp_smoothstep(card->prev_transform.rotation.w, card->target_transform.rotation.w, card->lerp);
 }
 
-void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float duration) {
+void set_card_animation(card_data_t *card, gs_vqs_t target_transform, float duration) {
     card->prev_transform.position = card->transform.position;
     card->prev_transform.rotation = card->transform.rotation;
     card->prev_transform.scale = card->transform.scale;
@@ -159,7 +159,7 @@ void set_card_animation(card_state_t *card, gs_vqs_t target_transform, float dur
     card->lerp = 0.0f;
 }
 
-void position_hand_cards(card_state_t *cards, bool bottom_of_screen) {
+void position_hand_cards(card_data_t *cards, bool bottom_of_screen) {
     float spacing, fan_angle, curve_amount, y_offset;
     spacing = HAND_SPACING;
     if (bottom_of_screen) {

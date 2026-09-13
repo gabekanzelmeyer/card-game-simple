@@ -8,6 +8,11 @@
 #include "engine_shapes.h"
 #include "card_data.h"
 
+#define HAND_SPACING 1.5f
+#define HAND_FAN_ANGLE 2.0f
+#define HAND_CURVE_AMOUNT 0.02f
+#define HAND_Y_POSITION_OFFSET 2.6f
+
 typedef struct {
     entity_t entity;
     card_data_t data;
@@ -20,7 +25,7 @@ gs_handle(gs_graphics_texture_t) CARD_BG_TEXTURE;
 gs_asset_font_t CARD_FONT;
 
 
-void card_entity_init_resources() {
+void card_entites_init() {
     int32_t tex_w = 0, tex_h = 0;
     uint32_t num_comps = 0;
     void* tex_data = NULL;
@@ -83,6 +88,31 @@ void card_entity_position_in_front_of_camera(gs_camera_t *camera, card_entity_t 
         gs_quat_mul(camera->transform.rotation, gs_quat_angle_axis(gs_deg2rad(90.f), gs_v3(1.f, 0.f, 0.f)));
     card->entity.transform.rotation =
         gs_quat_mul(card->entity.transform.rotation, gs_quat_angle_axis(gs_deg2rad(30.f), gs_v3(0.f, 1.f, 0.f)));
+}
+
+void card_entities_position_as_hand(card_data_t *cards, bool bottom_of_screen) {
+    float spacing, fan_angle, curve_amount, y_offset;
+    spacing = HAND_SPACING;
+    if (bottom_of_screen) {
+        fan_angle = HAND_FAN_ANGLE;
+        curve_amount = -HAND_CURVE_AMOUNT;
+        y_offset = -HAND_Y_POSITION_OFFSET;
+    } else {
+        fan_angle = -HAND_FAN_ANGLE;
+        curve_amount = HAND_CURVE_AMOUNT;
+        y_offset = HAND_Y_POSITION_OFFSET;
+    }
+
+    int count = gs_dyn_array_size(cards);
+    float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
+    float start_tilt = fan_angle * (float)count / 2.f - fan_angle / 2.f;
+    for (int i = 0; i < count; i++) {
+        gs_vqs_t target = gs_vqs_default();
+        target.position.x = start_x + i * spacing;
+        target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
+        target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 0, 1));
+        set_card_animation(&cards[i], target, 0.2f);
+    }
 }
 
 void card_entity_bake_texture(gs_immediate_draw_t *gsi, card_entity_t card_entity) {

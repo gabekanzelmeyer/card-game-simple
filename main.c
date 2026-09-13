@@ -34,7 +34,6 @@ card_entity_t card;
 void init() {
     srand(time(NULL));
     // card_renderer_init(&card_renderer);
-    // card_database_init();
     // game_state_init(&state, &card_renderer);
 
     camera_offset = gs_v3(0.f, 18.f, 10.f);
@@ -42,7 +41,7 @@ void init() {
 
     engine = engine_init();
     card_database_init();
-    card_entity_init_resources();
+    card_entites_init();
 
     engine.camera.transform.position = gs_vec3_add(player_pos, camera_offset);
     engine.camera.transform.rotation = gs_quat_angle_axis(gs_deg2rad(-60.f), gs_v3(1.f, 0.f, 0.f));

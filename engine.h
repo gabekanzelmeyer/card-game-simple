@@ -33,6 +33,10 @@ typedef struct {
 typedef struct entity_t {
     mesh_t mesh;
     gs_vqs_t transform;
+    gs_vqs_t prev;
+    gs_vqs_t next;
+    float lerp;
+    float lerp_duration;
     material_t material;
     struct gs_dyn_array(entity_t) children;
 } entity_t;
@@ -194,6 +198,42 @@ shader_t shader_standard() {
     shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
     shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
     return shader;
+}
+
+void transform_lerp(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {
+    current->position.x = gs_interp_smoothstep(prev->position.x, next->position.x, lerp);
+    current->position.y = gs_interp_smoothstep(prev->position.y, next->position.y, lerp);
+    current->position.z = gs_interp_smoothstep(prev->position.z, next->position.z, lerp);
+
+    current->scale.x = gs_interp_smoothstep(prev->scale.x, next->scale.x, lerp);
+    current->scale.y = gs_interp_smoothstep(prev->scale.y, next->scale.y, lerp);
+    current->scale.z = gs_interp_smoothstep(prev->scale.z, next->scale.z, lerp);
+
+    current->rotation.x = gs_interp_smoothstep(prev->rotation.x, next->rotation.x, lerp);
+    current->rotation.y = gs_interp_smoothstep(prev->rotation.y, next->rotation.y, lerp);
+    current->rotation.z = gs_interp_smoothstep(prev->rotation.z, next->rotation.z, lerp);
+    current->rotation.w = gs_interp_smoothstep(prev->rotation.w, next->rotation.w, lerp);
+}
+
+void entity_animate(entity_t *entity, float dt) {
+    entity->lerp += dt / entity->lerp_duration;
+    if (entity->lerp >= 1) {
+        entity->lerp = 1;
+    }
+    transform_lerp(&entity->transform, &entity->prev, &entity->next, entity->lerp);
+}
+
+void entities_animate(gs_dyn_array(entity_t) entities, float dt) {
+    for (int i = 0; i < gs_dyn_array_size(entities); i++) {
+        entity_animate(&entities[i], dt);
+    }
+}
+
+void entity_animation_start(entity_t *entity, gs_vqs target, float duration) {
+    entity->prev = entity->transform;
+    entity->next = target;
+    entity->lerp_duration = duration;
+    entity->lerp = 0.0f;
 }
 
 void draw_entity(entity_t *entity, gs_mat4 view_projection, shader_t *shader, engine_t *engine) {
