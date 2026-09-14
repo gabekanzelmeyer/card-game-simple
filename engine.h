@@ -200,6 +200,22 @@ shader_t shader_standard() {
     return shader;
 }
 
+gs_vqs transform_in_front_of_camera(gs_camera_t *camera, gs_vqs offset) {
+    gs_vqs transform = gs_vqs_default();
+    gs_vec3 forward = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation), gs_v3(0.f, 0.f, -1.f));
+    gs_vec3 right = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation),gs_v3(1.f, 0.f, 0.f));
+    gs_vec3 up = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation), gs_v3(0.f, 1.f, 0.f));
+
+    transform.position = gs_vec3_add(camera->transform.position, gs_vec3_scale(forward, offset.position.z));
+    transform.position = gs_vec3_add(transform.position, gs_vec3_scale(right, offset.position.x));
+    transform.position = gs_vec3_add(transform.position, gs_vec3_scale(up, offset.position.y));
+
+    transform.rotation =
+    gs_quat_mul(camera->transform.rotation, gs_quat_angle_axis(gs_deg2rad(90.f), gs_v3(1.f, 0.f, 0.f)));
+    transform.rotation = gs_quat_mul(transform.rotation, offset.rotation);
+    return transform;
+}
+
 void transform_lerp(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {
     current->position.x = gs_interp_smoothstep(prev->position.x, next->position.x, lerp);
     current->position.y = gs_interp_smoothstep(prev->position.y, next->position.y, lerp);

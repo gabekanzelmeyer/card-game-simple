@@ -29,6 +29,7 @@ static gs_handle(gs_graphics_texture_t) card_bg_texture;
 entity_t sphere;
 entity_t plane;
 card_entity_t card;
+gs_dyn_array(card_entity_t) hand;
 
 
 void init() {
@@ -58,6 +59,16 @@ void init() {
     plane.transform.scale = gs_v3s(30.f);
     plane.material.texture = NO_TEXTURE;
     plane.material.color = gs_v4(0.3, 0.8, 0.1, 1.0);
+
+    gs_dyn_array(card_data_t) hand_data = hand_get_random(true, true, true);
+    hand = NULL;
+    for (int i = 0; i < gs_dyn_array_size(hand_data); i++) {
+        card_entity_t c = card_entity_create(hand_data[i]);
+        card_entity_bake_texture(&engine.gsi, c);
+        gs_dyn_array_push(hand, c);
+    }
+
+    card_entities_position_as_hand(&engine.camera, hand, false);
 
     card = card_entity_create(card_get_random(true, false, false));
     card_entity_bake_texture(&engine.gsi, card);
@@ -112,7 +123,7 @@ void update() {
 
     float dt = gs_platform_delta_time();
 
-    // ---- WASD movement ----
+    // WASD movement
     gs_vec3 move = gs_v3(0.f, 0.f, 0.f);
     if (gs_platform_key_down(GS_KEYCODE_W)) move.z -= 1.f;
     if (gs_platform_key_down(GS_KEYCODE_S)) move.z += 1.f;
@@ -151,10 +162,13 @@ void update() {
     sphere.transform.position = player_pos;
     draw_entity(&sphere, vp, &standard_shader, &engine);
 
+    for (int i = 0; i < gs_dyn_array_size(hand); i++) {
+        // hand[i].entity.transform = transform_in_front_of_camera(&engine.camera, gs_vqs_default());
+        entity_animate(&hand[i].entity, dt);
+        draw_entity(&hand[i].entity, vp, &standard_shader, &engine);
+    }
 
-    card_entity_position_in_front_of_camera(&engine.camera, &card, gs_v3(1, -2, 5));
-
-    draw_entity(&card.entity, vp, &standard_shader, &engine);
+   // draw_entity(&card.entity, vp, &standard_shader, &engine);
 
     gs_graphics_renderpass_end(&engine.cb);
 

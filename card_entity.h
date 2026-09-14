@@ -8,10 +8,10 @@
 #include "engine_shapes.h"
 #include "card_data.h"
 
-#define HAND_SPACING 1.5f
+#define HAND_SPACING 1.2f
 #define HAND_FAN_ANGLE 2.0f
-#define HAND_CURVE_AMOUNT 0.02f
-#define HAND_Y_POSITION_OFFSET 2.6f
+#define HAND_CURVE_AMOUNT 0.018f
+#define HAND_Y_POSITION_OFFSET 1.9f
 
 typedef struct {
     entity_t entity;
@@ -67,30 +67,14 @@ card_entity_t card_entity_create(card_data_t card_data) {
     card.entity = (entity_t){0};
     card.entity.mesh = mesh_plane();
     card.entity.transform = gs_vqs_default();
-    card.entity.transform.scale = gs_v3(1.2f, 1.f, 1.7f);
+    card.entity.transform.scale = gs_v3(1.2f, 1.f, 1.6f);
     card.entity.transform.position = gs_v3(0, 0.1, 0);
     card.entity.material.texture = render_texture.texture;
     card.entity.material.color = gs_v4s(1);
     return card;
 }
 
-void card_entity_position_in_front_of_camera(gs_camera_t *camera, card_entity_t *card, gs_vec3 offset) {
-    gs_vec3 forward = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation), gs_v3(0.f, 0.f, -1.f));
-    gs_vec3 right = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation),gs_v3(1.f, 0.f, 0.f));
-    gs_vec3 up = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation), gs_v3(0.f, 1.f, 0.f));
-
-    gs_vec3 pos = gs_vec3_add(camera->transform.position, gs_vec3_scale(forward, offset.z));
-    pos = gs_vec3_add(pos, gs_vec3_scale(right, offset.x));
-    pos = gs_vec3_add(pos, gs_vec3_scale(up, offset.y));
-    card->entity.transform.position = pos;
-
-    card->entity.transform.rotation =
-        gs_quat_mul(camera->transform.rotation, gs_quat_angle_axis(gs_deg2rad(90.f), gs_v3(1.f, 0.f, 0.f)));
-    card->entity.transform.rotation =
-        gs_quat_mul(card->entity.transform.rotation, gs_quat_angle_axis(gs_deg2rad(30.f), gs_v3(0.f, 1.f, 0.f)));
-}
-
-void card_entities_position_as_hand(card_data_t *cards, bool bottom_of_screen) {
+void card_entities_position_as_hand(gs_camera_t *camera, card_entity_t *cards, bool bottom_of_screen) {
     float spacing, fan_angle, curve_amount, y_offset;
     spacing = HAND_SPACING;
     if (bottom_of_screen) {
@@ -107,11 +91,15 @@ void card_entities_position_as_hand(card_data_t *cards, bool bottom_of_screen) {
     float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
     float start_tilt = fan_angle * (float)count / 2.f - fan_angle / 2.f;
     for (int i = 0; i < count; i++) {
-        gs_vqs_t target = gs_vqs_default();
+        gs_vqs target = gs_vqs_default();
         target.position.x = start_x + i * spacing;
         target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
-        target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 0, 1));
-        set_card_animation(&cards[i], target, 0.2f);
+        target.position.z = 5; // units in front of camera (0, won't be seen)
+        target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 1, 0)); // rotating on y
+        gs_vqs camera_target = transform_in_front_of_camera(camera, target);
+        // make sure to keep any existing scaling
+        camera_target.scale = cards[i].entity.transform.scale;
+        entity_animation_start(&cards[i].entity, camera_target, 0.2f);
     }
 }
 
