@@ -6,10 +6,10 @@
 #include "util/gs_gui.h"
 
 #include "engine.h"
+#include "game.h"
 #include "card_data.h"
 #include "card_entity.h"
 #include "card_database.h"
-#include "game_util.h"
 
 #define ROWS_PER_PAGE 2
 #define CARDS_PER_PAGE 12
@@ -89,41 +89,41 @@ enum game_mode card_library_gui(engine_t *engine) {
 
             char page_count_text[64];
             snprintf(page_count_text, sizeof(page_count_text), "Page: %i/%i", (current_page_index + 1), num_pages);
-            gs_gui_rect_t page_count_rect = gs_gui_layout_anchor(&engine->gui.viewport,400, 200, -300, 0, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
+            gs_gui_rect_t page_count_rect = gs_gui_layout_anchor(&engine->gui.viewport,400, 100, -300, 20, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
             gs_gui_layout_set_next(&engine->gui, page_count_rect, 0);
             gs_gui_text(&engine->gui, page_count_text);
 
-            gs_gui_rect_t prev_button_rect = gs_gui_layout_anchor(&engine->gui.viewport,200, 200, 0, 0, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
+            gs_gui_rect_t prev_button_rect = gs_gui_layout_anchor(&engine->gui.viewport,200, 100, 0, 0, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
             gs_gui_layout_set_next(&engine->gui, prev_button_rect, 0);
             if (gs_gui_button(&engine->gui, "<<")) {
                 current_page_index = current_page_index - 1;
                 if (current_page_index < 0) current_page_index = num_pages - 1;
             }
-            gs_gui_rect_t next_button_rect = gs_gui_layout_anchor(&engine->gui.viewport,200, 200, 220, 0, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
+            gs_gui_rect_t next_button_rect = gs_gui_layout_anchor(&engine->gui.viewport,200, 100, 220, 0, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
             gs_gui_layout_set_next(&engine->gui, next_button_rect, 0);
             if (gs_gui_button(&engine->gui, ">>")) {
                 current_page_index = (current_page_index + 1) % num_pages;
             }
 
-            gs_gui_rect_t red_checkbox_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 100, -600, 30, GS_GUI_LAYOUT_ANCHOR_TOPRIGHT);
+            gs_gui_rect_t red_checkbox_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 80, -600, 0, GS_GUI_LAYOUT_ANCHOR_TOPRIGHT);
             gs_gui_layout_set_next(&engine->gui, red_checkbox_rect, 0);
             if (gs_gui_checkbox(&engine->gui, "Red", &card_library_red_enabled)) {
                 card_library_filter_view(engine, 0);
             }
 
-            gs_gui_rect_t green_checkbox_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 100, -300, 30, GS_GUI_LAYOUT_ANCHOR_TOPRIGHT);
+            gs_gui_rect_t green_checkbox_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 80, -300, 0, GS_GUI_LAYOUT_ANCHOR_TOPRIGHT);
             gs_gui_layout_set_next(&engine->gui, green_checkbox_rect, 0);
             if (gs_gui_checkbox(&engine->gui, "Green", &card_library_green_enabled)) {
                 card_library_filter_view(engine, 0);
             }
 
-            gs_gui_rect_t blue_checkbox_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 100, 100, 30, GS_GUI_LAYOUT_ANCHOR_TOPRIGHT);
+            gs_gui_rect_t blue_checkbox_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 80, 100, 0, GS_GUI_LAYOUT_ANCHOR_TOPRIGHT);
             gs_gui_layout_set_next(&engine->gui, blue_checkbox_rect, 0);
             if (gs_gui_checkbox(&engine->gui, "Blue", &card_library_blue_enabled)) {
                 card_library_filter_view(engine, 0);
             }
 
-            gs_gui_rect_t play_button_rect = gs_gui_layout_anchor(&engine->gui.viewport, 400, 200, 0, 0, GS_GUI_LAYOUT_ANCHOR_BOTTOMRIGHT);
+            gs_gui_rect_t play_button_rect = gs_gui_layout_anchor(&engine->gui.viewport, 300, 200, -10, -10, GS_GUI_LAYOUT_ANCHOR_BOTTOMRIGHT);
             gs_gui_layout_set_next(&engine->gui, play_button_rect, 0);
             if (gs_gui_button(&engine->gui, "Play")) {
                 if (gs_dyn_array_size(card_library_hand) == 6) {

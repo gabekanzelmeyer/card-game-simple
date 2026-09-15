@@ -94,12 +94,11 @@ void engine_init(engine_t *engine) {
     engine->standard_shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
     engine->standard_shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
 
-    if (!gs_asset_font_load_from_file("assets/font.otf", &engine->standard_font, 100)) {
+    if (!gs_asset_font_load_from_file("assets/font.otf", &engine->standard_font, 80)) {
         gs_println("WARNING: failed to load assets/font.otf (24pt)");
     }
 
     gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &engine->standard_font}};
-
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));

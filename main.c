@@ -77,8 +77,8 @@ void update() {
     //     state.mode = MENU;
     // }
     //
-    gs_gui_begin(&engine.gui, NULL);
-    card_library_gui(&engine);
+    // gs_gui_begin(&engine.gui, NULL);
+    // card_library_gui(&engine);
     // if (state.mode == MENU) {
     //     state.mode = gui_show_menu(&state);
     //     if (state.mode == LIBRARY) {
@@ -107,7 +107,7 @@ void update() {
     // } else if (state.mode == CARD_GAME && card_game.simulate_player) {
     //     card_game_show_simulation_gui(&card_game, &state);
     // }
-    gs_gui_end(&engine.gui);
+    // gs_gui_end(&engine.gui);
 
    // game_render_begin(&state);
     // if (state.mode == LIBRARY) {
@@ -119,6 +119,10 @@ void update() {
 
     // gs_gui_render(&state.gui_ctx, &state.command_buffer);
    // game_render_end(&state);
+
+    gs_gui_begin(&engine.gui, NULL);
+    card_library_gui(&engine);
+    gs_gui_end(&engine.gui);
 
     float dt = gs_platform_delta_time();
 
@@ -159,13 +163,8 @@ void update() {
     draw_entity(&plane, vp, &engine.standard_shader, &engine);
     sphere.transform.position = player_pos;
     draw_entity(&sphere, vp, &engine.standard_shader, &engine);
-    card_library_update(&engine);
 
-    // for (int i = 0; i < gs_dyn_array_size(hand); i++) {
-    //     // hand[i].entity.transform = transform_in_front_of_camera(&engine.camera, gs_vqs_default());
-    //     entity_animate(&hand[i].entity, dt);
-    //     draw_entity(&hand[i].entity, vp, &engine.standard_shader, &engine);
-    // }
+    card_library_update(&engine);
 
     gs_gui_render(&engine.gui, &engine.cb);
     gs_graphics_renderpass_end(&engine.cb);

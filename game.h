@@ -1,5 +1,5 @@
-#ifndef GAME_UTIL_H
-#define GAME_UTIL_H
+#ifndef GAME_H
+#define GAME_H
 
 #include "gs.h"
 #include "util/gs_idraw.h"
