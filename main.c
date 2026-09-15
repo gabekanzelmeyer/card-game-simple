@@ -39,7 +39,7 @@ void init() {
     camera_offset = gs_v3(0.f, 18.f, 10.f);
     player_pos = gs_v3(0.f, 0.5f, 0.f);
 
-    engine = engine_init();
+    engine_init(&engine);
     card_database_init();
     card_entites_init();
     card_library_init();
@@ -156,20 +156,19 @@ void update() {
     gs_graphics_set_viewport(&engine.cb, 0, 0, (uint32_t)fbs.x, (uint32_t)fbs.y);
     gs_graphics_pipeline_bind(&engine.cb, engine.standard_shader.pipeline);
 
-
     draw_entity(&plane, vp, &engine.standard_shader, &engine);
     sphere.transform.position = player_pos;
     draw_entity(&sphere, vp, &engine.standard_shader, &engine);
+    card_library_update(&engine);
 
     // for (int i = 0; i < gs_dyn_array_size(hand); i++) {
     //     // hand[i].entity.transform = transform_in_front_of_camera(&engine.camera, gs_vqs_default());
     //     entity_animate(&hand[i].entity, dt);
     //     draw_entity(&hand[i].entity, vp, &engine.standard_shader, &engine);
     // }
-    card_library_update(&engine);
 
+    gs_gui_render(&engine.gui, &engine.cb);
     gs_graphics_renderpass_end(&engine.cb);
-
     gs_graphics_command_buffer_submit(&engine.cb);
 }
 

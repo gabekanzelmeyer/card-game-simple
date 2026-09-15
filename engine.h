@@ -62,19 +62,19 @@ static gs_handle(gs_graphics_shader_t) shader_create(const char *vs_file, const 
 static gs_handle(gs_graphics_uniform_t) uniform_create(const char* name, gs_graphics_uniform_type type, gs_graphics_shader_stage_type stage);
 static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_shader_t) shader);
 
-engine_t engine_init() {
-    engine_t engine = (engine_t){0};
-    engine.cb = gs_command_buffer_new();
-    engine.gsi = gs_immediate_draw_new();
-    gs_gui_init(&engine.gui, gs_platform_main_window());
+void engine_init(engine_t *engine) {
+    *engine = (engine_t){0};
+    engine->cb = gs_command_buffer_new();
+    engine->gsi = gs_immediate_draw_new();
+    gs_gui_init(&engine->gui, gs_platform_main_window());
 
-    engine.camera = gs_camera_perspective();
-    engine.camera.fov = 60.f;
-    engine.camera.near_plane = 0.1f;
-    engine.camera.far_plane = 1000.f;
-    // engine.camera = gs_camera_default();
-    // engine.camera.proj_type = GS_PROJECTION_TYPE_ORTHOGRAPHIC;
-    // engine.camera.ortho_scale = 10.f;
+    engine->camera = gs_camera_perspective();
+    engine->camera.fov = 60.f;
+    engine->camera.near_plane = 0.1f;
+    engine->camera.far_plane = 1000.f;
+    // engine->camera = gs_camera_default();
+    // engine->camera.proj_type = GS_PROJECTION_TYPE_ORTHOGRAPHIC;
+    // engine->camera.ortho_scale = 10.f;
 
     // create a simple 1x1 white texture to be used for NO_TEXTURE
     uint8_t white[4] = {255, 255, 255, 255};
@@ -87,27 +87,25 @@ engine_t engine_init() {
     no_texture_desc.mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
     NO_TEXTURE = gs_graphics_texture_create(&no_texture_desc);
 
-    engine.standard_shader = (shader_t){0};
-    engine.standard_shader.shader = shader_create("shaders/standard.vert", "shaders/standard.frag");
-    engine.standard_shader.pipeline = pipeline_create(engine.standard_shader.shader);
-    engine.standard_shader.u_mvp = uniform_create("u_mvp", GS_GRAPHICS_UNIFORM_MAT4, GS_GRAPHICS_SHADER_STAGE_VERTEX);
-    engine.standard_shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
-    engine.standard_shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
+    engine->standard_shader = (shader_t){0};
+    engine->standard_shader.shader = shader_create("shaders/standard.vert", "shaders/standard.frag");
+    engine->standard_shader.pipeline = pipeline_create(engine->standard_shader.shader);
+    engine->standard_shader.u_mvp = uniform_create("u_mvp", GS_GRAPHICS_UNIFORM_MAT4, GS_GRAPHICS_SHADER_STAGE_VERTEX);
+    engine->standard_shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
+    engine->standard_shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
 
-    if (!gs_asset_font_load_from_file("assets/font.otf", &engine.standard_font, 120)) {
-        gs_println("WARNING: failed to load assets/font.otf (120pt)");
+    if (!gs_asset_font_load_from_file("assets/font.otf", &engine->standard_font, 100)) {
+        gs_println("WARNING: failed to load assets/font.otf (24pt)");
     }
 
-    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &engine.standard_font}};
+    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &engine->standard_font}};
 
-    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
-    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
-    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
-    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
-    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
-    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
-
-    return engine;
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
 }
 
 render_texture_t render_texture_create(uint32_t width, uint32_t height) {
