@@ -6,9 +6,9 @@
 #include "util/gs_gui.h"
 
 #include "card_data.h"
-#include "card_renderer.h"
+#include "card_entity.h"
 #include "card_database.h"
-#include "game_util.h"
+#include "game.h"
 
 enum card_game_phase {
     INIT,
@@ -56,13 +56,13 @@ typedef struct {
     float phase_timer;
     int phase_tick;
     float game_timer;
-    gs_dyn_array(card_state_t) player_hand;
-    gs_dyn_array(card_state_t) opponent_hand;
+    gs_dyn_array(card_entity_t) player_hand;
+    gs_dyn_array(card_entity_t) opponent_hand;
     // cache the initial hands of a game so that it can be used for post game statistics
-    gs_dyn_array(card_state_t) player_hand_cache;
-    gs_dyn_array(card_state_t) opponent_hand_cache;
-    card_state_t player_card_in_play;
-    card_state_t opponent_card_in_play;
+    gs_dyn_array(card_entity_t) player_hand_cache;
+    gs_dyn_array(card_entity_t) opponent_hand_cache;
+    card_entity_t player_card_in_play;
+    card_entity_t opponent_card_in_play;
     int player_hand_index_to_play;
     int opponent_hand_index_to_play;
     bool player_just_played_card;
@@ -73,7 +73,7 @@ typedef struct {
     enum card_game_target_type opponent_selecting_target_type;
     bool player_card_attacking;
     bool opponent_card_attacking;
-    card_state_t *target;
+    card_entity_t *target;
     int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
     bool visual_update;
     float game_speed;
@@ -92,66 +92,63 @@ typedef struct {
 
 } card_game_state_t;
 
-static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *game_state);
-static void highlight_playable_cards(card_game_state_t *card_game,  game_state_t *game_state);
-static void highlight_targetable_cards(card_game_state_t *card_game,  game_state_t *game_state, enum card_game_target_type type);
+static void highlight_remove_all(engine_t *engine, card_game_state_t *card_game);
+static void highlight_playable_cards(engine_t *engine, card_game_state_t *card_game);
+static void highlight_targetable_cards(engine_t *engine, card_game_state_t *card_game, enum card_game_target_type type);
 static void set_phase(card_game_state_t *card_game, enum card_game_phase phase);
-static void update_input_indices(card_game_state_t *card_game, game_state_t *game_state);
-static void update_card_visuals(card_game_state_t *card_game, game_state_t *game_state);
+static void update_input_indices(engine_t *engine, card_game_state_t *card_game);
+static void update_card_visuals(engine_t *engine, card_game_state_t *card_game);
 static void update_card_animations(card_game_state_t *card_game, float dt);
 static void trigger_on_play_effects(card_game_state_t *card_game);
-static void trigger_target_effects(card_state_t *source, card_state_t *target);
-static void damage_card(card_state_t *source, card_state_t *target, int damage);
-static void resolve_damage(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_init(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_player_select_card_to_play(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_opponent_select_card_to_play(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_play_cards(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_trigger_on_play_effects(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_player_select_target(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_opponent_select_target(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_animate_target_effects(card_game_state_t *card_game, game_state_t *game_state);
-static void phase_battle(card_game_state_t *card_game, game_state_t *game_state);
+static void trigger_target_effects(card_entity_t *source, card_entity_t *target);
+static void damage_card(card_entity_t *source, card_entity_t *target, int damage);
+static void resolve_damage(engine_t *engine, card_game_state_t *card_game);
+static void phase_init(engine_t *engine, card_game_state_t *card_game);
+static void phase_player_select_card_to_play(engine_t *engine, card_game_state_t *card_game);
+static void phase_opponent_select_card_to_play(engine_t *engine, card_game_state_t *card_game);
+static void phase_play_cards(engine_t *engine, card_game_state_t *card_game);
+static void phase_trigger_on_play_effects(engine_t *engine, card_game_state_t *card_game);
+static void phase_player_select_target(engine_t *engine, card_game_state_t *card_game);
+static void phase_opponent_select_target(engine_t *engine, card_game_state_t *card_game,);
+static void phase_animate_target_effects(engine_t *engine, card_game_state_t *card_game);
+static void phase_battle(engine_t *engine, card_game_state_t *card_game);
 static float evaluate(card_game_state_t *card_game);
 static action_selection_t ai_target_selection(card_game_state_t *card_game, bool is_player);
 static action_selection_t ai_hand_selection(card_game_state_t *card_game, bool is_player);
 
-void card_game_init(card_game_state_t *card_game, game_state_t *game_state, gs_dyn_array(card_state_t) player_hand, gs_dyn_array(card_state_t) opponent_hand) {
+void card_game_init(engine_t *engine, card_game_state_t *card_game, gs_dyn_array(card_data_t) player_hand, gs_dyn_array(card_data_t) opponent_hand) {
     gs_dyn_array_free(card_game->player_hand);
     gs_dyn_array_free(card_game->opponent_hand);
     gs_dyn_array_free(card_game->player_hand_cache);
     gs_dyn_array_free(card_game->opponent_hand_cache);
 
-    int render_index = 0;
     for (int i = 0; i < 6; i++) {
-        card_state_t player_card = player_hand[i];
-        player_card.render_index = render_index++;
+        card_entity_t player_card = card_entity_create(player_hand[i]);
         gs_dyn_array_push(card_game->player_hand, player_card);
         gs_dyn_array_push(card_game->player_hand_cache, player_card);
-        card_state_t opponent_card = opponent_hand[i];
-        opponent_card.render_index = render_index++;
+        card_entity_t opponent_card = card_entity_create(opponent_hand[i]);
         gs_dyn_array_push(card_game->opponent_hand, opponent_card);
         gs_dyn_array_push(card_game->opponent_hand_cache, opponent_card);
     }
 
-    card_game->player_card_in_play = (card_state_t){0};
-    card_game->opponent_card_in_play = (card_state_t){0};
+    card_game->player_card_in_play = (card_entity_t){0};
+    card_game->opponent_card_in_play = (card_entity_t){0};
     card_game->phase = INIT;
-    update_card_visuals(card_game, game_state);
+    update_card_visuals(engine, card_game);
 
     gs_dyn_array_free(player_hand);
     gs_dyn_array_free(opponent_hand);
 }
 
-void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
-    if (card_game->phase == INIT) phase_init(card_game, game_state);
-    else if (card_game->phase == PLAYER_SELECT_CARD_TO_PLAY) phase_player_select_card_to_play(card_game, game_state);
-    else if (card_game->phase == OPPONENT_SELECT_CARD_TO_PLAY) phase_opponent_select_card_to_play(card_game, game_state);
-    else if (card_game->phase == PLAY_CARDS) phase_play_cards(card_game, game_state);
-    else if (card_game->phase == TRIGGER_ON_PLAY_EFFECTS) phase_trigger_on_play_effects(card_game, game_state);
-    else if (card_game->phase == PLAYER_SELECT_TARGET) phase_player_select_target(card_game, game_state);
-    else if (card_game->phase == OPPONENT_SELECT_TARGET) phase_opponent_select_target(card_game, game_state);
-    else if (card_game->phase == BATTLE) phase_battle(card_game, game_state);
+void card_game_update(engine_t *engine, card_game_state_t *card_game) {
+    if (card_game->phase == INIT) phase_init(engine, card_game);
+    else if (card_game->phase == PLAYER_SELECT_CARD_TO_PLAY) phase_player_select_card_to_play(engine, card_game);
+    else if (card_game->phase == OPPONENT_SELECT_CARD_TO_PLAY) phase_opponent_select_card_to_play(engine, card_game);
+    else if (card_game->phase == PLAY_CARDS) phase_play_cards(engine, card_game);
+    else if (card_game->phase == TRIGGER_ON_PLAY_EFFECTS) phase_trigger_on_play_effects(engine, card_game);
+    else if (card_game->phase == PLAYER_SELECT_TARGET) phase_player_select_target(engine, card_game);
+    else if (card_game->phase == OPPONENT_SELECT_TARGET) phase_opponent_select_target(engine, card_game);
+    else if (card_game->phase == BATTLE) phase_battle(engine, card_game);
 
     float dt = gs_platform_delta_time() * card_game->game_speed;
     card_game->phase_timer_prev = card_game->phase_timer;
@@ -160,30 +157,32 @@ void card_game_update(card_game_state_t *card_game, game_state_t *game_state) {
     card_game->phase_tick++;
 
     if (card_game->visual_update) {
-        update_card_visuals(card_game, game_state);
+        update_card_visuals(engine, card_game);
     }
-    update_input_indices(card_game, game_state);
+    update_input_indices(engine, card_game);
     update_card_animations(card_game, dt);
 
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
-    gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
-    // NOTE: cards are drawn depth wise in order, so sort based on draw order before rendering
-    // In that same spirit, we should iterate backwards over the cards to check if any are hovered
-    card_render_instanced(game_state->card_renderer, card_game->player_hand, gs_dyn_array_size(card_game->player_hand), &game_state->command_buffer, view_projection);
-    card_render_instanced(game_state->card_renderer, card_game->opponent_hand, gs_dyn_array_size(card_game->opponent_hand), &game_state->command_buffer, view_projection);
-    // if there is a player card in play, position and rotate correctly
-    if (card_game->player_card_in_play.name != NULL) {
-        card_render_instanced(game_state->card_renderer, &card_game->player_card_in_play, 1, &game_state->command_buffer, view_projection);
+    gs_mat4 view_projection = gs_camera_get_view_projection(&engine->camera, (int32_t)fbw, (int32_t)fbh);
+
+    for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
+        draw_entity(&card_game->player_hand[i].entity, view_projection, &engine->standard_shader, engine);
     }
-    // if there is a opponent card in play, position and rotate correctly
-    if (card_game->opponent_card_in_play.name != NULL) {
-        card_render_instanced(game_state->card_renderer, &card_game->opponent_card_in_play, 1, &game_state->command_buffer, view_projection);
+    for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
+        draw_entity(&card_game->opponent_hand[i].entity, view_projection, &engine->standard_shader, engine);
+    }
+
+    if (card_game->player_card_in_play.data.name != NULL) {
+        draw_entity(&card_game->player_card_in_play.entity, view_projection, &engine->standard_shader, engine);
+    }
+    if (card_game->opponent_card_in_play.data.name != NULL) {
+         draw_entity(&card_game->opponent_card_in_play.entity, view_projection, &engine->standard_shader, engine);
     }
 }
 
-void card_game_show_simulation_gui(card_game_state_t *card_game, game_state_t *state) {
-    if (gs_gui_window_begin_ex(&state->gui_ctx, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
+void card_game_show_simulation_gui(engine_t *engine, card_game_state_t *card_game) {
+    if (gs_gui_window_begin_ex(&engine->gui, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
         | GS_GUI_OPT_NORESIZE
         | GS_GUI_OPT_NOMOVE
         | GS_GUI_OPT_NOSCROLL
@@ -197,16 +196,16 @@ void card_game_show_simulation_gui(card_game_state_t *card_game, game_state_t *s
             char buf[64];
             snprintf(buf, sizeof(buf), "Count: %u", card_game->simulation_count);
 
-            gs_gui_rect_t rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 500, 200, 10, 10, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
-            gs_gui_layout_set_next(&state->gui_ctx, rect, 0);
-            gs_gui_text(&state->gui_ctx, buf);
+            gs_gui_rect_t rect = gs_gui_layout_anchor(&engine->gui.viewport, 500, 200, 10, 10, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+            gs_gui_layout_set_next(&engine->gui, rect, 0);
+            gs_gui_text(&engine->gui, buf);
 
-            gs_gui_rect_t button_rect = gs_gui_layout_anchor(&state->gui_ctx.viewport, 300, 200, 0, 200, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
-            gs_gui_layout_set_next(&state->gui_ctx, button_rect, 0);
-            if (gs_gui_button(&state->gui_ctx, "Stop")) {
+            gs_gui_rect_t button_rect = gs_gui_layout_anchor(&engine->gui.viewport, 300, 200, 0, 200, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+            gs_gui_layout_set_next(&engine->gui, button_rect, 0);
+            if (gs_gui_button(&engine->gui, "Stop")) {
                 card_game->simulation_count = 0;
             }
-            gs_gui_window_end(&state->gui_ctx);
+            gs_gui_window_end(&engine->gui);
         }
 }
 
@@ -217,13 +216,13 @@ static void set_phase(card_game_state_t *card_game, enum card_game_phase phase) 
     printf("SET PHASE: %s TIME: %f\n", get_phase_name(phase), card_game->game_timer);
 }
 
-static void phase_init(card_game_state_t *card_game, game_state_t *game_state) {
-    position_hand_cards(card_game->player_hand, true);
-    position_hand_cards(card_game->opponent_hand, false);
+static void phase_init(engine_t *engine, card_game_state_t *card_game) {
+    card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+    card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
     set_phase(card_game, PLAYER_SELECT_CARD_TO_PLAY);
 }
 
-static void phase_player_select_card_to_play(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_player_select_card_to_play(engine_t *engine, card_game_state_t *card_game) {
     if (card_game->simulate_player) {
         action_selection_t selection = ai_hand_selection(card_game, true);
         card_game->player_hand_index_to_play = selection.hand_index;
@@ -232,23 +231,23 @@ static void phase_player_select_card_to_play(card_game_state_t *card_game, game_
 
         // if the opponent doesn't have a card in play, transition
         // to that phase, otherwise start animating playing cards
-        if (card_game->opponent_card_in_play.name == NULL) {
+        if (card_game->opponent_card_in_play.data.name == NULL) {
             set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
         } else {
             set_phase(card_game, PLAY_CARDS);
         }
     } else {
-        highlight_remove_all(card_game, game_state);
-        highlight_playable_cards(card_game, game_state);
+        highlight_remove_all(engine, card_game);
+        highlight_playable_cards(engine, card_game);
         if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) { // will always be an index in players hand here
-            highlight_remove_all(card_game, game_state); // remove all highlights
+            highlight_remove_all(engine, card_game); // remove all highlights
             card_game->player_hand_index_to_play = card_game->hovered_index;
             card_game->player_just_played_card = true;
             card_game->player_on_play_triggered = false;
 
             // if the opponent doesn't have a card in play, transition
             // to that phase, otherwise start animating playing cards
-            if (card_game->opponent_card_in_play.name == NULL) {
+            if (card_game->opponent_card_in_play.data.name == NULL) {
                 set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
             } else {
                 set_phase(card_game, PLAY_CARDS);
@@ -257,7 +256,7 @@ static void phase_player_select_card_to_play(card_game_state_t *card_game, game_
     }
 }
 
-static void phase_opponent_select_card_to_play(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_opponent_select_card_to_play(engine_t *engine, card_game_state_t *card_game) {
     action_selection_t selection = ai_hand_selection(card_game, false);
     card_game->opponent_hand_index_to_play = selection.hand_index;
     card_game->opponent_just_played_card = true;
@@ -266,7 +265,7 @@ static void phase_opponent_select_card_to_play(card_game_state_t *card_game, gam
     set_phase(card_game, PLAY_CARDS);
 }
 
-static void phase_play_cards(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_play_cards(engine_t *engine, card_game_state_t *card_game) {
     // if player just played a card, animate it's position into play'
     if (card_game->phase_tick == 1) { // first call in this phase
         if (card_game->player_just_played_card) {
@@ -275,9 +274,10 @@ static void phase_play_cards(card_game_state_t *card_game, game_state_t *game_st
             gs_dyn_array_erase(card_game->player_hand, card_game->player_hand_index_to_play);
 
             gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(-2., 0.f, 0.f);
-            set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
-            position_hand_cards(card_game->player_hand, true);
+            target_transform.position = gs_v3(-2., 0.f, 5.f);
+            gs_vqs camera_target = transform_in_front_of_camera(&engine->camera, target_transform);
+            entity_animation_start(&card_game->player_card_in_play.entity, camera_target, 0.1f);
+            card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
         }
         if (card_game->opponent_just_played_card) {
             // only play the card after both player and opponent phases for selecting which card to play has already happened
@@ -285,9 +285,10 @@ static void phase_play_cards(card_game_state_t *card_game, game_state_t *game_st
             gs_dyn_array_erase(card_game->opponent_hand, card_game->opponent_hand_index_to_play);
 
             gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(2., 0.f, 0.f);
-            set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
-            position_hand_cards(card_game->opponent_hand, false);
+            target_transform.position = gs_v3(2., 0.f, 5.f);
+            gs_vqs camera_target = transform_in_front_of_camera(&engine->camera, target_transform);
+            entity_animation_start(&card_game->opponent_card_in_play.entity, camera_target, 0.1f);
+            card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
         }
     }
 
@@ -296,13 +297,13 @@ static void phase_play_cards(card_game_state_t *card_game, game_state_t *game_st
     }
 }
 
-static void phase_trigger_on_play_effects(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_trigger_on_play_effects(engine_t *engine, card_game_state_t *card_game) {
     if (card_game->player_just_played_card || card_game->opponent_just_played_card) {
         if (card_game->phase_tick == 1) {
             trigger_on_play_effects(card_game);
-            resolve_damage(card_game, game_state);
-            position_hand_cards(card_game->player_hand, true);
-            position_hand_cards(card_game->opponent_hand, false);
+            resolve_damage(engine, card_game);
+            card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+            card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
             card_game->visual_update = true; // on play effects will very likely cause a visual update, so just always do it
         }
         if (card_game->phase_timer > 0.3) { // let animations finish before changing phase
@@ -313,13 +314,13 @@ static void phase_trigger_on_play_effects(card_game_state_t *card_game, game_sta
     }
 }
 
-static void phase_player_select_target(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_player_select_target(engine_t *engine, card_game_state_t *card_game) {
     if (card_game->player_just_played_card) {
-        if (card_has_target_ability(&card_game->player_card_in_play.current_abilities)) {
+        if (card_has_target_ability(&card_game->player_card_in_play.data.current_abilities)) {
             card_game->player_selecting_target_type = ANY;
-        } else if (card_has_target_ability_self(&card_game->player_card_in_play.current_abilities)) {
+        } else if (card_has_target_ability_self(&card_game->player_card_in_play.data.current_abilities)) {
             card_game->player_selecting_target_type = SELF;
-        } else if (card_has_target_ability_other(&card_game->player_card_in_play.current_abilities)) {
+        } else if (card_has_target_ability_other(&card_game->player_card_in_play.data.current_abilities)) {
             card_game->player_selecting_target_type = OTHER;
         }
         card_game->player_just_played_card = false;
@@ -338,15 +339,15 @@ static void phase_player_select_target(card_game_state_t *card_game, game_state_
                 card_game->target = &card_game->opponent_card_in_play;
             }
             trigger_target_effects(&card_game->player_card_in_play, card_game->target);
-            resolve_damage(card_game, game_state);
-            position_hand_cards(card_game->player_hand, true);
-            position_hand_cards(card_game->opponent_hand, false);
+            resolve_damage(engine, card_game);
+            card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+            card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
             card_game->visual_update = true;
             card_game->player_selecting_target_type = NONE;
             set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
         } else {
-            highlight_remove_all(card_game, game_state);
-            highlight_targetable_cards(card_game, game_state, card_game->player_selecting_target_type);
+            highlight_remove_all(engine, card_game);
+            highlight_targetable_cards(engine, card_game, card_game->player_selecting_target_type);
             if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
                 if (card_game->hovered_index < 10) {
                     card_game->target = &card_game->player_hand[card_game->hovered_index];
@@ -358,29 +359,29 @@ static void phase_player_select_target(card_game_state_t *card_game, game_state_
                     card_game->target = &card_game->opponent_card_in_play;
                 }
                 trigger_target_effects(&card_game->player_card_in_play, card_game->target);
-                resolve_damage(card_game, game_state);
-                position_hand_cards(card_game->player_hand, true);
-                position_hand_cards(card_game->opponent_hand, false);
+                resolve_damage(engine, card_game);
+                card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+                card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
                 card_game->visual_update = true;
                 card_game->player_selecting_target_type = NONE;
                 set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
             }
         }
     } else {
-        highlight_remove_all(card_game, game_state);
+        highlight_remove_all(engine, card_game);
         if (card_game->target != NULL) {
             float begin_anim_time = 0.15;
             float end_anim_time = 0.25;
             float end_phase_time = 0.3;
             if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
-                gs_vqs_t target_transform = card_game->target->target_transform;
+                gs_vqs target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_v3(0.9f, 0.9f, 0.9f);
-                set_card_animation(card_game->target, target_transform, 0.05f);
+                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
             }
             if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
-                gs_vqs_t target_transform = card_game->target->target_transform;
+                gs_vqs_t target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_v3(1.f, 1.f, 1.f);
-                set_card_animation(card_game->target, target_transform, 0.05f);
+                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
                 card_game->target = NULL;
             }
             if (card_game->phase_timer > end_phase_time) {
@@ -392,13 +393,13 @@ static void phase_player_select_target(card_game_state_t *card_game, game_state_
     }
 }
 
-static void phase_opponent_select_target(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_opponent_select_target(engine_t *engine, card_game_state_t *card_game) {
     if (card_game->opponent_just_played_card) {
-        if (card_has_target_ability(&card_game->opponent_card_in_play.current_abilities)) {
+        if (card_has_target_ability(&card_game->opponent_card_in_play.data.current_abilities)) {
             card_game->opponent_selecting_target_type = ANY;
-        } else if (card_has_target_ability_self(&card_game->opponent_card_in_play.current_abilities)) {
+        } else if (card_has_target_ability_self(&card_game->opponent_card_in_play.data.current_abilities)) {
             card_game->opponent_selecting_target_type = SELF;
-        } else if (card_has_target_ability_other(&card_game->opponent_card_in_play.current_abilities)) {
+        } else if (card_has_target_ability_other(&card_game->opponent_card_in_play.data.current_abilities)) {
             card_game->opponent_selecting_target_type = OTHER;
         }
 
@@ -420,9 +421,9 @@ static void phase_opponent_select_target(card_game_state_t *card_game, game_stat
         }
 
         trigger_target_effects(&card_game->opponent_card_in_play, card_game->target);
-        resolve_damage(card_game, game_state);
-        position_hand_cards(card_game->player_hand, true);
-        position_hand_cards(card_game->opponent_hand, false);
+        resolve_damage(engine, card_game);
+        card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+        card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
         card_game->visual_update = true;
         card_game->opponent_selecting_target_type = NONE;
         set_phase(card_game, OPPONENT_SELECT_TARGET); // set to same phase to reset phase timer
@@ -432,14 +433,14 @@ static void phase_opponent_select_target(card_game_state_t *card_game, game_stat
             float end_anim_time = 0.25;
             float end_phase_time = 0.3;
             if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
-                gs_vqs_t target_transform = card_game->target->target_transform;
+                gs_vqs_t target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_v3(0.8f, 0.8f, 0.8f);
-                set_card_animation(card_game->target, target_transform, 0.05f);
+                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
             }
             if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
-                gs_vqs_t target_transform = card_game->target->target_transform;
+                gs_vqs_t target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_v3(1.f, 1.f, 1.f);
-                set_card_animation(card_game->target, target_transform, 0.05f);
+                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
                 card_game->target = NULL;
             }
             if (card_game->phase_timer > end_phase_time) {
@@ -451,7 +452,7 @@ static void phase_opponent_select_target(card_game_state_t *card_game, game_stat
     }
 }
 
-static void phase_battle(card_game_state_t *card_game, game_state_t *game_state) {
+static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
     float haste_begin_attack_time = 0.3;
     float haste_end_attack_time = 0.5;
     float haste_resolve_time = 0.7;
@@ -461,17 +462,17 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
 
     if (card_game->phase_timer_prev < haste_begin_attack_time && card_game->phase_timer >= haste_begin_attack_time) {
         printf("haste begin: %f\n", card_game->phase_timer);
-        card_game->player_card_attacking = card_game->player_card_in_play.current_abilities.haste && !card_game->player_card_in_play.current_abilities.frozen;
-        card_game->opponent_card_attacking = card_game->opponent_card_in_play.current_abilities.haste && !card_game->opponent_card_in_play.current_abilities.frozen;
+        card_game->player_card_attacking = card_game->player_card_in_play.data.current_abilities.haste && !card_game->player_card_in_play.data.current_abilities.frozen;
+        card_game->opponent_card_attacking = card_game->opponent_card_in_play.data.current_abilities.haste && !card_game->opponent_card_in_play.data.current_abilities.frozen;
         if (card_game->player_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(-1.5f, 0.f, 0.f);
-            set_card_animation(&card_game->player_card_in_play, target_transform, 0.07f);
+            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.07f);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(1.5f, 0.f, 0.f);
-            set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
+            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.07f);
         }
     }
     if (card_game->phase_timer_prev < haste_end_attack_time && card_game->phase_timer >= haste_end_attack_time) {
@@ -479,14 +480,14 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
         if (card_game->player_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
-            set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
-            damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.current_attack);
+            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.1f);
+            damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_attack);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(2.0f, 0.f, 0.f);
-            set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
-            damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.current_attack);
+            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.1f);
+            damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_attack);
         }
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
@@ -496,25 +497,25 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
         printf("haste resolve: %f\n", card_game->phase_timer);
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
-        resolve_damage(card_game, game_state);
-        position_hand_cards(card_game->player_hand, true);
-        position_hand_cards(card_game->opponent_hand, false);
+        resolve_damage(engine, card_game);
+        card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+        card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
     }
 
     // normal animation timer ticks
     if (card_game->phase_timer_prev < begin_attack_time && card_game->phase_timer >= begin_attack_time) {
         printf("attack begin: %f\n", card_game->phase_timer);
-        card_game->player_card_attacking = !card_game->player_card_in_play.current_abilities.haste && !card_game->player_card_in_play.current_abilities.frozen;
-        card_game->opponent_card_attacking = !card_game->opponent_card_in_play.current_abilities.haste && !card_game->opponent_card_in_play.current_abilities.frozen;
+        card_game->player_card_attacking = !card_game->player_card_in_play.data.current_abilities.haste && !card_game->player_card_in_play.data.current_abilities.frozen;
+        card_game->opponent_card_attacking = !card_game->opponent_card_in_play.data.current_abilities.haste && !card_game->opponent_card_in_play.data.current_abilities.frozen;
         if (card_game->player_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(-1.5f, 0.f, 0.f);
-            set_card_animation(&card_game->player_card_in_play, target_transform, 0.07f);
+            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.07f);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(1.5f, 0.f, 0.f);
-            set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.07f);
+            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.07f);
         }
     }
     if (card_game->phase_timer_prev < end_attack_time && card_game->phase_timer >= end_attack_time) {
@@ -522,24 +523,24 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
         if (card_game->player_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
-            set_card_animation(&card_game->player_card_in_play, target_transform, 0.1f);
+            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.1f);
 
-            damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.current_attack);
+            damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_attack);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target_transform = gs_vqs_default();
             target_transform.position = gs_v3(2.0f, 0.f, 0.f);
-            set_card_animation(&card_game->opponent_card_in_play, target_transform, 0.1f);
+            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.07f);
 
-            damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.current_attack);
+            damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_attack);
         }
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
         // remove frozen state after attack round
-        card_game->player_card_in_play.current_abilities.frozen = false;
-        card_game->opponent_card_in_play.current_abilities.frozen = false;
+        card_game->player_card_in_play.data.current_abilities.frozen = false;
+        card_game->opponent_card_in_play.data.current_abilities.frozen = false;
         card_game->visual_update = true;
     }
     // normal battle tick
@@ -547,28 +548,28 @@ static void phase_battle(card_game_state_t *card_game, game_state_t *game_state)
         printf("attack resolve: %f\n", card_game->phase_timer);
         card_game->player_card_attacking = false;
         card_game->opponent_card_attacking = false;
-        resolve_damage(card_game, game_state);
-        position_hand_cards(card_game->player_hand, true);
-        position_hand_cards(card_game->opponent_hand, false);
+        resolve_damage(engine, card_game);
+        card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
+        card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
         // if resolving damage doesn't result in a card being destroyed, re-set the phase to battle to reset the phase timer
-        if (card_game->player_card_in_play.name != NULL && card_game->opponent_card_in_play.name != NULL) {
+        if (card_game->player_card_in_play.data.name != NULL && card_game->opponent_card_in_play.data.name != NULL) {
             set_phase(card_game, BATTLE);
         }
     }
 }
 
-static void update_card_visuals(card_game_state_t *card_game, game_state_t *game_state) {
+static void update_card_visuals(engine_t *engine, card_game_state_t *card_game) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); ++i) {
-        card_update_visuals(game_state->card_renderer, &card_game->player_hand[i], &game_state->immediate_draw);
+        card_entity_bake_texture(&engine->gsi, card_game->player_hand[i]);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); ++i) {
-        card_update_visuals(game_state->card_renderer, &card_game->opponent_hand[i], &game_state->immediate_draw);
+        card_entity_bake_texture(&engine->gsi, card_game->opponent_hand[i]);
     }
-    if (card_game->player_card_in_play.name != NULL) {
-        card_update_visuals(game_state->card_renderer, &card_game->player_card_in_play, &game_state->immediate_draw);
+    if (card_game->player_card_in_play.data.name != NULL) {
+        card_entity_bake_texture(&engine->gsi, card_game->player_card_in_play);
     }
-    if (card_game->opponent_card_in_play.name != NULL) {
-        card_update_visuals(game_state->card_renderer, &card_game->opponent_card_in_play, &game_state->immediate_draw);
+    if (card_game->opponent_card_in_play.data.name != NULL) {
+        card_entity_bake_texture(&engine->gsi, card_game->opponent_card_in_play);
     }
 }
 
@@ -608,29 +609,29 @@ static void print_stats(card_game_state_t *card_game) {
     }
 }
 
-void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
+enum game_mode resolve_damage(engine_t *engine, card_game_state_t *card_game) {
     bool was_a_card_destroyed = false;
-    if (card_game->player_card_in_play.current_health <= 0) {
-        if (card_game->player_card_in_play.current_abilities.regenerate) {
-            card_reset(&card_game->player_card_in_play);
-            card_game->player_card_in_play.current_abilities.regenerate = false;
+    if (card_game->player_card_in_play.data.current_health <= 0) {
+        if (card_game->player_card_in_play.data.current_abilities.regenerate) {
+            card_reset(&card_game->player_card_in_play.data);
+            card_game->player_card_in_play.data.current_abilities.regenerate = false;
             gs_dyn_array_push(card_game->player_hand, card_game->player_card_in_play);
         }
-        card_game->player_card_in_play = (card_state_t){0};
+        card_game->player_card_in_play = (card_entity_t){0};
         was_a_card_destroyed = true;
     }
-    if (card_game->opponent_card_in_play.current_health <= 0) {
-        if (card_game->opponent_card_in_play.current_abilities.regenerate) {
-            card_reset(&card_game->opponent_card_in_play);
-            card_game->opponent_card_in_play.current_abilities.regenerate = false;
+    if (card_game->opponent_card_in_play.data.current_health <= 0) {
+        if (card_game->opponent_card_in_play.data.current_abilities.regenerate) {
+            card_reset(&card_game->opponent_card_in_play.data);
+            card_game->opponent_card_in_play.data.current_abilities.regenerate = false;
             gs_dyn_array_push(card_game->opponent_hand, card_game->opponent_card_in_play);
         }
-        card_game->opponent_card_in_play = (card_state_t){0};
+        card_game->opponent_card_in_play = (card_entity_t){0};
         was_a_card_destroyed = true;
     }
 
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        if (card_game->player_hand[i].current_health <= 0) {
+        if (card_game->player_hand[i].data.current_health <= 0) {
             gs_dyn_array_erase(card_game->player_hand, i);
             was_a_card_destroyed = true;
             // decrement i because if multiple cards are deleted we need the
@@ -639,7 +640,7 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
         }
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        if (card_game->opponent_hand[i].current_health <= 0) {
+        if (card_game->opponent_hand[i].data.current_health <= 0) {
             gs_dyn_array_erase(card_game->opponent_hand, i);
             was_a_card_destroyed = true;
             // decrement i because if multiple cards are deleted we need the
@@ -651,86 +652,88 @@ void resolve_damage(card_game_state_t *card_game, game_state_t *game_state) {
     if (was_a_card_destroyed) {
         if (gs_dyn_array_size(card_game->opponent_hand) == 0
             && gs_dyn_array_size(card_game->player_hand) == 0
-            && card_game->player_card_in_play.name == NULL
-            && card_game->opponent_card_in_play.name == NULL) {
+            && card_game->player_card_in_play.data.name == NULL
+            && card_game->opponent_card_in_play.data.name == NULL) {
             printf("DRAW\n");
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->draws++;
                 if (card_game->simulate_color_v_color) {
-                    if (card_game->opponent_hand_cache[0].red && card_game->player_hand_cache[0].red) card_game->red_v_red_draws++;
-                    if (card_game->opponent_hand_cache[0].red && card_game->player_hand_cache[0].green) card_game->red_v_green_draws++;
-                    if (card_game->opponent_hand_cache[0].green && card_game->player_hand_cache[0].green) card_game->green_v_green_draws++;
-                    if (card_game->opponent_hand_cache[0].green && card_game->player_hand_cache[0].blue) card_game->green_v_blue_draws++;
-                    if (card_game->opponent_hand_cache[0].blue && card_game->player_hand_cache[0].blue) card_game->blue_v_blue_draws++;
-                    if (card_game->opponent_hand_cache[0].blue && card_game->player_hand_cache[0].red) card_game->blue_v_red_draws++;
+                    if (card_game->opponent_hand_cache[0].data.red && card_game->player_hand_cache[0].data.red) card_game->red_v_red_draws++;
+                    if (card_game->opponent_hand_cache[0].data.red && card_game->player_hand_cache[0].data.green) card_game->red_v_green_draws++;
+                    if (card_game->opponent_hand_cache[0].data.green && card_game->player_hand_cache[0].data.green) card_game->green_v_green_draws++;
+                    if (card_game->opponent_hand_cache[0].data.green && card_game->player_hand_cache[0].data.blue) card_game->green_v_blue_draws++;
+                    if (card_game->opponent_hand_cache[0].data.blue && card_game->player_hand_cache[0].data.blue) card_game->blue_v_blue_draws++;
+                    if (card_game->opponent_hand_cache[0].data.blue && card_game->player_hand_cache[0].data.red) card_game->blue_v_red_draws++;
                 }
-                gs_dyn_array(card_state_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
-                gs_dyn_array(card_state_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
-                card_game_init(card_game, game_state, player_hand, opponent_hand);
+                gs_dyn_array(card_data_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                gs_dyn_array(card_data_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+
+                card_game_init(engine, card_game, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
-                game_state->mode = MENU;
+                return WORLD;
             }
         } else if (gs_dyn_array_size(card_game->opponent_hand) == 0
-            && card_game->opponent_card_in_play.name == NULL) {
+            && card_game->opponent_card_in_play.data.name == NULL) {
             printf("PLAYER WINS\n");
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->player_wins++;
                 for (int i = 0; i < gs_dyn_array_size(card_game->player_hand_cache); i++) {
-                    card_game->winning_card_counts[card_game->player_hand_cache[i].database_index]++;
+                    card_game->winning_card_counts[card_game->player_hand_cache[i].data.database_index]++;
                 }
                 if (card_game->simulate_color_v_color) {
-                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].red) card_game->red_v_red_wins++;
-                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].green) card_game->red_v_green_wins++;
-                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].green) card_game->green_v_green_wins++;
-                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].blue) card_game->green_v_blue_wins++;
-                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].blue) card_game->blue_v_blue_wins++;
-                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].red) card_game->blue_v_red_wins++;
+                    if (card_game->player_hand_cache[0].data.red && card_game->opponent_hand_cache[0].data.red) card_game->red_v_red_wins++;
+                    if (card_game->player_hand_cache[0].data.red && card_game->opponent_hand_cache[0].data.green) card_game->red_v_green_wins++;
+                    if (card_game->player_hand_cache[0].data.green && card_game->opponent_hand_cache[0].data.green) card_game->green_v_green_wins++;
+                    if (card_game->player_hand_cache[0].data.green && card_game->opponent_hand_cache[0].data.blue) card_game->green_v_blue_wins++;
+                    if (card_game->player_hand_cache[0].data.blue && card_game->opponent_hand_cache[0].data.blue) card_game->blue_v_blue_wins++;
+                    if (card_game->player_hand_cache[0].data.blue && card_game->opponent_hand_cache[0].data.red) card_game->blue_v_red_wins++;
                 }
-                gs_dyn_array(card_state_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
-                gs_dyn_array(card_state_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
-                card_game_init(card_game, game_state, player_hand, opponent_hand);
+                gs_dyn_array(card_data_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                gs_dyn_array(card_data_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                card_game_init(engine, card_game, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
-                game_state->mode = MENU;
+                return WORLD;
             }
         } else if (gs_dyn_array_size(card_game->player_hand) == 0
-            && card_game->player_card_in_play.name == NULL) {
+            && card_game->player_card_in_play.data.name == NULL) {
             printf("OPPONENT WINS\n");
             if (card_game->simulate_player && card_game->simulation_count > 0) {
                 card_game->simulation_count--;
                 card_game->opponent_wins++;
                 if (card_game->simulate_color_v_color) {
-                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].red) card_game->red_v_red_loss++;
-                    if (card_game->player_hand_cache[0].red && card_game->opponent_hand_cache[0].green) card_game->red_v_green_loss++;
-                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].green) card_game->green_v_green_loss++;
-                    if (card_game->player_hand_cache[0].green && card_game->opponent_hand_cache[0].blue) card_game->green_v_blue_loss++;
-                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].blue) card_game->blue_v_blue_loss++;
-                    if (card_game->player_hand_cache[0].blue && card_game->opponent_hand_cache[0].red) card_game->blue_v_red_loss++;
+                    if (card_game->player_hand_cache[0].data.red && card_game->opponent_hand_cache[0].data.red) card_game->red_v_red_loss++;
+                    if (card_game->player_hand_cache[0].data.red && card_game->opponent_hand_cache[0].data.green) card_game->red_v_green_loss++;
+                    if (card_game->player_hand_cache[0].data.green && card_game->opponent_hand_cache[0].data.green) card_game->green_v_green_loss++;
+                    if (card_game->player_hand_cache[0].data.green && card_game->opponent_hand_cache[0].data.blue) card_game->green_v_blue_loss++;
+                    if (card_game->player_hand_cache[0].data.blue && card_game->opponent_hand_cache[0].data.blue) card_game->blue_v_blue_loss++;
+                    if (card_game->player_hand_cache[0].data.blue && card_game->opponent_hand_cache[0].data.red) card_game->blue_v_red_loss++;
                 }
                 for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand_cache); i++) {
-                    card_game->winning_card_counts[card_game->opponent_hand_cache[i].database_index]++;
+                    card_game->winning_card_counts[card_game->opponent_hand_cache[i].data.database_index]++;
                 }
-                gs_dyn_array(card_state_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
-                gs_dyn_array(card_state_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
-                card_game_init(card_game, game_state, player_hand, opponent_hand);
+                gs_dyn_array(card_data_t) player_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                gs_dyn_array(card_data_t) opponent_hand = card_game->simulate_color_v_color ? hand_get_random_color() : hand_get_random(true, true, true);
+                card_game_init(engine, card_game, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
-                game_state->mode = MENU;
+                return WORLD;
             }
         } else {
-            if (card_game->player_card_in_play.name == NULL) {
+            if (card_game->player_card_in_play.data.name == NULL) {
                 set_phase(card_game, PLAYER_SELECT_CARD_TO_PLAY);
-            } else if (card_game->opponent_card_in_play.name == NULL) {
+            } else if (card_game->opponent_card_in_play.data.name == NULL) {
                 set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
             }
+            return CARD_GAME;
         }
     }
 }
 
-void trigger_target_effects(card_state_t *source, card_state_t *target) {
+void trigger_target_effects(card_data_t *source, card_data_t *target) {
     // ward prevents a targeted effect, then is removed
     if (target->current_abilities.ward) {
         target->current_abilities.ward = false;
@@ -927,7 +930,7 @@ static void card_game_set_player_targets_selectable(card_game_state_t *card_game
     }
 }
 
-static void update_input_indices(card_game_state_t *card_game, game_state_t *game_state) {
+static void update_input_indices(engine_t *engine, card_game_state_t *card_game) {
     gs_vec2 mouse_pos = gs_platform_mouse_positionv();
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);

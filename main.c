@@ -28,7 +28,7 @@ static gs_handle(gs_graphics_texture_t) card_bg_texture;
 entity_t sphere;
 entity_t plane;
 card_entity_t card;
-gs_dyn_array(card_entity_t) hand;
+enum game_mode mode;
 
 
 void init() {
@@ -58,18 +58,7 @@ void init() {
     plane.material.texture = NO_TEXTURE;
     plane.material.color = gs_v4(0.3, 0.8, 0.1, 1.0);
 
-    gs_dyn_array(card_data_t) hand_data = hand_get_random(true, true, true);
-    hand = NULL;
-    for (int i = 0; i < gs_dyn_array_size(hand_data); i++) {
-        card_entity_t c = card_entity_create(hand_data[i]);
-        card_entity_bake_texture(&engine.gsi, c);
-        gs_dyn_array_push(hand, c);
-    }
-
-    card_entities_position_as_hand(&engine.camera, hand, false);
-
-    card = card_entity_create(card_get_random(true, false, false));
-    card_entity_bake_texture(&engine.gsi, card);
+    mode = WORLD;
 }
 
 void update() {
@@ -121,17 +110,30 @@ void update() {
    // game_render_end(&state);
 
     gs_gui_begin(&engine.gui, NULL);
-    card_library_gui(&engine);
+    if (mode == LIBRARY) {
+        card_library_gui(&engine);
+    }
     gs_gui_end(&engine.gui);
 
     float dt = gs_platform_delta_time();
 
     // WASD movement
     gs_vec3 move = gs_v3(0.f, 0.f, 0.f);
-    if (gs_platform_key_down(GS_KEYCODE_W)) move.z -= 1.f;
-    if (gs_platform_key_down(GS_KEYCODE_S)) move.z += 1.f;
-    if (gs_platform_key_down(GS_KEYCODE_A)) move.x -= 1.f;
-    if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
+    if (mode == WORLD) {
+        if (gs_platform_key_down(GS_KEYCODE_W)) move.z -= 1.f;
+        if (gs_platform_key_down(GS_KEYCODE_S)) move.z += 1.f;
+        if (gs_platform_key_down(GS_KEYCODE_A)) move.x -= 1.f;
+        if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
+    }
+    if (gs_platform_key_pressed(GS_KEYCODE_SPACE)) {
+        if (mode == WORLD) {
+            mode = LIBRARY;
+            card_library_init();
+        } else {
+            mode = WORLD;
+        }
+    }
+
 
     if (gs_vec3_len(move) > 0.f)
     {
@@ -164,7 +166,9 @@ void update() {
     sphere.transform.position = player_pos;
     draw_entity(&sphere, vp, &engine.standard_shader, &engine);
 
-    card_library_update(&engine);
+    if (mode == LIBRARY) {
+        card_library_update(&engine);
+    }
 
     gs_gui_render(&engine.gui, &engine.cb);
     gs_graphics_renderpass_end(&engine.cb);

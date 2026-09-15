@@ -34,6 +34,9 @@ void card_library_init() {
         gs_dyn_array_push(card_library, card_database[i]);
     }
 
+    card_library_red_enabled = false;
+    card_library_green_enabled = false;
+    card_library_blue_enabled = false;
     num_pages = (fmax(gs_dyn_array_size(card_library) - 1, 0) / CARDS_PER_PAGE) + 1;
     current_page_index = 0;
     prev_page = -1;
@@ -189,6 +192,7 @@ void card_library_update(engine_t *engine) {
 
     float dt = gs_platform_delta_time();
     for (int i = 0; i < gs_dyn_array_size(card_library_view); i++) {
+        entity_animate(&card_library_view[i].entity, dt);
         draw_entity(&card_library_view[i].entity, view_projection, &engine->standard_shader, engine);
     }
     for (int i = 0; i < gs_dyn_array_size(card_library_hand); i++) {
