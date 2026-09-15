@@ -49,7 +49,7 @@ x library showing extra last page if the previous pages are full
 x add levels and rarities to cards
 x implement game mode for 3d world, render 3D plane and spere
 x implement basic movement and camera
-- refactor card_renderer and world renderer into a more general renderer
+x refactor card_renderer and world renderer into a more general renderer
 - implement card library view overlay
 - implement triggering and transitioning into card game with key press
 - start some basic worldbuilding to get ideas for cards

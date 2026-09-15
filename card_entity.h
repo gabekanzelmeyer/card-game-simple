@@ -74,6 +74,15 @@ card_entity_t card_entity_create(card_data_t card_data) {
     return card;
 }
 
+void card_entities_position_as_page(gs_camera_t *camera, card_entity_t *cards) {
+    for (int i = 0; i >= gs_dyn_array_size(cards); i++) {
+        gs_vqs_t transform = gs_vqs_default();
+        transform.position.x = -4.25 + (i % 6) * 1.75;
+        transform.position.y = 2 - (i / 6) * 2.25;
+        cards[i].entity.transform = transform;
+    }
+}
+
 void card_entities_position_as_hand(gs_camera_t *camera, card_entity_t *cards, bool bottom_of_screen) {
     float spacing, fan_angle, curve_amount, y_offset;
     spacing = HAND_SPACING;
@@ -101,6 +110,13 @@ void card_entities_position_as_hand(gs_camera_t *camera, card_entity_t *cards, b
         camera_target.scale = cards[i].entity.transform.scale;
         entity_animation_start(&cards[i].entity, camera_target, 0.2f);
     }
+}
+
+bool card_entities_contains_card(gs_dyn_array(card_entity_t) card_entities, card_data_t card) {
+    for (int i = 0; i < gs_dyn_array_size(card_entities); i++) {
+        if (card_entities[i].data.database_index == card.database_index) return true;
+    }
+    return false;
 }
 
 void card_entity_bake_texture(gs_immediate_draw_t *gsi, card_entity_t card_entity) {

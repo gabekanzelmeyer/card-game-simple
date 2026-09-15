@@ -8,10 +8,10 @@
 #include "engine_shapes.h"
 #include "card_entity.h"
 #include "card_database.h"
+#include "card_library.h"
 
 // #include "card_renderer.h"
 // #include "card_database.h"
-// #include "card_library.h"
 // #include "card_game.h"
 // #include "game_util.h"
 
@@ -23,7 +23,6 @@ gs_vec3 player_pos;
 float player_speed = 6.f;
 gs_vec3 camera_offset;
 static engine_t engine;
-static shader_t standard_shader;
 static gs_asset_font_t font;
 static gs_handle(gs_graphics_texture_t) card_bg_texture;
 entity_t sphere;
@@ -43,11 +42,10 @@ void init() {
     engine = engine_init();
     card_database_init();
     card_entites_init();
+    card_library_init();
 
     engine.camera.transform.position = gs_vec3_add(player_pos, camera_offset);
     engine.camera.transform.rotation = gs_quat_angle_axis(gs_deg2rad(-60.f), gs_v3(1.f, 0.f, 0.f));
-
-    standard_shader = shader_standard();
 
     sphere.mesh = mesh_sphere(0.5f, 16, 24);
     sphere.transform = gs_vqs_default();
@@ -79,7 +77,8 @@ void update() {
     //     state.mode = MENU;
     // }
     //
-    // gs_gui_begin(&state.gui_ctx, NULL);
+    gs_gui_begin(&engine.gui, NULL);
+    card_library_gui(&engine);
     // if (state.mode == MENU) {
     //     state.mode = gui_show_menu(&state);
     //     if (state.mode == LIBRARY) {
@@ -108,7 +107,7 @@ void update() {
     // } else if (state.mode == CARD_GAME && card_game.simulate_player) {
     //     card_game_show_simulation_gui(&card_game, &state);
     // }
-    // gs_gui_end(&state.gui_ctx);
+    gs_gui_end(&engine.gui);
 
    // game_render_begin(&state);
     // if (state.mode == LIBRARY) {
@@ -155,20 +154,19 @@ void update() {
     gs_graphics_renderpass_begin(&engine.cb, (gs_handle(gs_graphics_renderpass_t)){0});
     gs_graphics_clear(&engine.cb, &clear);
     gs_graphics_set_viewport(&engine.cb, 0, 0, (uint32_t)fbs.x, (uint32_t)fbs.y);
-    gs_graphics_pipeline_bind(&engine.cb, standard_shader.pipeline);
+    gs_graphics_pipeline_bind(&engine.cb, engine.standard_shader.pipeline);
 
 
-    draw_entity(&plane, vp, &standard_shader, &engine);
+    draw_entity(&plane, vp, &engine.standard_shader, &engine);
     sphere.transform.position = player_pos;
-    draw_entity(&sphere, vp, &standard_shader, &engine);
+    draw_entity(&sphere, vp, &engine.standard_shader, &engine);
 
-    for (int i = 0; i < gs_dyn_array_size(hand); i++) {
-        // hand[i].entity.transform = transform_in_front_of_camera(&engine.camera, gs_vqs_default());
-        entity_animate(&hand[i].entity, dt);
-        draw_entity(&hand[i].entity, vp, &standard_shader, &engine);
-    }
-
-   // draw_entity(&card.entity, vp, &standard_shader, &engine);
+    // for (int i = 0; i < gs_dyn_array_size(hand); i++) {
+    //     // hand[i].entity.transform = transform_in_front_of_camera(&engine.camera, gs_vqs_default());
+    //     entity_animate(&hand[i].entity, dt);
+    //     draw_entity(&hand[i].entity, vp, &engine.standard_shader, &engine);
+    // }
+    card_library_update(&engine);
 
     gs_graphics_renderpass_end(&engine.cb);
 

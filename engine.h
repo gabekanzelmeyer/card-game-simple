@@ -50,15 +50,23 @@ typedef struct {
 typedef struct {
     gs_command_buffer_t cb;
     gs_immediate_draw_t gsi;
+    gs_gui_context_t gui;
     gs_camera_t camera;
+    shader_t standard_shader;
+    gs_asset_font_t standard_font;
 } engine_t;
 
 gs_handle(gs_graphics_texture_t) NO_TEXTURE;
+
+static gs_handle(gs_graphics_shader_t) shader_create(const char *vs_file, const char *fs_file);
+static gs_handle(gs_graphics_uniform_t) uniform_create(const char* name, gs_graphics_uniform_type type, gs_graphics_shader_stage_type stage);
+static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_shader_t) shader);
 
 engine_t engine_init() {
     engine_t engine = (engine_t){0};
     engine.cb = gs_command_buffer_new();
     engine.gsi = gs_immediate_draw_new();
+    gs_gui_init(&engine.gui, gs_platform_main_window());
 
     engine.camera = gs_camera_perspective();
     engine.camera.fov = 60.f;
@@ -78,6 +86,26 @@ engine_t engine_init() {
     no_texture_desc.min_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
     no_texture_desc.mag_filter = GS_GRAPHICS_TEXTURE_FILTER_LINEAR;
     NO_TEXTURE = gs_graphics_texture_create(&no_texture_desc);
+
+    engine.standard_shader = (shader_t){0};
+    engine.standard_shader.shader = shader_create("shaders/standard.vert", "shaders/standard.frag");
+    engine.standard_shader.pipeline = pipeline_create(engine.standard_shader.shader);
+    engine.standard_shader.u_mvp = uniform_create("u_mvp", GS_GRAPHICS_UNIFORM_MAT4, GS_GRAPHICS_SHADER_STAGE_VERTEX);
+    engine.standard_shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
+    engine.standard_shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
+
+    if (!gs_asset_font_load_from_file("assets/font.otf", &engine.standard_font, 120)) {
+        gs_println("WARNING: failed to load assets/font.otf (120pt)");
+    }
+
+    gs_gui_style_element_t font_style[] = {{ .type = GS_GUI_STYLE_FONT, .font = &engine.standard_font}};
+
+    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine.gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
 
     return engine;
 }
@@ -190,14 +218,27 @@ static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_s
     return gs_graphics_pipeline_create(&pdesc);
 }
 
-shader_t shader_standard() {
-    shader_t shader = {0};
-    shader.shader = shader_create("shaders/standard.vert", "shaders/standard.frag");
-    shader.pipeline = pipeline_create(shader.shader);
-    shader.u_mvp = uniform_create("u_mvp", GS_GRAPHICS_UNIFORM_MAT4, GS_GRAPHICS_SHADER_STAGE_VERTEX);
-    shader.u_color = uniform_create("u_color", GS_GRAPHICS_UNIFORM_VEC4, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
-    shader.u_texture = uniform_create("u_texture", GS_GRAPHICS_UNIFORM_SAMPLER2D, GS_GRAPHICS_SHADER_STAGE_FRAGMENT);
-    return shader;
+gs_vec2 world_to_screen(gs_vec3 world_pos, gs_mat4 view_proj, float screen_width, float screen_height) {
+    float x = world_pos.x * view_proj.m[0][0] + world_pos.y * view_proj.m[1][0] + world_pos.z * view_proj.m[2][0] + view_proj.m[3][0];
+    float y = world_pos.x * view_proj.m[0][1] + world_pos.y * view_proj.m[1][1] + world_pos.z * view_proj.m[2][1] + view_proj.m[3][1];
+    float z = world_pos.x * view_proj.m[0][2] + world_pos.y * view_proj.m[1][2] + world_pos.z * view_proj.m[2][2] + view_proj.m[3][2];
+    float w = world_pos.x * view_proj.m[0][3] + world_pos.y * view_proj.m[1][3] + world_pos.z * view_proj.m[2][3] + view_proj.m[3][3];
+
+    // behind the camera if w is less than or equal to 0
+    if (w <= 0.0f) {
+        return gs_v2(10000, 10000);
+    }
+
+    // calculate normalized device coordinates
+    float ndc_x = x / w;
+    float ndc_y = y / w;
+
+    // calculate screen coords
+    gs_vec2 screen;
+    screen.x = ((ndc_x + 1.0f) * 0.5f) * screen_width;
+    screen.y = ((1.0f - ndc_y) * 0.5f) * screen_height; // Inverted Y for standard 2D screen coordinate spaces
+
+    return screen;
 }
 
 gs_vqs transform_in_front_of_camera(gs_camera_t *camera, gs_vqs offset) {
