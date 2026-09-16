@@ -9,6 +9,7 @@
 #include "card_entity.h"
 #include "card_database.h"
 #include "card_library.h"
+#include "card_game.h"
 
 // #include "card_renderer.h"
 // #include "card_database.h"
@@ -16,7 +17,7 @@
 // #include "game_util.h"
 
 // static game_state_t state = {0};
-// static card_game_state_t card_game = {0};
+static card_game_state_t card_game = {0};
 // static card_render_data_t card_renderer = {0};
 
 gs_vec3 player_pos;
@@ -111,7 +112,18 @@ void update() {
 
     gs_gui_begin(&engine.gui, NULL);
     if (mode == LIBRARY) {
-        card_library_gui(&engine);
+        mode = card_library_gui(&engine);
+
+        if (mode == CARD_GAME) {
+            card_game = (card_game_state_t){0};
+            card_game.game_speed = 1.0f;
+            gs_dyn_array(card_data_t) player_hand = NULL;
+            for (int i = 0; i < gs_dyn_array_size(card_library_hand); i++) {
+                gs_dyn_array_push(player_hand, card_library_hand[i].data);
+            }
+            gs_dyn_array(card_data_t) opponent_hand = hand_get_random(card_library_red_enabled, card_library_green_enabled, card_library_blue_enabled);
+            card_game_init(&engine, &card_game, player_hand, opponent_hand);
+        }
     }
     gs_gui_end(&engine.gui);
 
@@ -129,7 +141,7 @@ void update() {
         if (mode == WORLD) {
             mode = LIBRARY;
             card_library_init();
-        } else {
+        } else if (mode == LIBRARY) {
             mode = WORLD;
         }
     }
@@ -168,6 +180,8 @@ void update() {
 
     if (mode == LIBRARY) {
         card_library_update(&engine);
+    } else if (mode == CARD_GAME) {
+        mode = card_game_update(&engine, &card_game);
     }
 
     gs_gui_render(&engine.gui, &engine.cb);

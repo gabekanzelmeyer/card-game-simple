@@ -77,6 +77,7 @@ typedef struct {
     int hovered_index; // -1 means nothing, 0-5 = player hand, 10-15 = opponent hand, 20 = player in play card, 21 = oppoent in play card
     bool visual_update;
     float game_speed;
+    bool game_over;
 
     bool simulate_player;
     bool simulate_color_v_color;
@@ -92,9 +93,9 @@ typedef struct {
 
 } card_game_state_t;
 
-static void highlight_remove_all(engine_t *engine, card_game_state_t *card_game);
-static void highlight_playable_cards(engine_t *engine, card_game_state_t *card_game);
-static void highlight_targetable_cards(engine_t *engine, card_game_state_t *card_game, enum card_game_target_type type);
+static void highlight_remove_all(card_game_state_t *card_game);
+static void highlight_playable_cards(card_game_state_t *card_game);
+static void highlight_targetable_cards(card_game_state_t *card_game, enum card_game_target_type type);
 static void set_phase(card_game_state_t *card_game, enum card_game_phase phase);
 static void update_input_indices(engine_t *engine, card_game_state_t *card_game);
 static void update_card_visuals(engine_t *engine, card_game_state_t *card_game);
@@ -109,7 +110,7 @@ static void phase_opponent_select_card_to_play(engine_t *engine, card_game_state
 static void phase_play_cards(engine_t *engine, card_game_state_t *card_game);
 static void phase_trigger_on_play_effects(engine_t *engine, card_game_state_t *card_game);
 static void phase_player_select_target(engine_t *engine, card_game_state_t *card_game);
-static void phase_opponent_select_target(engine_t *engine, card_game_state_t *card_game,);
+static void phase_opponent_select_target(engine_t *engine, card_game_state_t *card_game);
 static void phase_animate_target_effects(engine_t *engine, card_game_state_t *card_game);
 static void phase_battle(engine_t *engine, card_game_state_t *card_game);
 static float evaluate(card_game_state_t *card_game);
@@ -134,13 +135,14 @@ void card_game_init(engine_t *engine, card_game_state_t *card_game, gs_dyn_array
     card_game->player_card_in_play = (card_entity_t){0};
     card_game->opponent_card_in_play = (card_entity_t){0};
     card_game->phase = INIT;
+    card_game->game_over = false;
     update_card_visuals(engine, card_game);
 
     gs_dyn_array_free(player_hand);
     gs_dyn_array_free(opponent_hand);
 }
 
-void card_game_update(engine_t *engine, card_game_state_t *card_game) {
+enum game_mode card_game_update(engine_t *engine, card_game_state_t *card_game) {
     if (card_game->phase == INIT) phase_init(engine, card_game);
     else if (card_game->phase == PLAYER_SELECT_CARD_TO_PLAY) phase_player_select_card_to_play(engine, card_game);
     else if (card_game->phase == OPPONENT_SELECT_CARD_TO_PLAY) phase_opponent_select_card_to_play(engine, card_game);
@@ -179,6 +181,8 @@ void card_game_update(engine_t *engine, card_game_state_t *card_game) {
     if (card_game->opponent_card_in_play.data.name != NULL) {
          draw_entity(&card_game->opponent_card_in_play.entity, view_projection, &engine->standard_shader, engine);
     }
+
+    return card_game->game_over ? WORLD : CARD_GAME;
 }
 
 void card_game_show_simulation_gui(engine_t *engine, card_game_state_t *card_game) {
@@ -237,10 +241,10 @@ static void phase_player_select_card_to_play(engine_t *engine, card_game_state_t
             set_phase(card_game, PLAY_CARDS);
         }
     } else {
-        highlight_remove_all(engine, card_game);
-        highlight_playable_cards(engine, card_game);
+        highlight_remove_all(card_game);
+        highlight_playable_cards(card_game);
         if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) { // will always be an index in players hand here
-            highlight_remove_all(engine, card_game); // remove all highlights
+            highlight_remove_all(card_game); // remove all highlights
             card_game->player_hand_index_to_play = card_game->hovered_index;
             card_game->player_just_played_card = true;
             card_game->player_on_play_triggered = false;
@@ -346,8 +350,8 @@ static void phase_player_select_target(engine_t *engine, card_game_state_t *card
             card_game->player_selecting_target_type = NONE;
             set_phase(card_game, PLAYER_SELECT_TARGET); // set to same phase to reset phase timer
         } else {
-            highlight_remove_all(engine, card_game);
-            highlight_targetable_cards(engine, card_game, card_game->player_selecting_target_type);
+            highlight_remove_all(card_game);
+            highlight_targetable_cards(card_game, card_game->player_selecting_target_type);
             if (card_game->hovered_index != -1 && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
                 if (card_game->hovered_index < 10) {
                     card_game->target = &card_game->player_hand[card_game->hovered_index];
@@ -368,7 +372,7 @@ static void phase_player_select_target(engine_t *engine, card_game_state_t *card
             }
         }
     } else {
-        highlight_remove_all(engine, card_game);
+        highlight_remove_all(card_game);
         if (card_game->target != NULL) {
             float begin_anim_time = 0.15;
             float end_anim_time = 0.25;
@@ -609,7 +613,7 @@ static void print_stats(card_game_state_t *card_game) {
     }
 }
 
-enum game_mode resolve_damage(engine_t *engine, card_game_state_t *card_game) {
+void resolve_damage(engine_t *engine, card_game_state_t *card_game) {
     bool was_a_card_destroyed = false;
     if (card_game->player_card_in_play.data.current_health <= 0) {
         if (card_game->player_card_in_play.data.current_abilities.regenerate) {
@@ -672,7 +676,7 @@ enum game_mode resolve_damage(engine_t *engine, card_game_state_t *card_game) {
                 card_game_init(engine, card_game, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
-                return WORLD;
+                card_game->game_over = true;
             }
         } else if (gs_dyn_array_size(card_game->opponent_hand) == 0
             && card_game->opponent_card_in_play.data.name == NULL) {
@@ -696,7 +700,7 @@ enum game_mode resolve_damage(engine_t *engine, card_game_state_t *card_game) {
                 card_game_init(engine, card_game, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
-                return WORLD;
+                card_game->game_over = true;
             }
         } else if (gs_dyn_array_size(card_game->player_hand) == 0
             && card_game->player_card_in_play.data.name == NULL) {
@@ -720,7 +724,7 @@ enum game_mode resolve_damage(engine_t *engine, card_game_state_t *card_game) {
                 card_game_init(engine, card_game, player_hand, opponent_hand);
             } else {
                 print_stats(card_game);
-                return WORLD;
+                card_game->game_over = true;
             }
         } else {
             if (card_game->player_card_in_play.data.name == NULL) {
@@ -728,204 +732,203 @@ enum game_mode resolve_damage(engine_t *engine, card_game_state_t *card_game) {
             } else if (card_game->opponent_card_in_play.data.name == NULL) {
                 set_phase(card_game, OPPONENT_SELECT_CARD_TO_PLAY);
             }
-            return CARD_GAME;
         }
     }
 }
 
-void trigger_target_effects(card_data_t *source, card_data_t *target) {
+void trigger_target_effects(card_entity_t *source, card_entity_t *target) {
     // ward prevents a targeted effect, then is removed
-    if (target->current_abilities.ward) {
-        target->current_abilities.ward = false;
+    if (target->data.current_abilities.ward) {
+        target->data.current_abilities.ward = false;
         return;
     }
 
-    if (source->current_abilities.strike > 0) {
-        damage_card(source, target, source->current_abilities.strike);
+    if (source->data.current_abilities.strike > 0) {
+        damage_card(source, target, source->data.current_abilities.strike);
     }
-    if (source->current_abilities.sacrifice) {
-        target->current_health = 0;
+    if (source->data.current_abilities.sacrifice) {
+        target->data.current_health = 0;
     }
-    target->current_attack = fmax(1, target->current_attack - source->current_abilities.dull);
-    target->current_health += source->current_abilities.heal;
-    target->current_attack += source->current_abilities.sharpen;
-    target->current_abilities.shield = target->current_abilities.shield || source->current_abilities.bestow_shield;
-    target->current_abilities.regenerate = target->current_abilities.regenerate || source->current_abilities.bestow_regenerate;
-    target->current_abilities.haste = target->current_abilities.haste || source->current_abilities.bestow_haste;
-    target->current_abilities.timebound = target->current_abilities.timebound || source->current_abilities.bestow_timebound;
-    target->current_abilities.sacrifice = target->current_abilities.sacrifice || source->current_abilities.bestow_sacrifice;
-    target->current_abilities.frozen = target->current_abilities.frozen || source->current_abilities.bestow_frozen;
-    target->current_abilities.ward = target->current_abilities.ward || source->current_abilities.bestow_ward;
+    target->data.current_attack = fmax(1, target->data.current_attack - source->data.current_abilities.dull);
+    target->data.current_health += source->data.current_abilities.heal;
+    target->data.current_attack += source->data.current_abilities.sharpen;
+    target->data.current_abilities.shield = target->data.current_abilities.shield || source->data.current_abilities.bestow_shield;
+    target->data.current_abilities.regenerate = target->data.current_abilities.regenerate || source->data.current_abilities.bestow_regenerate;
+    target->data.current_abilities.haste = target->data.current_abilities.haste || source->data.current_abilities.bestow_haste;
+    target->data.current_abilities.timebound = target->data.current_abilities.timebound || source->data.current_abilities.bestow_timebound;
+    target->data.current_abilities.sacrifice = target->data.current_abilities.sacrifice || source->data.current_abilities.bestow_sacrifice;
+    target->data.current_abilities.frozen = target->data.current_abilities.frozen || source->data.current_abilities.bestow_frozen;
+    target->data.current_abilities.ward = target->data.current_abilities.ward || source->data.current_abilities.bestow_ward;
 
-    if (source->current_abilities.cancel) {
-        target->current_abilities = (card_abilities_t){0};
+    if (source->data.current_abilities.cancel) {
+        target->data.current_abilities = (card_abilities_t){0};
     }
 }
 
 void trigger_on_play_effects(card_game_state_t *card_game) {
     if (card_game->player_just_played_card && !card_game->player_on_play_triggered) {
         card_game->player_on_play_triggered = true;
-        card_game->player_card_in_play.current_health += card_game->player_card_in_play.current_abilities.mass_heal;
-        card_game->player_card_in_play.current_attack += card_game->player_card_in_play.current_abilities.mass_sharpen;
-        card_game->opponent_card_in_play.current_attack = fmax(1, card_game->opponent_card_in_play.current_attack - card_game->player_card_in_play.current_abilities.mass_dull);
-        damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.current_abilities.mass_strike);
+        card_game->player_card_in_play.data.current_health += card_game->player_card_in_play.data.current_abilities.mass_heal;
+        card_game->player_card_in_play.data.current_attack += card_game->player_card_in_play.data.current_abilities.mass_sharpen;
+        card_game->opponent_card_in_play.data.current_attack = fmax(1, card_game->opponent_card_in_play.data.current_attack - card_game->player_card_in_play.data.current_abilities.mass_dull);
+        damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_abilities.mass_strike);
 
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-            card_game->player_hand[i].current_health += card_game->player_card_in_play.current_abilities.mass_heal;
-            card_game->player_hand[i].current_attack += card_game->player_card_in_play.current_abilities.mass_sharpen;
-            card_game->player_hand[i].current_health += card_game->player_hand[i].current_abilities.charge_health;
-            card_game->player_hand[i].current_attack += card_game->player_hand[i].current_abilities.charge_attack;
+            card_game->player_hand[i].data.current_health += card_game->player_card_in_play.data.current_abilities.mass_heal;
+            card_game->player_hand[i].data.current_attack += card_game->player_card_in_play.data.current_abilities.mass_sharpen;
+            card_game->player_hand[i].data.current_health += card_game->player_hand[i].data.current_abilities.charge_health;
+            card_game->player_hand[i].data.current_attack += card_game->player_hand[i].data.current_abilities.charge_attack;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-            card_game->opponent_hand[i].current_attack = fmax(1, card_game->opponent_hand[i].current_attack - card_game->player_card_in_play.current_abilities.mass_dull);
-            damage_card(&card_game->player_card_in_play, &card_game->opponent_hand[i], card_game->player_card_in_play.current_abilities.mass_strike);
+            card_game->opponent_hand[i].data.current_attack = fmax(1, card_game->opponent_hand[i].data.current_attack - card_game->player_card_in_play.data.current_abilities.mass_dull);
+            damage_card(&card_game->player_card_in_play, &card_game->opponent_hand[i], card_game->player_card_in_play.data.current_abilities.mass_strike);
         }
     }
     if (card_game->opponent_just_played_card && !card_game->opponent_on_play_triggered) {
         card_game->opponent_on_play_triggered = true;
-        card_game->opponent_card_in_play.current_health += card_game->opponent_card_in_play.current_abilities.mass_heal;
-        card_game->opponent_card_in_play.current_attack += card_game->opponent_card_in_play.current_abilities.mass_sharpen;
-        card_game->player_card_in_play.current_attack = fmax(1, card_game->player_card_in_play.current_attack - card_game->opponent_card_in_play.current_abilities.mass_dull);
-        damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.current_abilities.mass_strike);
+        card_game->opponent_card_in_play.data.current_health += card_game->opponent_card_in_play.data.current_abilities.mass_heal;
+        card_game->opponent_card_in_play.data.current_attack += card_game->opponent_card_in_play.data.current_abilities.mass_sharpen;
+        card_game->player_card_in_play.data.current_attack = fmax(1, card_game->player_card_in_play.data.current_attack - card_game->opponent_card_in_play.data.current_abilities.mass_dull);
+        damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_abilities.mass_strike);
         for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-            card_game->opponent_hand[i].current_health += card_game->opponent_card_in_play.current_abilities.mass_heal;
-            card_game->opponent_hand[i].current_attack += card_game->opponent_card_in_play.current_abilities.mass_sharpen;
-            card_game->opponent_hand[i].current_health += card_game->opponent_hand[i].current_abilities.charge_health;
-            card_game->opponent_hand[i].current_attack += card_game->opponent_hand[i].current_abilities.charge_attack;
+            card_game->opponent_hand[i].data.current_health += card_game->opponent_card_in_play.data.current_abilities.mass_heal;
+            card_game->opponent_hand[i].data.current_attack += card_game->opponent_card_in_play.data.current_abilities.mass_sharpen;
+            card_game->opponent_hand[i].data.current_health += card_game->opponent_hand[i].data.current_abilities.charge_health;
+            card_game->opponent_hand[i].data.current_attack += card_game->opponent_hand[i].data.current_abilities.charge_attack;
         }
         for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-            card_game->player_hand[i].current_attack = fmax(1, card_game->player_hand[i].current_attack - card_game->opponent_card_in_play.current_abilities.mass_dull);
-            damage_card(&card_game->opponent_card_in_play, &card_game->player_hand[i], card_game->opponent_card_in_play.current_abilities.mass_strike);
+            card_game->player_hand[i].data.current_attack = fmax(1, card_game->player_hand[i].data.current_attack - card_game->opponent_card_in_play.data.current_abilities.mass_dull);
+            damage_card(&card_game->opponent_card_in_play, &card_game->player_hand[i], card_game->opponent_card_in_play.data.current_abilities.mass_strike);
         }
     }
 }
 
-static void damage_card(card_state_t *source, card_state_t *target, int damage) {
+static void damage_card(card_entity_t *source, card_entity_t *target, int damage) {
     if (damage <= 0) return;
 
     bool damage_prevented = false;
-    if (target->current_abilities.shield) {
-        target->current_abilities.shield = false;
+    if (target->data.current_abilities.shield) {
+        target->data.current_abilities.shield = false;
         damage_prevented = true;
     }
-    if (target->current_abilities.evade) {
+    if (target->data.current_abilities.evade) {
         damage_prevented = damage_prevented || rand() % 2 == 0;
     }
 
     if (!damage_prevented) {
-        target->current_health -= damage;
+        target->data.current_health -= damage;
     }
 }
 
 static void update_card_animations(card_game_state_t *card_game, float dt) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        lerp_card_transform(&card_game->player_hand[i], dt);
+        entity_animate(&card_game->player_hand[i].entity, dt);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        lerp_card_transform(&card_game->opponent_hand[i], dt);
+        entity_animate(&card_game->opponent_hand[i].entity, dt);
     }
-    if (card_game->player_card_in_play.name != NULL) {
-        lerp_card_transform(&card_game->player_card_in_play, dt);
+    if (card_game->player_card_in_play.data.name != NULL) {
+        entity_animate(&card_game->player_card_in_play.entity, dt);
     }
-    if (card_game->opponent_card_in_play.name != NULL) {
-        lerp_card_transform(&card_game->opponent_card_in_play, dt);
+    if (card_game->opponent_card_in_play.data.name != NULL) {
+        entity_animate(&card_game->opponent_card_in_play.entity, dt);
     }
 }
 
-static void highlight_remove_all(card_game_state_t *card_game,  game_state_t *game_state) {
+static void highlight_remove_all(card_game_state_t *card_game) {
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        if (card_game->player_hand[i].selectable) {
-            card_game->player_hand[i].selectable = false;
+        if (card_game->player_hand[i].data.selectable) {
+            card_game->player_hand[i].data.selectable = false;
             card_game->visual_update = true;
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
-        if (card_game->opponent_hand[i].selectable) {
-            card_game->opponent_hand[i].selectable = false;
+        if (card_game->opponent_hand[i].data.selectable) {
+            card_game->opponent_hand[i].data.selectable = false;
             card_game->visual_update = true;
         }
     }
-    if (card_game->player_card_in_play.name != NULL && card_game->player_card_in_play.selectable) {
-        card_game->player_card_in_play.selectable = false;
+    if (card_game->player_card_in_play.data.name != NULL && card_game->player_card_in_play.data.selectable) {
+        card_game->player_card_in_play.data.selectable = false;
         card_game->visual_update = true;
     }
-    if (card_game->opponent_card_in_play.name != NULL && card_game->opponent_card_in_play.selectable) {
-        card_game->opponent_card_in_play.selectable = false;
+    if (card_game->opponent_card_in_play.data.name != NULL && card_game->opponent_card_in_play.data.selectable) {
+        card_game->opponent_card_in_play.data.selectable = false;
         card_game->visual_update = true;
     }
 }
 
-static void highlight_playable_cards(card_game_state_t *card_game,  game_state_t *game_state) {
+static void highlight_playable_cards(card_game_state_t *card_game) {
     bool has_timebound = false;
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        if (card_game->player_hand[i].current_abilities.timebound) has_timebound = true;
+        if (card_game->player_hand[i].data.current_abilities.timebound) has_timebound = true;
     }
 
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        if (!has_timebound || card_game->player_hand[i].current_abilities.timebound) {
-            if (!card_game->player_hand[i].selectable) {
-                card_game->player_hand[i].selectable = true;
+        if (!has_timebound || card_game->player_hand[i].data.current_abilities.timebound) {
+            if (!card_game->player_hand[i].data.selectable) {
+                card_game->player_hand[i].data.selectable = true;
                 card_game->visual_update = true;
             }
         } else {
-            if (card_game->player_hand[i].selectable) {
-                card_game->player_hand[i].selectable = false;
+            if (card_game->player_hand[i].data.selectable) {
+                card_game->player_hand[i].data.selectable = false;
                 card_game->visual_update = true;
             }
         }
     }
 }
 
-static void highlight_targetable_cards(card_game_state_t *card_game,  game_state_t *game_state, enum card_game_target_type type) {
+static void highlight_targetable_cards(card_game_state_t *card_game, enum card_game_target_type type) {
     if (type == ANY || type == SELF) {
         for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-            if (!card_game->player_hand[i].selectable) {
-                card_game->player_hand[i].selectable = true;
+            if (!card_game->player_hand[i].data.selectable) {
+                card_game->player_hand[i].data.selectable = true;
                 card_game->visual_update = true;
             }
         }
     }
     if (type == ANY || type == OTHER) {
         for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
-            if (!card_game->opponent_hand[i].selectable) {
-                card_game->opponent_hand[i].selectable = true;
+            if (!card_game->opponent_hand[i].data.selectable) {
+                card_game->opponent_hand[i].data.selectable = true;
                 card_game->visual_update = true;
             }
         }
     }
     if (type == ANY || type == SELF) {
-        if (card_game->player_card_in_play.name != NULL && !card_game->player_card_in_play.selectable) {
-            card_game->player_card_in_play.selectable = true;
+        if (card_game->player_card_in_play.data.name != NULL && !card_game->player_card_in_play.data.selectable) {
+            card_game->player_card_in_play.data.selectable = true;
             card_game->visual_update = true;
         }
     }
     if (type == ANY || type == OTHER) {
-        if (card_game->opponent_card_in_play.name != NULL && !card_game->opponent_card_in_play.selectable) {
-            card_game->opponent_card_in_play.selectable = true;
+        if (card_game->opponent_card_in_play.data.name != NULL && !card_game->opponent_card_in_play.data.selectable) {
+            card_game->opponent_card_in_play.data.selectable = true;
             card_game->visual_update = true;
         }
     }
 }
 
-static void card_game_set_player_targets_selectable(card_game_state_t *card_game,  game_state_t *game_state) {
+static void card_game_set_player_targets_selectable(card_game_state_t *card_game) {
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        if (!card_game->player_hand[i].selectable) {
-            card_game->player_hand[i].selectable = true;
+        if (!card_game->player_hand[i].data.selectable) {
+            card_game->player_hand[i].data.selectable = true;
             card_game->visual_update = true;
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
-        if (!card_game->opponent_hand[i].selectable) {
-            card_game->opponent_hand[i].selectable = true;
+        if (!card_game->opponent_hand[i].data.selectable) {
+            card_game->opponent_hand[i].data.selectable = true;
             card_game->visual_update = true;
         }
     }
-    if (card_game->player_card_in_play.name != NULL && !card_game->player_card_in_play.selectable) {
-        card_game->player_card_in_play.selectable = true;
+    if (card_game->player_card_in_play.data.name != NULL && !card_game->player_card_in_play.data.selectable) {
+        card_game->player_card_in_play.data.selectable = true;
         card_game->visual_update = true;
     }
-    if (card_game->opponent_card_in_play.name != NULL && !card_game->opponent_card_in_play.selectable) {
-        card_game->opponent_card_in_play.selectable = true;
+    if (card_game->opponent_card_in_play.data.name != NULL && !card_game->opponent_card_in_play.data.selectable) {
+        card_game->opponent_card_in_play.data.selectable = true;
         card_game->visual_update = true;
     }
 }
@@ -934,58 +937,58 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
     gs_vec2 mouse_pos = gs_platform_mouse_positionv();
     uint32_t fbw, fbh;
     gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
-    gs_mat4 view_projection = gs_camera_get_view_projection(&game_state->camera, (int32_t)fbw, (int32_t)fbh);
+    gs_mat4 view_projection = gs_camera_get_view_projection(&engine->camera, (int32_t)fbw, (int32_t)fbh);
     gs_vec2 screen_pos;
 
     // increase scale of hovered hand card and keep track of which card for later,
     // also, if the card can be selected, outline it in green
     int hovered_index = -1;
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        world_to_screen(card_game->player_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (card_game->player_hand[i].selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
-            if (!card_game->player_hand[i].hovered) {
-                card_game->player_hand[i].hovered = true;
-                gs_vqs_t target = card_game->player_hand[i].target_transform;
+        screen_pos = world_to_screen(card_game->player_hand[i].entity.transform.position, view_projection, fbw, fbh);
+        if (card_game->player_hand[i].data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
+            if (!card_game->player_hand[i].data.hovered) {
+                card_game->player_hand[i].data.hovered = true;
+                gs_vqs_t target = card_game->player_hand[i].entity.next;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                set_card_animation(&card_game->player_hand[i], target, 0.1f);
+                entity_animation_start(&card_game->player_hand[i].entity, target, 0.1f);
             }
             hovered_index = i;
             break;
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
-        world_to_screen(card_game->opponent_hand[i].transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (card_game->opponent_hand[i].selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
-            if (!card_game->opponent_hand[i].hovered) {
-                card_game->opponent_hand[i].hovered = true;
-                gs_vqs_t target = card_game->opponent_hand[i].target_transform;
+        screen_pos = world_to_screen(card_game->opponent_hand[i].entity.transform.position, view_projection, fbw, fbh);
+        if (card_game->opponent_hand[i].data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
+            if (!card_game->opponent_hand[i].data.hovered) {
+                card_game->opponent_hand[i].data.hovered = true;
+                gs_vqs_t target = card_game->opponent_hand[i].entity.next;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                set_card_animation(&card_game->opponent_hand[i], target, 0.1f);
+                entity_animation_start(&card_game->opponent_hand[i].entity, target, 0.1f);
             }
             hovered_index = i + 10; // opponent hand hovered indices is 10-15
             break;
         }
     }
-    if (card_game->player_card_in_play.name != NULL) {
-        world_to_screen(card_game->player_card_in_play.transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (card_game->player_card_in_play.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
-            if (!card_game->player_card_in_play.hovered) {
-                card_game->player_card_in_play.hovered = true;
-                gs_vqs_t target = card_game->player_card_in_play.target_transform;
+    if (card_game->player_card_in_play.data.name != NULL) {
+        screen_pos = world_to_screen(card_game->player_card_in_play.entity.transform.position, view_projection, fbw, fbh);
+        if (card_game->player_card_in_play.data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
+            if (!card_game->player_card_in_play.data.hovered) {
+                card_game->player_card_in_play.data.hovered = true;
+                gs_vqs_t target = card_game->player_card_in_play.entity.next;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                set_card_animation(&card_game->player_card_in_play, target, 0.1f);
+                entity_animation_start(&card_game->player_card_in_play.entity, target, 0.1f);
             }
             hovered_index = 20; // 20 is player in play card
         }
     }
-    if (card_game->opponent_card_in_play.name != NULL) {
-        world_to_screen(card_game->opponent_card_in_play.transform.position, &screen_pos, view_projection, fbw, fbh);
-        if (card_game->opponent_card_in_play.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < HOVER_SCREEN_SIZE) {
-            if (!card_game->opponent_card_in_play.hovered) {
-                card_game->opponent_card_in_play.hovered = true;
-                gs_vqs_t target = card_game->opponent_card_in_play.target_transform;
+    if (card_game->opponent_card_in_play.data.name != NULL) {
+        screen_pos = world_to_screen(card_game->opponent_card_in_play.entity.transform.position, view_projection, fbw, fbh);
+        if (card_game->opponent_card_in_play.data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
+            if (!card_game->opponent_card_in_play.data.hovered) {
+                card_game->opponent_card_in_play.data.hovered = true;
+                gs_vqs_t target = card_game->opponent_card_in_play.entity.next;
                 target.scale = gs_v3(1.2f, 1.2f, 1.2f);
-                set_card_animation(&card_game->opponent_card_in_play, target, 0.1f);
+                entity_animation_start(&card_game->opponent_card_in_play.entity, target, 0.1f);
             }
             hovered_index = 21; // 21 is opponent in play card
         }
@@ -995,36 +998,36 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
 
     // change scale of cards that aren't hovered
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        if (card_game->player_hand[i].hovered && i != hovered_index) {
-            card_game->player_hand[i].hovered = false;
-            gs_vqs_t target = card_game->player_hand[i].target_transform;
+        if (card_game->player_hand[i].data.hovered && i != hovered_index) {
+            card_game->player_hand[i].data.hovered = false;
+            gs_vqs_t target = card_game->player_hand[i].entity.next;
             target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-            set_card_animation(&card_game->player_hand[i], target, 0.1f);
+            entity_animation_start(&card_game->player_hand[i].entity, target, 0.1f);
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
-        if (card_game->opponent_hand[i].hovered && (i + 10) != hovered_index) {
-            card_game->opponent_hand[i].hovered = false;
-            gs_vqs_t target = card_game->opponent_hand[i].target_transform;
+        if (card_game->opponent_hand[i].data.hovered && (i + 10) != hovered_index) {
+            card_game->opponent_hand[i].data.hovered = false;
+            gs_vqs_t target = card_game->opponent_hand[i].entity.next;
             target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-            set_card_animation(&card_game->opponent_hand[i], target, 0.1f);
+            entity_animation_start(&card_game->opponent_hand[i].entity, target, 0.1f);
         }
     }
-    if (card_game->player_card_in_play.hovered && 20 != hovered_index) {
-        card_game->player_card_in_play.hovered = false;
-        gs_vqs_t target = card_game->player_card_in_play.target_transform;
+    if (card_game->player_card_in_play.data.hovered && 20 != hovered_index) {
+        card_game->player_card_in_play.data.hovered = false;
+        gs_vqs_t target = card_game->player_card_in_play.entity.next;
         target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-        set_card_animation(&card_game->player_card_in_play, target, 0.1f);
+        entity_animation_start(&card_game->player_card_in_play.entity, target, 0.1f);
     }
-    if (card_game->opponent_card_in_play.hovered && 21 != hovered_index) {
-        card_game->opponent_card_in_play.hovered = false;
-        gs_vqs_t target = card_game->opponent_card_in_play.target_transform;
+    if (card_game->opponent_card_in_play.data.hovered && 21 != hovered_index) {
+        card_game->opponent_card_in_play.data.hovered = false;
+        gs_vqs_t target = card_game->opponent_card_in_play.entity.next;
         target.scale = gs_v3(1.0f, 1.0f, 1.0f);
-        set_card_animation(&card_game->opponent_card_in_play, target, 0.1f);
+        entity_animation_start(&card_game->opponent_card_in_play.entity, target, 0.1f);
     }
 }
 
-static float ai_evaluate_card(card_state_t *card, float other_attack, float other_health) {
+static float ai_evaluate_card(card_data_t *card, float other_attack, float other_health) {
     float attack_weight = 1.f;
     float health_weight = 1.f;
     float shield_weight = 1.f;
@@ -1060,10 +1063,10 @@ static float ai_evaluate_card(card_state_t *card, float other_attack, float othe
 // higher numbers means more favorable for the player, lower is more favorable for opponent
 static float evaluate(card_game_state_t *card_game) {
     // get the basic cases out of the way, ending the game is +-1000
-    if (card_game->player_card_in_play.name == NULL && gs_dyn_array_size(card_game->player_hand) == 0) {
+    if (card_game->player_card_in_play.data.name == NULL && gs_dyn_array_size(card_game->player_hand) == 0) {
         return -1000;
     }
-    if (card_game->opponent_card_in_play.name == NULL && gs_dyn_array_size(card_game->opponent_hand) == 0) {
+    if (card_game->opponent_card_in_play.data.name == NULL && gs_dyn_array_size(card_game->opponent_hand) == 0) {
         return 1000;
     }
     float attack_weight = 1.f;
@@ -1071,38 +1074,38 @@ static float evaluate(card_game_state_t *card_game) {
     float score = 0;
     // if the opponent has a card in play, pass that into evaluate card
 
-    bool has_opposing_card = card_game->opponent_card_in_play.name != NULL;
+    bool has_opposing_card = card_game->opponent_card_in_play.data.name != NULL;
     float other_avg_attack = 0;
     float other_avg_health = 0;
     int hand_size = gs_dyn_array_size(card_game->player_hand);
     for (int i = 0; i < hand_size; i++) {
-        score += ai_evaluate_card(&card_game->player_hand[i], 0, 0);
+        score += ai_evaluate_card(&card_game->player_hand[i].data, 0, 0);
         if (!has_opposing_card) {
-            other_avg_attack += card_game->player_hand[i].current_attack;
-            other_avg_health += card_game->player_hand[i].current_health;
+            other_avg_attack += card_game->player_hand[i].data.current_attack;
+            other_avg_health += card_game->player_hand[i].data.current_health;
         }
     }
     if (has_opposing_card) {
-        score += ai_evaluate_card(&card_game->player_card_in_play, card_game->opponent_card_in_play.current_attack, card_game->opponent_card_in_play.current_health);
+        score += ai_evaluate_card(&card_game->player_card_in_play.data, card_game->opponent_card_in_play.data.current_attack, card_game->opponent_card_in_play.data.current_health);
     } else {
-        score += ai_evaluate_card(&card_game->player_card_in_play, hand_size == 0 ? 0 : other_avg_attack/ hand_size, hand_size == 0 ? 0 : other_avg_health/ hand_size);
+        score += ai_evaluate_card(&card_game->player_card_in_play.data, hand_size == 0 ? 0 : other_avg_attack/ hand_size, hand_size == 0 ? 0 : other_avg_health/ hand_size);
     }
 
-    has_opposing_card = card_game->player_card_in_play.name != NULL;
+    has_opposing_card = card_game->player_card_in_play.data.name != NULL;
     other_avg_attack = 0;
     other_avg_health = 0;
     hand_size = gs_dyn_array_size(card_game->opponent_hand);
     for (int i = 0; i < hand_size; i++) {
-        score -= ai_evaluate_card(&card_game->opponent_hand[i], 0, 0);
+        score -= ai_evaluate_card(&card_game->opponent_hand[i].data, 0, 0);
         if (!has_opposing_card) {
-            other_avg_attack += card_game->opponent_hand[i].current_attack;
-            other_avg_health += card_game->opponent_hand[i].current_health;
+            other_avg_attack += card_game->opponent_hand[i].data.current_attack;
+            other_avg_health += card_game->opponent_hand[i].data.current_health;
         }
     }
     if (has_opposing_card) {
-        score -= ai_evaluate_card(&card_game->opponent_card_in_play, card_game->player_card_in_play.current_attack, card_game->player_card_in_play.current_health);
+        score -= ai_evaluate_card(&card_game->opponent_card_in_play.data, card_game->player_card_in_play.data.current_attack, card_game->player_card_in_play.data.current_health);
     } else {
-        score -= ai_evaluate_card(&card_game->opponent_card_in_play, hand_size == 0 ? 0 : other_avg_attack/ hand_size, hand_size == 0 ? 0 : other_avg_health/ hand_size);
+        score -= ai_evaluate_card(&card_game->opponent_card_in_play.data, hand_size == 0 ? 0 : other_avg_attack/ hand_size, hand_size == 0 ? 0 : other_avg_health/ hand_size);
     }
 
     return score;
@@ -1130,13 +1133,13 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
 
     enum card_game_target_type target_type = NONE;
     if (is_player) {
-        if (card_has_target_ability(&tmp_card_game.player_card_in_play.current_abilities)) target_type = ANY;
-        else if (card_has_target_ability_self(&tmp_card_game.player_card_in_play.current_abilities)) target_type = SELF;
-        else if (card_has_target_ability_other(&tmp_card_game.player_card_in_play.current_abilities)) target_type = OTHER;
+        if (card_has_target_ability(&tmp_card_game.player_card_in_play.data.current_abilities)) target_type = ANY;
+        else if (card_has_target_ability_self(&tmp_card_game.player_card_in_play.data.current_abilities)) target_type = SELF;
+        else if (card_has_target_ability_other(&tmp_card_game.player_card_in_play.data.current_abilities)) target_type = OTHER;
     } else {
-        if (card_has_target_ability(&tmp_card_game.opponent_card_in_play.current_abilities)) target_type = ANY;
-        else if (card_has_target_ability_self(&tmp_card_game.opponent_card_in_play.current_abilities)) target_type = SELF;
-        else if (card_has_target_ability_other(&tmp_card_game.opponent_card_in_play.current_abilities)) target_type = OTHER;
+        if (card_has_target_ability(&tmp_card_game.opponent_card_in_play.data.current_abilities)) target_type = ANY;
+        else if (card_has_target_ability_self(&tmp_card_game.opponent_card_in_play.data.current_abilities)) target_type = SELF;
+        else if (card_has_target_ability_other(&tmp_card_game.opponent_card_in_play.data.current_abilities)) target_type = OTHER;
     }
 
     if (target_type == NONE) {
@@ -1151,7 +1154,7 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
         }
     } else {
         if (target_type == ANY || target_type == OTHER) {
-            gs_dyn_array(card_state_t) other_hand = is_player ? tmp_card_game.opponent_hand : tmp_card_game.player_hand;
+            gs_dyn_array(card_entity_t) other_hand = is_player ? tmp_card_game.opponent_hand : tmp_card_game.player_hand;
 
             for (int j = 0; j < gs_dyn_array_size(other_hand); j++) {
                 if (is_player) {
@@ -1197,7 +1200,7 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
             tmp_card_game = copy_state(card_game);
         }
         if (target_type == ANY || target_type == SELF) {
-            gs_dyn_array(card_state_t) self_hand = is_player ? tmp_card_game.player_hand : tmp_card_game.opponent_hand;
+            gs_dyn_array(card_entity_t) self_hand = is_player ? tmp_card_game.player_hand : tmp_card_game.opponent_hand;
 
             for (int j = 0; j < gs_dyn_array_size(self_hand); j++) {
                 if (is_player) {
@@ -1255,11 +1258,11 @@ static action_selection_t ai_hand_selection(card_game_state_t *card_game, bool i
     action_selection_t selection = {.hand_index = -1};
 
     card_game_state_t tmp_card_game = copy_state(card_game);
-    gs_dyn_array(card_state_t) hand = is_player ? tmp_card_game.player_hand : tmp_card_game.opponent_hand;
+    gs_dyn_array(card_entity_t) hand = is_player ? tmp_card_game.player_hand : tmp_card_game.opponent_hand;
 
     gs_dyn_array(int) timebound_indices = NULL;
     for (int i = 0; i < gs_dyn_array_size(hand); i++) {
-        if (hand[i].current_abilities.timebound) gs_dyn_array_push(timebound_indices, i);
+        if (hand[i].data.current_abilities.timebound) gs_dyn_array_push(timebound_indices, i);
     }
 
     gs_dyn_array(int) valid_hand_indices = NULL;
