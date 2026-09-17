@@ -1,4 +1,8 @@
 road map
+- fix scaling of cards infront of camera
+- start some basic worldbuilding to get ideas for cards
+- allow setting sim properties in game without needing to rebuild
+- improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
 x create card.h to hold card struct and do card operations
 x add card rendering function to card.h
 x size cards a bit better
@@ -50,11 +54,8 @@ x add levels and rarities to cards
 x implement game mode for 3d world, render 3D plane and spere
 x implement basic movement and camera
 x refactor card_renderer and world renderer into a more general renderer
-- implement card library view overlay and trigger card game / simulation
+x implement card library view overlay and trigger card game / simulation
 x implement triggering and transitioning into card game with key press
-- start some basic worldbuilding to get ideas for cards
-- allow setting sim properties in game without needing to rebuild
-- improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
 
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)

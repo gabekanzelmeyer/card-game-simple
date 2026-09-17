@@ -61,6 +61,7 @@ gs_handle(gs_graphics_texture_t) NO_TEXTURE;
 static gs_handle(gs_graphics_shader_t) shader_create(const char *vs_file, const char *fs_file);
 static gs_handle(gs_graphics_uniform_t) uniform_create(const char* name, gs_graphics_uniform_type type, gs_graphics_shader_stage_type stage);
 static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_shader_t) shader);
+void entity_animation_start(entity_t *entity, gs_vqs target, float duration);
 
 void engine_init(engine_t *engine) {
     *engine = (engine_t){0};
@@ -215,7 +216,11 @@ static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_s
     return gs_graphics_pipeline_create(&pdesc);
 }
 
-gs_vec2 world_to_screen(gs_vec3 world_pos, gs_mat4 view_proj, float screen_width, float screen_height) {
+gs_vec2 world_to_screen(gs_camera_t *camera, gs_vec3 world_pos) {
+    uint32_t fbw, fbh;
+    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
+    gs_mat4 view_proj = gs_camera_get_view_projection(camera, (int32_t)fbw, (int32_t)fbh);
+
     float x = world_pos.x * view_proj.m[0][0] + world_pos.y * view_proj.m[1][0] + world_pos.z * view_proj.m[2][0] + view_proj.m[3][0];
     float y = world_pos.x * view_proj.m[0][1] + world_pos.y * view_proj.m[1][1] + world_pos.z * view_proj.m[2][1] + view_proj.m[3][1];
     float z = world_pos.x * view_proj.m[0][2] + world_pos.y * view_proj.m[1][2] + world_pos.z * view_proj.m[2][2] + view_proj.m[3][2];
@@ -232,26 +237,28 @@ gs_vec2 world_to_screen(gs_vec3 world_pos, gs_mat4 view_proj, float screen_width
 
     // calculate screen coords
     gs_vec2 screen;
-    screen.x = ((ndc_x + 1.0f) * 0.5f) * screen_width;
-    screen.y = ((1.0f - ndc_y) * 0.5f) * screen_height; // Inverted Y for standard 2D screen coordinate spaces
+    screen.x = ((ndc_x + 1.0f) * 0.5f) * fbw;
+    screen.y = ((1.0f - ndc_y) * 0.5f) * fbh; // Inverted Y for standard 2D screen coordinate spaces
 
     return screen;
 }
 
-gs_vqs transform_in_front_of_camera(gs_camera_t *camera, gs_vqs offset) {
+void transform_in_front_of_camera(gs_camera_t *camera, entity_t *entity, gs_vec3 pos, gs_quat rotation, float transition_speed) {
     gs_vqs transform = gs_vqs_default();
     gs_vec3 forward = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation), gs_v3(0.f, 0.f, -1.f));
     gs_vec3 right = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation),gs_v3(1.f, 0.f, 0.f));
     gs_vec3 up = gs_mat4_mul_vec3(gs_quat_to_mat4(camera->transform.rotation), gs_v3(0.f, 1.f, 0.f));
 
-    transform.position = gs_vec3_add(camera->transform.position, gs_vec3_scale(forward, offset.position.z));
-    transform.position = gs_vec3_add(transform.position, gs_vec3_scale(right, offset.position.x));
-    transform.position = gs_vec3_add(transform.position, gs_vec3_scale(up, offset.position.y));
+    transform.position = gs_vec3_add(camera->transform.position, gs_vec3_scale(forward, pos.z));
+    transform.position = gs_vec3_add(transform.position, gs_vec3_scale(right, pos.x));
+    transform.position = gs_vec3_add(transform.position, gs_vec3_scale(up, pos.y));
 
-    transform.rotation =
-    gs_quat_mul(camera->transform.rotation, gs_quat_angle_axis(gs_deg2rad(90.f), gs_v3(1.f, 0.f, 0.f)));
-    transform.rotation = gs_quat_mul(transform.rotation, offset.rotation);
-    return transform;
+    transform.rotation = gs_quat_mul(camera->transform.rotation, gs_quat_angle_axis(gs_deg2rad(90.f), gs_v3(1.f, 0.f, 0.f)));
+    transform.rotation = gs_quat_mul(transform.rotation, rotation);
+
+    transform.scale = entity->transform.scale;
+
+    entity_animation_start(entity, transform, transition_speed);
 }
 
 void transform_lerp(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {

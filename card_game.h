@@ -277,10 +277,10 @@ static void phase_play_cards(engine_t *engine, card_game_state_t *card_game) {
             card_game->player_card_in_play = card_game->player_hand[card_game->player_hand_index_to_play];
             gs_dyn_array_erase(card_game->player_hand, card_game->player_hand_index_to_play);
 
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(-2., 0.f, 5.f);
-            gs_vqs camera_target = transform_in_front_of_camera(&engine->camera, target_transform);
-            entity_animation_start(&card_game->player_card_in_play.entity, camera_target, 0.1f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(-2., 0.f, 5.f);
+            card_game->player_card_in_play.entity.transform.scale = CARD_SCALE;
+            transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.1f);
             card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
         }
         if (card_game->opponent_just_played_card) {
@@ -288,10 +288,10 @@ static void phase_play_cards(engine_t *engine, card_game_state_t *card_game) {
             card_game->opponent_card_in_play = card_game->opponent_hand[card_game->opponent_hand_index_to_play];
             gs_dyn_array_erase(card_game->opponent_hand, card_game->opponent_hand_index_to_play);
 
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(2., 0.f, 5.f);
-            gs_vqs camera_target = transform_in_front_of_camera(&engine->camera, target_transform);
-            entity_animation_start(&card_game->opponent_card_in_play.entity, camera_target, 0.1f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(2., 0.f, 5.f);
+            card_game->opponent_card_in_play.entity.transform.scale = CARD_SCALE;
+            transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.1f);
             card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
         }
     }
@@ -379,12 +379,12 @@ static void phase_player_select_target(engine_t *engine, card_game_state_t *card
             float end_phase_time = 0.3;
             if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
                 gs_vqs target_transform = card_game->target->entity.next;
-                target_transform.scale = gs_v3(0.9f, 0.9f, 0.9f);
+                target_transform.scale = gs_vec3_scale(CARD_SCALE, 0.9f);
                 entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
             }
             if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
                 gs_vqs_t target_transform = card_game->target->entity.next;
-                target_transform.scale = gs_v3(1.f, 1.f, 1.f);
+                target_transform.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
                 entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
                 card_game->target = NULL;
             }
@@ -438,12 +438,12 @@ static void phase_opponent_select_target(engine_t *engine, card_game_state_t *ca
             float end_phase_time = 0.3;
             if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
                 gs_vqs_t target_transform = card_game->target->entity.next;
-                target_transform.scale = gs_v3(0.8f, 0.8f, 0.8f);
+                target_transform.scale = gs_vec3_scale(CARD_SCALE, 0.8f);
                 entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
             }
             if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
                 gs_vqs_t target_transform = card_game->target->entity.next;
-                target_transform.scale = gs_v3(1.f, 1.f, 1.f);
+                target_transform.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
                 entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
                 card_game->target = NULL;
             }
@@ -469,28 +469,28 @@ static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
         card_game->player_card_attacking = card_game->player_card_in_play.data.current_abilities.haste && !card_game->player_card_in_play.data.current_abilities.frozen;
         card_game->opponent_card_attacking = card_game->opponent_card_in_play.data.current_abilities.haste && !card_game->opponent_card_in_play.data.current_abilities.frozen;
         if (card_game->player_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(-1.5f, 0.f, 0.f);
-            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.07f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(-1.5f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
         if (card_game->opponent_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(1.5f, 0.f, 0.f);
-            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.07f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(1.5f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
     }
     if (card_game->phase_timer_prev < haste_end_attack_time && card_game->phase_timer >= haste_end_attack_time) {
         printf("haste end: %f\n", card_game->phase_timer);
         if (card_game->player_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
-            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.1f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(-2.0f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_attack);
         }
         if (card_game->opponent_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(2.0f, 0.f, 0.f);
-            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.1f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(2.0f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_attack);
         }
         card_game->player_card_attacking = false;
@@ -512,30 +512,28 @@ static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
         card_game->player_card_attacking = !card_game->player_card_in_play.data.current_abilities.haste && !card_game->player_card_in_play.data.current_abilities.frozen;
         card_game->opponent_card_attacking = !card_game->opponent_card_in_play.data.current_abilities.haste && !card_game->opponent_card_in_play.data.current_abilities.frozen;
         if (card_game->player_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(-1.5f, 0.f, 0.f);
-            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.07f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(-1.5f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
         if (card_game->opponent_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(1.5f, 0.f, 0.f);
-            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.07f);
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(1.5f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
     }
     if (card_game->phase_timer_prev < end_attack_time && card_game->phase_timer >= end_attack_time) {
         printf("attack end: %f\n", card_game->phase_timer);
         if (card_game->player_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(-2.0f, 0.f, 0.f);
-            entity_animation_start(&card_game->player_card_in_play.entity, target_transform, 0.1f);
-
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(-2.0f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_attack);
         }
         if (card_game->opponent_card_attacking) {
-            gs_vqs_t target_transform = gs_vqs_default();
-            target_transform.position = gs_v3(2.0f, 0.f, 0.f);
-            entity_animation_start(&card_game->opponent_card_in_play.entity, target_transform, 0.07f);
-
+            gs_vqs_t target = gs_vqs_default();
+            target.position = gs_v3(2.0f, 0.f, 5.f);
+            transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_attack);
         }
         card_game->player_card_attacking = false;
@@ -935,21 +933,18 @@ static void card_game_set_player_targets_selectable(card_game_state_t *card_game
 
 static void update_input_indices(engine_t *engine, card_game_state_t *card_game) {
     gs_vec2 mouse_pos = gs_platform_mouse_positionv();
-    uint32_t fbw, fbh;
-    gs_platform_framebuffer_size(gs_platform_main_window(), &fbw, &fbh);
-    gs_mat4 view_projection = gs_camera_get_view_projection(&engine->camera, (int32_t)fbw, (int32_t)fbh);
     gs_vec2 screen_pos;
 
     // increase scale of hovered hand card and keep track of which card for later,
     // also, if the card can be selected, outline it in green
     int hovered_index = -1;
     for (int i = gs_dyn_array_size(card_game->player_hand) - 1; i >= 0; i--) {
-        screen_pos = world_to_screen(card_game->player_hand[i].entity.transform.position, view_projection, fbw, fbh);
+        screen_pos = world_to_screen(&engine->camera, card_game->player_hand[i].entity.transform.position);
         if (card_game->player_hand[i].data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
             if (!card_game->player_hand[i].data.hovered) {
                 card_game->player_hand[i].data.hovered = true;
                 gs_vqs_t target = card_game->player_hand[i].entity.next;
-                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
                 entity_animation_start(&card_game->player_hand[i].entity, target, 0.1f);
             }
             hovered_index = i;
@@ -957,12 +952,12 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
-        screen_pos = world_to_screen(card_game->opponent_hand[i].entity.transform.position, view_projection, fbw, fbh);
+        screen_pos = world_to_screen(&engine->camera, card_game->opponent_hand[i].entity.transform.position);
         if (card_game->opponent_hand[i].data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
             if (!card_game->opponent_hand[i].data.hovered) {
                 card_game->opponent_hand[i].data.hovered = true;
                 gs_vqs_t target = card_game->opponent_hand[i].entity.next;
-                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
                 entity_animation_start(&card_game->opponent_hand[i].entity, target, 0.1f);
             }
             hovered_index = i + 10; // opponent hand hovered indices is 10-15
@@ -970,24 +965,24 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
         }
     }
     if (card_game->player_card_in_play.data.name != NULL) {
-        screen_pos = world_to_screen(card_game->player_card_in_play.entity.transform.position, view_projection, fbw, fbh);
+        screen_pos = world_to_screen(&engine->camera, card_game->player_card_in_play.entity.transform.position);
         if (card_game->player_card_in_play.data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
             if (!card_game->player_card_in_play.data.hovered) {
                 card_game->player_card_in_play.data.hovered = true;
                 gs_vqs_t target = card_game->player_card_in_play.entity.next;
-                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
                 entity_animation_start(&card_game->player_card_in_play.entity, target, 0.1f);
             }
             hovered_index = 20; // 20 is player in play card
         }
     }
     if (card_game->opponent_card_in_play.data.name != NULL) {
-        screen_pos = world_to_screen(card_game->opponent_card_in_play.entity.transform.position, view_projection, fbw, fbh);
+        screen_pos = world_to_screen(&engine->camera, card_game->opponent_card_in_play.entity.transform.position);
         if (card_game->opponent_card_in_play.data.selectable && gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300) {
             if (!card_game->opponent_card_in_play.data.hovered) {
                 card_game->opponent_card_in_play.data.hovered = true;
                 gs_vqs_t target = card_game->opponent_card_in_play.entity.next;
-                target.scale = gs_v3(1.2f, 1.2f, 1.2f);
+                target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
                 entity_animation_start(&card_game->opponent_card_in_play.entity, target, 0.1f);
             }
             hovered_index = 21; // 21 is opponent in play card
@@ -1001,7 +996,7 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
         if (card_game->player_hand[i].data.hovered && i != hovered_index) {
             card_game->player_hand[i].data.hovered = false;
             gs_vqs_t target = card_game->player_hand[i].entity.next;
-            target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+            target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
             entity_animation_start(&card_game->player_hand[i].entity, target, 0.1f);
         }
     }
@@ -1009,20 +1004,20 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
         if (card_game->opponent_hand[i].data.hovered && (i + 10) != hovered_index) {
             card_game->opponent_hand[i].data.hovered = false;
             gs_vqs_t target = card_game->opponent_hand[i].entity.next;
-            target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+            target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
             entity_animation_start(&card_game->opponent_hand[i].entity, target, 0.1f);
         }
     }
     if (card_game->player_card_in_play.data.hovered && 20 != hovered_index) {
         card_game->player_card_in_play.data.hovered = false;
         gs_vqs_t target = card_game->player_card_in_play.entity.next;
-        target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+        target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
         entity_animation_start(&card_game->player_card_in_play.entity, target, 0.1f);
     }
     if (card_game->opponent_card_in_play.data.hovered && 21 != hovered_index) {
         card_game->opponent_card_in_play.data.hovered = false;
         gs_vqs_t target = card_game->opponent_card_in_play.entity.next;
-        target.scale = gs_v3(1.0f, 1.0f, 1.0f);
+        target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
         entity_animation_start(&card_game->opponent_card_in_play.entity, target, 0.1f);
     }
 }

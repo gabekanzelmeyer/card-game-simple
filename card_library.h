@@ -59,17 +59,13 @@ static void card_library_filter_view(engine_t *engine, int page_index) {
     int page_end_index = fmin(gs_dyn_array_size(filtered_cards) - 1, page_start_index + CARDS_PER_PAGE - 1);
     int render_index = 0;
     for (int i = page_end_index; i >= page_start_index; i--) {
-
+        card_entity_t card_entity = card_entity_create(filtered_cards[i]);
         gs_vqs transform = gs_vqs_default();
         transform.position.x = -3.15 + (i % 6) * 1.25;
         transform.position.y = 1.7 - ((i - page_start_index) / 6) * 1.75;
         transform.position.z = 5;
 
-        card_entity_t card_entity = card_entity_create(filtered_cards[i]);
-        gs_vqs in_front_of_screen = transform_in_front_of_camera(&engine->camera, transform);
-        in_front_of_screen.scale = card_entity.entity.transform.scale;
-
-        card_entity.entity.transform = in_front_of_screen;
+        transform_in_front_of_camera(&engine->camera, &card_entity.entity, transform.position, transform.rotation, 0.0f);
         gs_dyn_array_push(card_library_view, card_entity);
         card_entity_bake_texture(&engine->gsi, card_entity);
     }
@@ -154,7 +150,7 @@ void card_library_update(engine_t *engine) {
     bool added = false;
 
     for (int i = gs_dyn_array_size(card_library_view) - 1; i >= 0; i--) {
-        gs_vec2 screen_pos = world_to_screen(card_library_view[i].entity.transform.position, view_projection, fbw, fbh);
+        gs_vec2 screen_pos = world_to_screen(&engine->camera, card_library_view[i].entity.transform.position);
         if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300
             && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)
             && gs_dyn_array_size(card_library_hand) < 6
@@ -173,7 +169,7 @@ void card_library_update(engine_t *engine) {
         }
     }
     for (int i = gs_dyn_array_size(card_library_hand) - 1; i >= 0; i--) {
-        gs_vec2 screen_pos = world_to_screen(card_library_hand[i].entity.transform.position, view_projection, fbw, fbh);
+        gs_vec2 screen_pos = world_to_screen(&engine->camera, card_library_hand[i].entity.transform.position);
         if (gs_vec2_len(gs_vec2_sub(mouse_pos, screen_pos)) < 300
             && gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)
             && !added) {
@@ -192,6 +188,7 @@ void card_library_update(engine_t *engine) {
 
     float dt = gs_platform_delta_time();
     for (int i = 0; i < gs_dyn_array_size(card_library_view); i++) {
+        entity_animate(&card_library_view[i].entity, dt);
         draw_entity(&card_library_view[i].entity, view_projection, &engine->standard_shader, engine);
     }
     for (int i = 0; i < gs_dyn_array_size(card_library_hand); i++) {

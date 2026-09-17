@@ -174,7 +174,7 @@ void update() {
     gs_graphics_set_viewport(&engine.cb, 0, 0, (uint32_t)fbs.x, (uint32_t)fbs.y);
     gs_graphics_pipeline_bind(&engine.cb, engine.standard_shader.pipeline);
 
-    draw_entity(&plane, vp, &engine.standard_shader, &engine);
+    // draw_entity(&plane, vp, &engine.standard_shader, &engine);
     sphere.transform.position = player_pos;
     draw_entity(&sphere, vp, &engine.standard_shader, &engine);
 

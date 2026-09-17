@@ -23,6 +23,7 @@ typedef struct {
 uint32_t CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT;
 gs_handle(gs_graphics_texture_t) CARD_BG_TEXTURE;
 gs_asset_font_t CARD_FONT;
+gs_vec3 CARD_SCALE;
 
 
 void card_entites_init() {
@@ -33,6 +34,8 @@ void card_entites_init() {
 
     CARD_TEXTURE_WIDTH = (uint32_t)tex_w;
     CARD_TEXTURE_HEIGHT = (uint32_t)tex_h;
+
+    CARD_SCALE = gs_v3(1.2f, 1.f, 1.6f);
 
     gs_graphics_texture_desc_t bg_texture_desc = gs_default_val();
     bg_texture_desc.width = (uint32_t)tex_w;
@@ -67,7 +70,7 @@ card_entity_t card_entity_create(card_data_t card_data) {
     card.entity = (entity_t){0};
     card.entity.mesh = mesh_plane();
     card.entity.transform = gs_vqs_default();
-    card.entity.transform.scale = gs_v3(1.2f, 1.f, 1.6f);
+    card.entity.transform.scale = CARD_SCALE;
     card.entity.transform.position = gs_v3(0, 0.1, 0);
     card.entity.material.texture = render_texture.texture;
     card.entity.material.color = gs_v4s(1);
@@ -100,15 +103,12 @@ void card_entities_position_as_hand(gs_camera_t *camera, card_entity_t *cards, b
     float start_x = -spacing * (float)count / 2.f + spacing / 2.f;
     float start_tilt = fan_angle * (float)count / 2.f - fan_angle / 2.f;
     for (int i = 0; i < count; i++) {
-        gs_vqs target = gs_vqs_default();
+        gs_vqs target = cards[i].entity.transform;
         target.position.x = start_x + i * spacing;
         target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
         target.position.z = 5; // units in front of camera (0, won't be seen)
         target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 1, 0)); // rotating on y
-        gs_vqs camera_target = transform_in_front_of_camera(camera, target);
-        // make sure to keep any existing scaling
-        camera_target.scale = cards[i].entity.transform.scale;
-        entity_animation_start(&cards[i].entity, camera_target, 0.2f);
+        transform_in_front_of_camera(camera, &cards[i].entity, target.position, target.rotation, 0.2);
     }
 }
 
