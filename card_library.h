@@ -129,6 +129,12 @@ enum game_mode card_library_gui(engine_t *engine) {
                     result = CARD_GAME;
                 }
             }
+
+            gs_gui_rect_t sim_button_rect = gs_gui_layout_anchor(&engine->gui.viewport, 300, 200, -10, -10, GS_GUI_LAYOUT_ANCHOR_BOTTOMLEFT);
+            gs_gui_layout_set_next(&engine->gui, sim_button_rect, 0);
+            if (gs_gui_button(&engine->gui, "Sim")) {
+                result = SIM_CARD_GAME;
+            }
         }
         gs_gui_window_end(&engine->gui);
         return result;
