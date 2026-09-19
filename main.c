@@ -11,32 +11,19 @@
 #include "card_library.h"
 #include "card_game.h"
 
-// #include "card_renderer.h"
-// #include "card_database.h"
-// #include "card_game.h"
-// #include "game_util.h"
-
-// static game_state_t state = {0};
 static card_game_state_t card_game = {0};
-// static card_render_data_t card_renderer = {0};
 
 gs_vec3 player_pos;
 float player_speed = 6.f;
 gs_vec3 camera_offset;
 static engine_t engine;
-static gs_asset_font_t font;
-static gs_handle(gs_graphics_texture_t) card_bg_texture;
 entity_t sphere;
 entity_t plane;
-card_entity_t card;
 enum game_mode mode;
 
 
 void init() {
     srand(time(NULL));
-    // card_renderer_init(&card_renderer);
-    // game_state_init(&state, &card_renderer);
-
     camera_offset = gs_v3(0.f, 18.f, 10.f);
     player_pos = gs_v3(0.f, 0.5f, 0.f);
 
@@ -50,6 +37,8 @@ void init() {
 
     sphere.mesh = mesh_sphere(0.5f, 16, 24);
     sphere.transform = gs_vqs_default();
+    sphere.prev = gs_vqs_default();
+    sphere.next = gs_vqs_default();
     sphere.material.texture = NO_TEXTURE;
     sphere.material.color = gs_v4(0.8, 0.3, 0.1, 1.0);
 
@@ -117,14 +106,25 @@ void update() {
     }
 
 
-    if (gs_vec3_len(move) > 0.f)
-    {
-        move = gs_vec3_norm(move);
-        move = gs_vec3_scale(move, player_speed * dt);
-        player_pos = gs_vec3_add(player_pos, move);
+    if (gs_vec3_len(gs_vec3_sub(sphere.next.position, sphere.prev.position)) > 0)  {
+        sphere.lerp += dt / 0.2f;
     }
+    if (gs_vec3_len(move) > 0.f && sphere.lerp >= 1.0f) {
+        sphere.prev = sphere.next;
+        sphere.next.position = gs_vec3_add(sphere.next.position, move);
+        sphere.lerp -= 1.0;
+    } else if (gs_vec3_len(move) > 0.f && sphere.lerp == 0.0f) {
+        sphere.prev = sphere.next;
+        sphere.next.position = gs_vec3_add(sphere.next.position, move);
+        sphere.lerp = 0;
+    } else if (sphere.lerp >= 1.0f) {
+        sphere.prev = sphere.next;
+        sphere.lerp = 0;
+    }
+    lerp_transform_linear(&sphere.transform, &sphere.prev, &sphere.next, sphere.lerp);
 
-    engine.camera.transform.position = gs_vec3_add(player_pos, camera_offset);
+
+    engine.camera.transform.position = gs_vec3_add(sphere.transform.position, camera_offset);
 
     gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
     gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
@@ -144,8 +144,7 @@ void update() {
     gs_graphics_set_viewport(&engine.cb, 0, 0, (uint32_t)fbs.x, (uint32_t)fbs.y);
     gs_graphics_pipeline_bind(&engine.cb, engine.standard_shader.pipeline);
 
-    // draw_entity(&plane, vp, &engine.standard_shader, &engine);
-    sphere.transform.position = player_pos;
+    draw_entity(&plane, vp, &engine.standard_shader, &engine);
     draw_entity(&sphere, vp, &engine.standard_shader, &engine);
 
     if (mode == LIBRARY) {

@@ -61,7 +61,7 @@ gs_handle(gs_graphics_texture_t) NO_TEXTURE;
 static gs_handle(gs_graphics_shader_t) shader_create(const char *vs_file, const char *fs_file);
 static gs_handle(gs_graphics_uniform_t) uniform_create(const char* name, gs_graphics_uniform_type type, gs_graphics_shader_stage_type stage);
 static gs_handle(gs_graphics_pipeline_t) pipeline_create(gs_handle(gs_graphics_shader_t) shader);
-void entity_animation_start(entity_t *entity, gs_vqs target, float duration);
+void lerp_entity_init(entity_t *entity, gs_vqs target, float duration);
 
 void engine_init(engine_t *engine) {
     *engine = (engine_t){0};
@@ -258,10 +258,10 @@ void transform_in_front_of_camera(gs_camera_t *camera, entity_t *entity, gs_vec3
 
     transform.scale = entity->transform.scale;
 
-    entity_animation_start(entity, transform, transition_speed);
+    lerp_entity_init(entity, transform, transition_speed);
 }
 
-void transform_lerp(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {
+void lerp_transform_smooth(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {
     current->position.x = gs_interp_smoothstep(prev->position.x, next->position.x, lerp);
     current->position.y = gs_interp_smoothstep(prev->position.y, next->position.y, lerp);
     current->position.z = gs_interp_smoothstep(prev->position.z, next->position.z, lerp);
@@ -276,25 +276,43 @@ void transform_lerp(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {
     current->rotation.w = gs_interp_smoothstep(prev->rotation.w, next->rotation.w, lerp);
 }
 
-void entity_animate(entity_t *entity, float dt) {
-    entity->lerp += dt / entity->lerp_duration;
-    if (entity->lerp >= 1) {
-        entity->lerp = 1;
-    }
-    transform_lerp(&entity->transform, &entity->prev, &entity->next, entity->lerp);
+void lerp_transform_linear(gs_vqs *current, gs_vqs *prev, gs_vqs *next, float lerp) {
+    current->position.x = gs_interp_linear(prev->position.x, next->position.x, lerp);
+    current->position.y = gs_interp_linear(prev->position.y, next->position.y, lerp);
+    current->position.z = gs_interp_linear(prev->position.z, next->position.z, lerp);
+
+    current->scale.x = gs_interp_linear(prev->scale.x, next->scale.x, lerp);
+    current->scale.y = gs_interp_linear(prev->scale.y, next->scale.y, lerp);
+    current->scale.z = gs_interp_linear(prev->scale.z, next->scale.z, lerp);
+
+    current->rotation.x = gs_interp_linear(prev->rotation.x, next->rotation.x, lerp);
+    current->rotation.y = gs_interp_linear(prev->rotation.y, next->rotation.y, lerp);
+    current->rotation.z = gs_interp_linear(prev->rotation.z, next->rotation.z, lerp);
+    current->rotation.w = gs_interp_linear(prev->rotation.w, next->rotation.w, lerp);
 }
 
-void entities_animate(gs_dyn_array(entity_t) entities, float dt) {
-    for (int i = 0; i < gs_dyn_array_size(entities); i++) {
-        entity_animate(&entities[i], dt);
-    }
-}
-
-void entity_animation_start(entity_t *entity, gs_vqs target, float duration) {
+void lerp_entity_init(entity_t *entity, gs_vqs target, float duration) {
     entity->prev = entity->transform;
     entity->next = target;
     entity->lerp_duration = duration;
     entity->lerp = 0.0f;
+}
+
+void lerp_entity_step(entity_t *entity, float dt) {
+    if (entity->lerp_duration == 0) {
+        entity->lerp = 1;
+    } else {
+        entity->lerp += dt / entity->lerp_duration;
+        if (entity->lerp >= 1) entity->lerp = 1;
+    }
+
+    lerp_transform_smooth(&entity->transform, &entity->prev, &entity->next, entity->lerp);
+}
+
+void lerp_entities_step(gs_dyn_array(entity_t) entities, float dt) {
+    for (int i = 0; i < gs_dyn_array_size(entities); i++) {
+        lerp_entity_step(&entities[i], dt);
+    }
 }
 
 void draw_entity(entity_t *entity, gs_mat4 view_projection, shader_t *shader, engine_t *engine) {

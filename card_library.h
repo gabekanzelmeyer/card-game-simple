@@ -194,11 +194,11 @@ void card_library_update(engine_t *engine) {
 
     float dt = gs_platform_delta_time();
     for (int i = 0; i < gs_dyn_array_size(card_library_view); i++) {
-        entity_animate(&card_library_view[i].entity, dt);
+        lerp_entity_step(&card_library_view[i].entity, dt);
         draw_entity(&card_library_view[i].entity, view_projection, &engine->standard_shader, engine);
     }
     for (int i = 0; i < gs_dyn_array_size(card_library_hand); i++) {
-        entity_animate(&card_library_hand[i].entity, dt);
+        lerp_entity_step(&card_library_hand[i].entity, dt);
         draw_entity(&card_library_hand[i].entity, view_projection, &engine->standard_shader, engine);
     }
 }

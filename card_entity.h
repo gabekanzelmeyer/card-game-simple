@@ -352,6 +352,7 @@ void card_entity_bake_texture(gs_immediate_draw_t *gsi, card_entity_t card_entit
     gsi_draw(gsi, &command_buffer);
     gs_graphics_renderpass_end(&command_buffer);
     gs_graphics_command_buffer_submit(&command_buffer);
+    gs_command_buffer_free(&command_buffer);
 }
 
 #endif

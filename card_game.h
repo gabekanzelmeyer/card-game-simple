@@ -380,12 +380,12 @@ static void phase_player_select_target(engine_t *engine, card_game_state_t *card
             if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
                 gs_vqs target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_vec3_scale(CARD_SCALE, 0.9f);
-                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
+                lerp_entity_init(&card_game->target->entity, target_transform, 0.05f);
             }
             if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
                 gs_vqs_t target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
-                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
+                lerp_entity_init(&card_game->target->entity, target_transform, 0.05f);
                 card_game->target = NULL;
             }
             if (card_game->phase_timer > end_phase_time) {
@@ -439,12 +439,12 @@ static void phase_opponent_select_target(engine_t *engine, card_game_state_t *ca
             if (card_game->phase_timer_prev < begin_anim_time && card_game->phase_timer >= begin_anim_time) {
                 gs_vqs_t target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_vec3_scale(CARD_SCALE, 0.8f);
-                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
+                lerp_entity_init(&card_game->target->entity, target_transform, 0.05f);
             }
             if (card_game->phase_timer_prev < end_anim_time && card_game->phase_timer >= end_anim_time) {
                 gs_vqs_t target_transform = card_game->target->entity.next;
                 target_transform.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
-                entity_animation_start(&card_game->target->entity, target_transform, 0.05f);
+                lerp_entity_init(&card_game->target->entity, target_transform, 0.05f);
                 card_game->target = NULL;
             }
             if (card_game->phase_timer > end_phase_time) {
@@ -820,16 +820,16 @@ static void damage_card(card_entity_t *source, card_entity_t *target, int damage
 
 static void update_card_animations(card_game_state_t *card_game, float dt) {
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        entity_animate(&card_game->player_hand[i].entity, dt);
+        lerp_entity_step(&card_game->player_hand[i].entity, dt);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        entity_animate(&card_game->opponent_hand[i].entity, dt);
+        lerp_entity_step(&card_game->opponent_hand[i].entity, dt);
     }
     if (card_game->player_card_in_play.data.name != NULL) {
-        entity_animate(&card_game->player_card_in_play.entity, dt);
+        lerp_entity_step(&card_game->player_card_in_play.entity, dt);
     }
     if (card_game->opponent_card_in_play.data.name != NULL) {
-        entity_animate(&card_game->opponent_card_in_play.entity, dt);
+        lerp_entity_step(&card_game->opponent_card_in_play.entity, dt);
     }
 }
 
@@ -945,7 +945,7 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
                 card_game->player_hand[i].data.hovered = true;
                 gs_vqs_t target = card_game->player_hand[i].entity.next;
                 target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
-                entity_animation_start(&card_game->player_hand[i].entity, target, 0.1f);
+                lerp_entity_init(&card_game->player_hand[i].entity, target, 0.1f);
             }
             hovered_index = i;
             break;
@@ -958,7 +958,7 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
                 card_game->opponent_hand[i].data.hovered = true;
                 gs_vqs_t target = card_game->opponent_hand[i].entity.next;
                 target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
-                entity_animation_start(&card_game->opponent_hand[i].entity, target, 0.1f);
+                lerp_entity_init(&card_game->opponent_hand[i].entity, target, 0.1f);
             }
             hovered_index = i + 10; // opponent hand hovered indices is 10-15
             break;
@@ -971,7 +971,7 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
                 card_game->player_card_in_play.data.hovered = true;
                 gs_vqs_t target = card_game->player_card_in_play.entity.next;
                 target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
-                entity_animation_start(&card_game->player_card_in_play.entity, target, 0.1f);
+                lerp_entity_init(&card_game->player_card_in_play.entity, target, 0.1f);
             }
             hovered_index = 20; // 20 is player in play card
         }
@@ -983,7 +983,7 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
                 card_game->opponent_card_in_play.data.hovered = true;
                 gs_vqs_t target = card_game->opponent_card_in_play.entity.next;
                 target.scale = gs_vec3_scale(CARD_SCALE, 1.2f);
-                entity_animation_start(&card_game->opponent_card_in_play.entity, target, 0.1f);
+                lerp_entity_init(&card_game->opponent_card_in_play.entity, target, 0.1f);
             }
             hovered_index = 21; // 21 is opponent in play card
         }
@@ -997,7 +997,7 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
             card_game->player_hand[i].data.hovered = false;
             gs_vqs_t target = card_game->player_hand[i].entity.next;
             target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
-            entity_animation_start(&card_game->player_hand[i].entity, target, 0.1f);
+            lerp_entity_init(&card_game->player_hand[i].entity, target, 0.1f);
         }
     }
     for (int i = gs_dyn_array_size(card_game->opponent_hand) - 1; i >= 0; i--) {
@@ -1005,20 +1005,20 @@ static void update_input_indices(engine_t *engine, card_game_state_t *card_game)
             card_game->opponent_hand[i].data.hovered = false;
             gs_vqs_t target = card_game->opponent_hand[i].entity.next;
             target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
-            entity_animation_start(&card_game->opponent_hand[i].entity, target, 0.1f);
+            lerp_entity_init(&card_game->opponent_hand[i].entity, target, 0.1f);
         }
     }
     if (card_game->player_card_in_play.data.hovered && 20 != hovered_index) {
         card_game->player_card_in_play.data.hovered = false;
         gs_vqs_t target = card_game->player_card_in_play.entity.next;
         target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
-        entity_animation_start(&card_game->player_card_in_play.entity, target, 0.1f);
+        lerp_entity_init(&card_game->player_card_in_play.entity, target, 0.1f);
     }
     if (card_game->opponent_card_in_play.data.hovered && 21 != hovered_index) {
         card_game->opponent_card_in_play.data.hovered = false;
         gs_vqs_t target = card_game->opponent_card_in_play.entity.next;
         target.scale = gs_vec3_scale(CARD_SCALE, 1.0f);
-        entity_animation_start(&card_game->opponent_card_in_play.entity, target, 0.1f);
+        lerp_entity_init(&card_game->opponent_card_in_play.entity, target, 0.1f);
     }
 }
 
@@ -1170,6 +1170,8 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
                     selection.target_index = j;
                 }
                 // reset the card game state for the next potential target
+                gs_dyn_array_free(tmp_card_game.player_hand);
+                gs_dyn_array_free(tmp_card_game.opponent_hand);
                 tmp_card_game = copy_state(card_game);
                 other_hand = is_player ? tmp_card_game.opponent_hand : tmp_card_game.player_hand;
             }
@@ -1192,6 +1194,8 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
                 selection.target_index = 20;
             }
 
+            gs_dyn_array_free(tmp_card_game.player_hand);
+            gs_dyn_array_free(tmp_card_game.opponent_hand);
             tmp_card_game = copy_state(card_game);
         }
         if (target_type == ANY || target_type == SELF) {
@@ -1217,6 +1221,8 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
                 }
 
                 // reset the card game state for the next potential target
+                gs_dyn_array_free(tmp_card_game.player_hand);
+                gs_dyn_array_free(tmp_card_game.opponent_hand);
                 tmp_card_game = copy_state(card_game);
                 self_hand = is_player ? tmp_card_game.player_hand : tmp_card_game.opponent_hand;
             }
@@ -1243,6 +1249,9 @@ static action_selection_t ai_target_selection(card_game_state_t *card_game, bool
             }
         }
     }
+
+    gs_dyn_array_free(tmp_card_game.player_hand);
+    gs_dyn_array_free(tmp_card_game.opponent_hand);
 
     return selection;
 }
@@ -1301,10 +1310,16 @@ static action_selection_t ai_hand_selection(card_game_state_t *card_game, bool i
             selection.hand_index = valid_hand_indices[i];
         }
 
+        gs_dyn_array_free(tmp_card_game.player_hand);
+        gs_dyn_array_free(tmp_card_game.opponent_hand);
         tmp_card_game = copy_state(card_game);
         hand = is_player ? tmp_card_game.player_hand : tmp_card_game.opponent_hand;
     }
 
+    gs_dyn_array_free(timebound_indices);
+    gs_dyn_array_free(valid_hand_indices);
+    gs_dyn_array_free(tmp_card_game.player_hand);
+    gs_dyn_array_free(tmp_card_game.opponent_hand);
     selection.eval = score;
     return selection;
 }

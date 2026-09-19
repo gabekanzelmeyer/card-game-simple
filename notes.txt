@@ -1,8 +1,10 @@
 road map
-- fix scaling of cards infront of camera
-- start some basic worldbuilding to get ideas for cards
-- allow setting sim properties in game without needing to rebuild
 - improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
+- implement grid based movement
+- implement cube, with label saying what it is for blocking out the world
+-
+x start some basic worldbuilding to get ideas for cards
+x fix scaling of cards infront of camera
 x create card.h to hold card struct and do card operations
 x add card rendering function to card.h
 x size cards a bit better
@@ -60,7 +62,81 @@ x implement triggering and transitioning into card game with key press
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)
 
-worldbuilding notes
+worldbuilding
+# general notes
+- player gets dropped off in a town, staying with brother
+- card game big part of towwn culture, destination for card game players
+- twin peaks vibes, lots of interweveaing stories quirky characters
+- card game festival with tournament is coming up, town preparing for that
+
+#questions
+## Why is player character in the town?
+- Visiting brother and his wife who lives there, cats, chickens, bees, homestead
+- (Rare cards based off cats / chicken names, Wilbur, Henrietta etc.)
+## What are the player characters goals once there?
+- Explore the town, meet townsfolk, collect cards
+- Get involved with and help townsfolk set up for card game festival (possible initial quests)
+- Enter the card game festival tournament
+- Discover lake card game league,
+- Discover mystery of the lake
+- Explore other lake towns, doing quests, playing card game
+-
+
+# characters
+-
+# places of interest
+# Town 1 (first town)
+- Bus / Train station
+- Visitor Center
+- Tavern
+- Lake / Lake Trail
+- Beach
+- Business Park
+- Sport Field
+- Town Square
+- Bridge
+- Watch Tower
+- Gardens
+- The Fountain
+- Vista Overlook
+- Castle
+- History Museum
+- Hiking Trails
+- Coffee Shop
+- Mines / Caves
+- Brothers homestead
+
+# Town 2 (luxury / entertainment)
+- Golf Course
+- Country Club
+- Lakeside Mansion
+- Acquarium
+- Amusement Park
+- Night Club / Day Lounge
+- Boardwalk
+- Casino
+- Theatre
+- Yacht club
+- Sculpture / Art Museum
+- Grand lakeside hotel
+
+# Town 3 (industrial)
+- Port / Shipyard
+- Lighthouse
+- Fishing Market
+- Dam
+- Observation Deck
+- Power Station
+- Tunnels
+
+# Town3 (Ghost town)
+- Saloon
+- Abandoned hotel
+- Chapel
+- Cemetery
+- Abandoned Mines
+- General store
+
 
 trailer idea
 - slow fade in, player character arrices at new land or island
