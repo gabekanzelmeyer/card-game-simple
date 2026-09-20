@@ -1,8 +1,9 @@
 road map
+- implement floating text to be used for labels / dialog interactions
+- implement an interactable object with a simple dialog interaction
+- implement triggering card game from dialog interaction
 - improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
-- implement grid based movement
-- implement cube, with label saying what it is for blocking out the world
--
+x implement grid based movement
 x start some basic worldbuilding to get ideas for cards
 x fix scaling of cards infront of camera
 x create card.h to hold card struct and do card operations

@@ -19,6 +19,8 @@ gs_vec3 camera_offset;
 static engine_t engine;
 entity_t sphere;
 entity_t plane;
+entity_t cube;
+entity_t capsule;
 enum game_mode mode;
 
 
@@ -37,8 +39,9 @@ void init() {
 
     sphere.mesh = mesh_sphere(0.5f, 16, 24);
     sphere.transform = gs_vqs_default();
-    sphere.prev = gs_vqs_default();
-    sphere.next = gs_vqs_default();
+    sphere.transform.position = gs_v3(0, 0.5, 0);
+    sphere.prev = sphere.transform;
+    sphere.next = sphere.transform;
     sphere.material.texture = NO_TEXTURE;
     sphere.material.color = gs_v4(0.8, 0.3, 0.1, 1.0);
 
@@ -46,7 +49,19 @@ void init() {
     plane.transform = gs_vqs_default();
     plane.transform.scale = gs_v3s(30.f);
     plane.material.texture = NO_TEXTURE;
-    plane.material.color = gs_v4(0.3, 0.8, 0.1, 1.0);
+    plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
+
+    cube.mesh = mesh_cube();
+    cube.transform = gs_vqs_default();
+    cube.transform.position = gs_v3(4, 0.5, 4);
+    cube.material.texture = NO_TEXTURE;
+    cube.material.color = gs_v4(0.1, 0.3, 0.8, 1.0);
+
+    capsule.mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
+    capsule.transform = gs_vqs_default();
+    capsule.transform.position = gs_v3(-4, 1, -4);
+    capsule.material.texture = NO_TEXTURE;
+    capsule.material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
 
     mode = WORLD;
 }
@@ -105,7 +120,6 @@ void update() {
         }
     }
 
-
     if (gs_vec3_len(gs_vec3_sub(sphere.next.position, sphere.prev.position)) > 0)  {
         sphere.lerp += dt / 0.2f;
     }
@@ -114,7 +128,7 @@ void update() {
         sphere.next.position = gs_vec3_add(sphere.next.position, move);
         sphere.lerp -= 1.0;
     } else if (gs_vec3_len(move) > 0.f && sphere.lerp == 0.0f) {
-        sphere.prev = sphere.next;
+        sphere.prev = sphere.transform;
         sphere.next.position = gs_vec3_add(sphere.next.position, move);
         sphere.lerp = 0;
     } else if (sphere.lerp >= 1.0f) {
@@ -146,6 +160,8 @@ void update() {
 
     draw_entity(&plane, vp, &engine.standard_shader, &engine);
     draw_entity(&sphere, vp, &engine.standard_shader, &engine);
+    draw_entity(&cube, vp, &engine.standard_shader, &engine);
+    draw_entity(&capsule, vp, &engine.standard_shader, &engine);
 
     if (mode == LIBRARY) {
         card_library_update(&engine);
