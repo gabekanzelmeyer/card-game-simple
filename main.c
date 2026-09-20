@@ -17,10 +17,11 @@ gs_vec3 player_pos;
 float player_speed = 6.f;
 gs_vec3 camera_offset;
 static engine_t engine;
+static game_map_t map;
 entity_t sphere;
-entity_t plane;
 entity_t cube;
 entity_t capsule;
+entity_t plane;
 enum game_mode mode;
 
 
@@ -37,31 +38,30 @@ void init() {
     engine.camera.transform.position = gs_vec3_add(player_pos, camera_offset);
     engine.camera.transform.rotation = gs_quat_angle_axis(gs_deg2rad(-60.f), gs_v3(1.f, 0.f, 0.f));
 
+    sphere = entity_create();
     sphere.mesh = mesh_sphere(0.5f, 16, 24);
-    sphere.transform = gs_vqs_default();
-    sphere.transform.position = gs_v3(0, 0.5, 0);
-    sphere.prev = sphere.transform;
-    sphere.next = sphere.transform;
-    sphere.material.texture = NO_TEXTURE;
     sphere.material.color = gs_v4(0.8, 0.3, 0.1, 1.0);
 
-    plane.mesh = mesh_plane();
-    plane.transform = gs_vqs_default();
-    plane.transform.scale = gs_v3s(30.f);
-    plane.material.texture = NO_TEXTURE;
-    plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
-
+    cube = entity_create();
     cube.mesh = mesh_cube();
-    cube.transform = gs_vqs_default();
-    cube.transform.position = gs_v3(4, 0.5, 4);
-    cube.material.texture = NO_TEXTURE;
     cube.material.color = gs_v4(0.1, 0.3, 0.8, 1.0);
 
+    capsule = entity_create();
     capsule.mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
-    capsule.transform = gs_vqs_default();
-    capsule.transform.position = gs_v3(-4, 1, -4);
-    capsule.material.texture = NO_TEXTURE;
     capsule.material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
+
+    map = game_map_create(50, 50);
+    game_map_add(&map, &sphere, 0, 0);
+    game_map_add(&map, &cube, 4, 4);
+    game_map_add(&map, &capsule, 8, 8);
+
+    plane = entity_create();
+    plane.mesh = mesh_plane();
+    plane.transform.position.x = map.width / 2 - 0.5;
+    plane.transform.position.z = map.height / 2 - 0.5;
+    plane.transform.scale.x = map.width;
+    plane.transform.scale.z = map.height;
+    plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
 
     mode = WORLD;
 }
@@ -74,13 +74,30 @@ void update() {
     float dt = gs_platform_delta_time();
 
     // WASD movement
-    gs_vec3 move = gs_v3(0.f, 0.f, 0.f);
+    gs_vec3 move = gs_v3s(0);
     if (mode == WORLD) {
         if (gs_platform_key_down(GS_KEYCODE_W)) move.z -= 1.f;
         if (gs_platform_key_down(GS_KEYCODE_S)) move.z += 1.f;
         if (gs_platform_key_down(GS_KEYCODE_A)) move.x -= 1.f;
         if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
     }
+    // quick check here if the target location we're trying to ge to is empty
+    uint32_t prev_x = sphere.prev.position.x;
+    uint32_t prev_y = sphere.prev.position.z;
+    uint32_t next_x = sphere.prev.position.x + move.x;
+    uint32_t next_y = sphere.prev.position.z + move.z;
+    if (gs_vec3_len(move) > 0.f
+        && (sphere.lerp == 0 || sphere.lerp >= 1)
+        && next_x >= 0 && next_x < map.width && next_y >= 0 && next_y < map.height
+        && map.tiles[next_y * map.width + next_x] == NULL) {
+
+        map.tiles[prev_y * map.width + prev_x] = NULL;
+        map.tiles[next_y * map.width + next_x] = &sphere;
+    } else {
+        move = gs_v3s(0);
+    }
+
+
     if (gs_platform_key_pressed(GS_KEYCODE_SPACE)) {
         if (mode == WORLD) {
             mode = LIBRARY;

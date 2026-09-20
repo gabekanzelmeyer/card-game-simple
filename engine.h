@@ -142,6 +142,18 @@ mesh_t mesh_create(vertex_t* verts, uint32_t vert_count, uint16_t* indices, uint
     return m;
 }
 
+entity_t entity_create() {
+    return (entity_t){
+        .transform = gs_vqs_default(),
+        .prev = gs_vqs_default(),
+        .next = gs_vqs_default(),
+        .material = (material_t) {
+            .texture = NO_TEXTURE,
+            .color = gs_v4(1, 1, 1, 1)
+        }
+    };
+}
+
 char* load_file(const char* filename) {
     char *buffer = NULL;
     long length = 0;

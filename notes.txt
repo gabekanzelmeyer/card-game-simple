@@ -89,6 +89,8 @@ worldbuilding
 # places of interest
 # Town 1 (first town)
 - Bus / Train station
+- Brothers homestead
+- Park / Makers market
 - Visitor Center
 - Tavern
 - Lake / Lake Trail
@@ -106,7 +108,6 @@ worldbuilding
 - Hiking Trails
 - Coffee Shop
 - Mines / Caves
-- Brothers homestead
 
 # Town 2 (luxury / entertainment)
 - Golf Course
