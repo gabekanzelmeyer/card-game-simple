@@ -24,7 +24,7 @@ uint32_t CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT;
 gs_handle(gs_graphics_texture_t) CARD_BG_TEXTURE;
 gs_asset_font_t CARD_FONT;
 gs_vec3 CARD_SCALE;
-
+float CARD_CAMERA_DISTANCE;
 
 void card_entites_init() {
     int32_t tex_w = 0, tex_h = 0;
@@ -34,8 +34,8 @@ void card_entites_init() {
 
     CARD_TEXTURE_WIDTH = (uint32_t)tex_w;
     CARD_TEXTURE_HEIGHT = (uint32_t)tex_h;
-
     CARD_SCALE = gs_v3(1.2f, 1.f, 1.6f);
+    CARD_CAMERA_DISTANCE = 22.0f;
 
     gs_graphics_texture_desc_t bg_texture_desc = gs_default_val();
     bg_texture_desc.width = (uint32_t)tex_w;
@@ -82,6 +82,7 @@ void card_entities_position_as_page(gs_camera_t *camera, card_entity_t *cards) {
         gs_vqs_t transform = gs_vqs_default();
         transform.position.x = -4.25 + (i % 6) * 1.75;
         transform.position.y = 2 - (i / 6) * 2.25;
+        transform.position.z = CARD_CAMERA_DISTANCE;
         cards[i].entity.transform = transform;
     }
 }
@@ -106,7 +107,7 @@ void card_entities_position_as_hand(gs_camera_t *camera, card_entity_t *cards, b
         gs_vqs target = cards[i].entity.transform;
         target.position.x = start_x + i * spacing;
         target.position.y = fabs(start_x + i * spacing) * fabs(start_x + i * spacing) * curve_amount * (1.f / spacing) + y_offset;
-        target.position.z = 5; // units in front of camera (0, won't be seen)
+        target.position.z = CARD_CAMERA_DISTANCE; // units in front of camera (0, won't be seen)
         target.rotation = gs_quat_angle_axis(gs_deg2rad((start_tilt - i * fan_angle)), gs_v3(0, 1, 0)); // rotating on y
         transform_in_front_of_camera(camera, &cards[i].entity, target.position, target.rotation, 0.2);
     }

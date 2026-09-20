@@ -169,17 +169,17 @@ enum game_mode card_game_update(engine_t *engine, card_game_state_t *card_game) 
     gs_mat4 view_projection = gs_camera_get_view_projection(&engine->camera, (int32_t)fbw, (int32_t)fbh);
 
     for (int i = 0; i < gs_dyn_array_size(card_game->player_hand); i++) {
-        draw_entity(&card_game->player_hand[i].entity, view_projection, &engine->standard_shader, engine);
+        draw_entity(engine, &card_game->player_hand[i].entity, view_projection, &engine->standard_shader);
     }
     for (int i = 0; i < gs_dyn_array_size(card_game->opponent_hand); i++) {
-        draw_entity(&card_game->opponent_hand[i].entity, view_projection, &engine->standard_shader, engine);
+        draw_entity(engine, &card_game->opponent_hand[i].entity, view_projection, &engine->standard_shader);
     }
 
     if (card_game->player_card_in_play.data.name != NULL) {
-        draw_entity(&card_game->player_card_in_play.entity, view_projection, &engine->standard_shader, engine);
+        draw_entity(engine, &card_game->player_card_in_play.entity, view_projection, &engine->standard_shader);
     }
     if (card_game->opponent_card_in_play.data.name != NULL) {
-         draw_entity(&card_game->opponent_card_in_play.entity, view_projection, &engine->standard_shader, engine);
+        draw_entity(engine, &card_game->opponent_card_in_play.entity, view_projection, &engine->standard_shader);
     }
 
     return card_game->game_over ? WORLD : CARD_GAME;
@@ -278,7 +278,7 @@ static void phase_play_cards(engine_t *engine, card_game_state_t *card_game) {
             gs_dyn_array_erase(card_game->player_hand, card_game->player_hand_index_to_play);
 
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(-2., 0.f, 5.f);
+            target.position = gs_v3(-2., 0.f, CARD_CAMERA_DISTANCE);
             card_game->player_card_in_play.entity.transform.scale = CARD_SCALE;
             transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.1f);
             card_entities_position_as_hand(&engine->camera, card_game->player_hand, true);
@@ -289,7 +289,7 @@ static void phase_play_cards(engine_t *engine, card_game_state_t *card_game) {
             gs_dyn_array_erase(card_game->opponent_hand, card_game->opponent_hand_index_to_play);
 
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(2., 0.f, 5.f);
+            target.position = gs_v3(2., 0.f, CARD_CAMERA_DISTANCE);
             card_game->opponent_card_in_play.entity.transform.scale = CARD_SCALE;
             transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.1f);
             card_entities_position_as_hand(&engine->camera, card_game->opponent_hand, false);
@@ -470,12 +470,12 @@ static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
         card_game->opponent_card_attacking = card_game->opponent_card_in_play.data.current_abilities.haste && !card_game->opponent_card_in_play.data.current_abilities.frozen;
         if (card_game->player_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(-1.5f, 0.f, 5.f);
+            target.position = gs_v3(-1.5f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(1.5f, 0.f, 5.f);
+            target.position = gs_v3(1.5f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
     }
@@ -483,13 +483,13 @@ static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
         printf("haste end: %f\n", card_game->phase_timer);
         if (card_game->player_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(-2.0f, 0.f, 5.f);
+            target.position = gs_v3(-2.0f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_attack);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(2.0f, 0.f, 5.f);
+            target.position = gs_v3(2.0f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_attack);
         }
@@ -513,12 +513,12 @@ static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
         card_game->opponent_card_attacking = !card_game->opponent_card_in_play.data.current_abilities.haste && !card_game->opponent_card_in_play.data.current_abilities.frozen;
         if (card_game->player_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(-1.5f, 0.f, 5.f);
+            target.position = gs_v3(-1.5f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(1.5f, 0.f, 5.f);
+            target.position = gs_v3(1.5f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.07f);
         }
     }
@@ -526,13 +526,13 @@ static void phase_battle(engine_t *engine, card_game_state_t *card_game) {
         printf("attack end: %f\n", card_game->phase_timer);
         if (card_game->player_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(-2.0f, 0.f, 5.f);
+            target.position = gs_v3(-2.0f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->player_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->player_card_in_play, &card_game->opponent_card_in_play, card_game->player_card_in_play.data.current_attack);
         }
         if (card_game->opponent_card_attacking) {
             gs_vqs_t target = gs_vqs_default();
-            target.position = gs_v3(2.0f, 0.f, 5.f);
+            target.position = gs_v3(2.0f, 0.f, CARD_CAMERA_DISTANCE);
             transform_in_front_of_camera(&engine->camera, &card_game->opponent_card_in_play.entity, target.position, target.rotation, 0.1f);
             damage_card(&card_game->opponent_card_in_play, &card_game->player_card_in_play, card_game->opponent_card_in_play.data.current_attack);
         }

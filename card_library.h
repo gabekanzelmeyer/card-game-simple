@@ -63,7 +63,7 @@ static void card_library_filter_view(engine_t *engine, int page_index) {
         gs_vqs transform = gs_vqs_default();
         transform.position.x = -3.15 + (i % 6) * 1.25;
         transform.position.y = 1.7 - ((i - page_start_index) / 6) * 1.75;
-        transform.position.z = 5;
+        transform.position.z = CARD_CAMERA_DISTANCE;
 
         transform_in_front_of_camera(&engine->camera, &card_entity.entity, transform.position, transform.rotation, 0.0f);
         gs_dyn_array_push(card_library_view, card_entity);
@@ -195,11 +195,11 @@ void card_library_update(engine_t *engine) {
     float dt = gs_platform_delta_time();
     for (int i = 0; i < gs_dyn_array_size(card_library_view); i++) {
         lerp_entity_step(&card_library_view[i].entity, dt);
-        draw_entity(&card_library_view[i].entity, view_projection, &engine->standard_shader, engine);
+        draw_entity(engine, &card_library_view[i].entity, view_projection, &engine->standard_shader);
     }
     for (int i = 0; i < gs_dyn_array_size(card_library_hand); i++) {
         lerp_entity_step(&card_library_hand[i].entity, dt);
-        draw_entity(&card_library_hand[i].entity, view_projection, &engine->standard_shader, engine);
+        draw_entity(engine, &card_library_hand[i].entity, view_projection, &engine->standard_shader);
     }
 }
 
