@@ -30,7 +30,24 @@ git add -A || exit 1
 echo "Committing..."
 git commit -m "$COMMIT_MESSAGE" || exit 1
 
-echo "Pushing..."
-git push || exit 1
+# Temporary askpass helper
+ASKPASS=$(mktemp)
+chmod 700 "$ASKPASS"
 
-echo "Done."
+cat > "$ASKPASS" <<EOF
+#!/bin/sh
+case "\$1" in
+    *Username*) echo "$USERNAME" ;;
+    *Password*) echo "$PASSWORD" ;;
+esac
+EOF
+
+GIT_ASKPASS="$ASKPASS" \
+GIT_TERMINAL_PROMPT=0 \
+git push
+
+RESULT=$?
+
+rm -f "$ASKPASS"
+
+exit $RESULT
