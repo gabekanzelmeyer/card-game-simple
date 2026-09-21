@@ -1,8 +1,8 @@
 road map
-- implement map tiles structure for "collision" avoidance
 - implement an interactable object with a simple dialog interaction
 - implement triggering card game from dialog interaction
 - improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
+x implement map tiles structure for "collision" avoidance
 x implement floating text to be used for labels / dialog interactions
 x implement grid based movement
 x start some basic worldbuilding to get ideas for cards

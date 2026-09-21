@@ -82,17 +82,14 @@ void update() {
         if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
     }
     // quick check here if the target location we're trying to ge to is empty
-    uint32_t prev_x = sphere.prev.position.x;
-    uint32_t prev_y = sphere.prev.position.z;
-    uint32_t next_x = sphere.prev.position.x + move.x;
-    uint32_t next_y = sphere.prev.position.z + move.z;
-    if (gs_vec3_len(move) > 0.f
-        && (sphere.lerp == 0 || sphere.lerp >= 1)
-        && next_x >= 0 && next_x < map.width && next_y >= 0 && next_y < map.height
-        && map.tiles[next_y * map.width + next_x] == NULL) {
+    int prev_x = sphere.prev.position.x;
+    int prev_y = sphere.prev.position.z;
+    int target_x = prev_x + move.x;
+    int target_y = prev_y + move.z;
 
-        map.tiles[prev_y * map.width + prev_x] = NULL;
-        map.tiles[next_y * map.width + next_x] = &sphere;
+    if (gs_vec3_len(move) > 0.f && (sphere.lerp == 0 || sphere.lerp >= 1) && game_map_is_tile_empty(&map, target_x, target_y)) {
+            map.tiles[prev_y * map.width + prev_x] = NULL;
+            map.tiles[target_y * map.width + target_x] = &sphere;
     } else {
         move = gs_v3s(0);
     }
