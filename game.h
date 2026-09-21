@@ -51,8 +51,8 @@ void game_map_free(game_map_t *map) {
     free(map->tiles);
 }
 
-bool game_map_is_tile_empty(game_map_t *map, int x, int y) {
-    return x >= 0 && x < map->width && y >= 0 && y < map->height && map->tiles[y * map->width + x] == NULL;
+bool game_map_is_tile_empty(game_map_t *map, int x, int z) {
+    return x >= 0 && x < map->width && z >= 0 && z < map->height && map->tiles[z * map->width + x] == NULL;
 }
 
 void game_map_add(game_map_t *map, entity_t *entity, int x, int y) {

@@ -70,6 +70,14 @@ void update() {
     if (gs_platform_key_pressed(GS_KEYCODE_ESC)) {
         mode = WORLD;
     }
+    if (gs_platform_key_pressed(GS_KEYCODE_SPACE)) {
+        if (mode == WORLD) {
+            mode = LIBRARY;
+            card_library_init();
+        } else if (mode == LIBRARY) {
+            mode = WORLD;
+        }
+    }
 
     float dt = gs_platform_delta_time();
 
@@ -82,41 +90,64 @@ void update() {
         if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
     }
     // quick check here if the target location we're trying to ge to is empty
-    int prev_x = sphere.prev.position.x;
-    int prev_y = sphere.prev.position.z;
-    int target_x = prev_x + move.x;
-    int target_y = prev_y + move.z;
+    int prev_x = lroundf(sphere.prev.position.x);
+    int prev_z = lroundf(sphere.prev.position.z);
+    int target_x = prev_x + lroundf(move.x);
+    int target_z = prev_z + lroundf(move.z);
+    int next_x = prev_x;
+    int next_z = prev_z;
 
-    if (gs_vec3_len(move) > 0.f && (sphere.lerp == 0 || sphere.lerp >= 1) && game_map_is_tile_empty(&map, target_x, target_y)) {
-            map.tiles[prev_y * map.width + prev_x] = NULL;
-            map.tiles[target_y * map.width + target_x] = &sphere;
-    } else {
-        move = gs_v3s(0);
+    if (gs_vec3_len(move) > 0.f && (sphere.lerp == 0 || sphere.lerp >= 1)) {
+        if (game_map_is_tile_empty(&map, target_x, target_z)) {
+            next_x = target_x;
+            next_z = target_z;
+        }
+        // NOT sure I really want this "avoidance code"
+        /*else if (move.x != 0 && move.z == 0 && game_map_is_tile_empty(&map, target_x, target_z + 1) && game_map_is_tile_empty(&map, prev_x, target_z + 1)) {
+            next_x = target_x;
+            next_z = target_z + 1;
+        } else if (move.x != 0 && move.z == 0 && game_map_is_tile_empty(&map, target_x, target_z - 1) && game_map_is_tile_empty(&map, prev_x, target_z - 1)) {
+            next_x = target_x;
+            next_z = target_z - 1;
+        } else if (move.x == 0 && move.z != 0 && game_map_is_tile_empty(&map, target_x + 1, target_z) && game_map_is_tile_empty(&map, target_x + 1, prev_z)) {
+            next_x = target_x + 1;
+            next_z = target_z;
+        } else if (move.x == 0 && move.z != 0 && game_map_is_tile_empty(&map, target_x - 1, target_z) && game_map_is_tile_empty(&map, target_x - 1, prev_z)) {
+            next_x = target_x - 1;
+            next_z = target_z;
+        } else if (game_map_is_tile_empty(&map, prev_x, target_z)) {
+            next_x = prev_x;
+            next_z = target_z;
+        } else if (game_map_is_tile_empty(&map, target_x, prev_z)) {
+            next_x = target_x;
+            next_z = prev_z;
+        }*/
     }
 
-
-    if (gs_platform_key_pressed(GS_KEYCODE_SPACE)) {
-        if (mode == WORLD) {
-            mode = LIBRARY;
-            card_library_init();
-        } else if (mode == LIBRARY) {
-            mode = WORLD;
-        }
+    if (next_x != prev_x || next_z != prev_z) {
+        map.tiles[prev_z * map.width + prev_x] = NULL;
+        map.tiles[next_z * map.width + next_x] = &sphere;
+        move = gs_v3(next_x - prev_x, 0, next_z - prev_z);
+    } else {
+        move = gs_v3s(0);
     }
 
     if (gs_vec3_len(gs_vec3_sub(sphere.next.position, sphere.prev.position)) > 0)  {
         sphere.lerp += dt / 0.2f;
     }
     if (gs_vec3_len(move) > 0.f && sphere.lerp >= 1.0f) {
-        sphere.prev = sphere.next;
+        sphere.prev.position.x = lroundf(sphere.next.position.x);
+        sphere.prev.position.z = lroundf(sphere.next.position.z);
         sphere.next.position = gs_vec3_add(sphere.next.position, move);
         sphere.lerp -= 1.0;
     } else if (gs_vec3_len(move) > 0.f && sphere.lerp == 0.0f) {
-        sphere.prev = sphere.transform;
+        sphere.prev.position.x = lroundf(sphere.next.position.x);
+        sphere.prev.position.z = lroundf(sphere.next.position.z);
         sphere.next.position = gs_vec3_add(sphere.next.position, move);
-        sphere.lerp = 0;
+        sphere.lerp = dt / 0.2f;
     } else if (sphere.lerp >= 1.0f) {
-        sphere.prev = sphere.next;
+        sphere.prev.position.x = lroundf(sphere.next.position.x);
+        sphere.prev.position.z = lroundf(sphere.next.position.z);
         sphere.lerp = 0;
     }
     lerp_transform_linear(&sphere.transform, &sphere.prev, &sphere.next, sphere.lerp);
@@ -125,7 +156,21 @@ void update() {
 
     gs_gui_begin(&engine.gui, NULL);
     if (mode == WORLD) {
-        draw_hover_text(&engine, &capsule, gs_v2(0, -100), "TEST");
+        if (gs_gui_window_begin_ex(&engine.gui, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,
+            GS_GUI_OPT_NOTITLE
+            | GS_GUI_OPT_NORESIZE
+            | GS_GUI_OPT_NOMOVE
+            | GS_GUI_OPT_NOSCROLL
+            | GS_GUI_OPT_NOCLOSE
+            | GS_GUI_OPT_NOFRAME
+            | GS_GUI_OPT_NOSTYLEBORDER
+            | GS_GUI_OPT_NOSTYLESHADOW
+            | GS_GUI_OPT_NOSTYLEBACKGROUND
+            | GS_GUI_OPT_FULLSCREEN)) {
+
+            draw_hover_text(&engine, capsule.transform.position, gs_v2(0, -100), "TEST");
+        }
+        gs_gui_window_end(&engine.gui);
     } else if (mode == LIBRARY) {
         mode = card_library_gui(&engine);
 

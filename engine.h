@@ -327,25 +327,13 @@ void lerp_entities_step(gs_dyn_array(entity_t) entities, float dt) {
     }
 }
 
-void draw_hover_text(engine_t *engine, entity_t *target, gs_vec2 offset, const char *text) {
-    if (gs_gui_window_begin_ex(&engine->gui, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,GS_GUI_OPT_NOTITLE
-        | GS_GUI_OPT_NORESIZE
-        | GS_GUI_OPT_NOMOVE
-        | GS_GUI_OPT_NOSCROLL
-        | GS_GUI_OPT_NOCLOSE
-        | GS_GUI_OPT_NOFRAME
-        | GS_GUI_OPT_NOSTYLEBORDER
-        | GS_GUI_OPT_NOSTYLESHADOW
-        | GS_GUI_OPT_NOSTYLEBACKGROUND
-        | GS_GUI_OPT_FULLSCREEN)) {
-        gs_vec2 screen = world_to_screen(&engine->camera, target->transform.position);
+void draw_hover_text(engine_t *engine, gs_vec3 target, gs_vec2 offset, const char *text) {
+        gs_vec2 screen = world_to_screen(&engine->camera, target);
         gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&engine->standard_font, text, -1); // -1 means null-terminated string
         gs_gui_rect_t rect = gs_gui_layout_anchor(&engine->gui.viewport, text_dimensions.x, text_dimensions.y,
                                                   screen.x - text_dimensions.x * 0.5 + offset.x, screen.y - text_dimensions.y * 0.5 + offset.y, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
         gs_gui_layout_set_next(&engine->gui, rect, 0);
         gs_gui_text(&engine->gui, text);
-        gs_gui_window_end(&engine->gui);
-    }
 }
 
 void draw_entity(engine_t *engine, entity_t *entity, gs_mat4 view_projection, shader_t *shader) {
