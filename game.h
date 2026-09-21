@@ -65,4 +65,68 @@ void game_map_add(game_map_t *map, entity_t *entity, int x, int y) {
     }
 }
 
+void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
+    int prev_x = lroundf(entity->prev.position.x);
+    int prev_z = lroundf(entity->prev.position.z);
+    int target_x = prev_x + lroundf(dir.x);
+    int target_z = prev_z + lroundf(dir.z);
+    int next_x = prev_x;
+    int next_z = prev_z;
+
+    if (gs_vec3_len(dir) > 0.f && (entity->lerp == 0 || entity->lerp >= 1)) {
+        if (game_map_is_tile_empty(map, target_x, target_z)) {
+            next_x = target_x;
+            next_z = target_z;
+        }
+        // NOT sure I really want this "avoidance" logic
+        /*else if (move.x != 0 && move.z == 0 && game_map_is_tile_empty(&map, target_x, target_z + 1) && game_map_is_tile_empty(&map, prev_x, target_z + 1)) {
+         *       next_x = target_x;
+         *       next_z = target_z + 1;
+        } else if (move.x != 0 && move.z == 0 && game_map_is_tile_empty(&map, target_x, target_z - 1) && game_map_is_tile_empty(&map, prev_x, target_z - 1)) {
+            next_x = target_x;
+            next_z = target_z - 1;
+        } else if (move.x == 0 && move.z != 0 && game_map_is_tile_empty(&map, target_x + 1, target_z) && game_map_is_tile_empty(&map, target_x + 1, prev_z)) {
+            next_x = target_x + 1;
+            next_z = target_z;
+        } else if (move.x == 0 && move.z != 0 && game_map_is_tile_empty(&map, target_x - 1, target_z) && game_map_is_tile_empty(&map, target_x - 1, prev_z)) {
+            next_x = target_x - 1;
+            next_z = target_z;
+        } else if (game_map_is_tile_empty(&map, prev_x, target_z)) {
+            next_x = prev_x;
+            next_z = target_z;
+        } else if (game_map_is_tile_empty(&map, target_x, prev_z)) {
+            next_x = target_x;
+            next_z = prev_z;
+        }*/
+    }
+
+    if (next_x != prev_x || next_z != prev_z) {
+        map->tiles[prev_z * map->width + prev_x] = NULL;
+        map->tiles[next_z * map->width + next_x] = entity;
+        dir = gs_v3(next_x - prev_x, 0, next_z - prev_z);
+    } else {
+        dir = gs_v3s(0);
+    }
+
+    if (gs_vec3_len(gs_vec3_sub(entity->next.position, entity->prev.position)) > 0)  {
+        entity->lerp += dt / 0.2f;
+    }
+    if (gs_vec3_len(dir) > 0.f && entity->lerp >= 1.0f) {
+        entity->prev.position.x = lroundf(entity->next.position.x);
+        entity->prev.position.z = lroundf(entity->next.position.z);
+        entity->next.position = gs_vec3_add(entity->next.position, dir);
+        entity->lerp -= 1.0;
+    } else if (gs_vec3_len(dir) > 0.f && entity->lerp == 0.0f) {
+        entity->prev.position.x = lroundf(entity->next.position.x);
+        entity->prev.position.z = lroundf(entity->next.position.z);
+        entity->next.position = gs_vec3_add(entity->next.position, dir);
+        entity->lerp = dt / 0.2f;
+    } else if (entity->lerp >= 1.0f) {
+        entity->prev.position.x = lroundf(entity->next.position.x);
+        entity->prev.position.z = lroundf(entity->next.position.z);
+        entity->lerp = 0;
+    }
+    lerp_transform_linear(&entity->transform, &entity->prev, &entity->next, entity->lerp);
+}
+
 #endif
