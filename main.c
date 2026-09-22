@@ -92,8 +92,10 @@ void update() {
             if (!game_map_is_tile_empty(&map, in_front_x, in_front_z)) {
                 show_interaction = !show_interaction;
                 interaction.transform = &map.tiles[in_front_z * map.width + in_front_x]->transform;
-                // mode = LIBRARY;
-                // card_library_init();
+                if (!show_interaction) {
+                    mode = LIBRARY;
+                    card_library_init();
+                }
             }
         } else if (mode == LIBRARY) {
             mode = WORLD;

@@ -120,6 +120,20 @@ bool card_entities_contains_card(gs_dyn_array(card_entity_t) card_entities, card
     return false;
 }
 
+void card_entity_render_ability_text(gs_immediate_draw_t *gsi, const char *ability_text, int value, float y_pos) {
+    char ability_buffer[20];
+    size_t ability_text_len = strlen(ability_text);
+
+    if (value == 0) {
+        snprintf(ability_buffer, sizeof(ability_buffer), "%s", ability_text);
+    } else {
+        snprintf(ability_buffer, sizeof(ability_buffer), "%s %d", ability_text, value);
+    }
+
+    gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
+    gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, y_pos, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
+}
+
 void card_entity_bake_texture(gs_immediate_draw_t *gsi, card_entity_t card_entity) {
     gsi_camera2D(gsi, CARD_TEXTURE_WIDTH, CARD_TEXTURE_HEIGHT);
     gsi_texture(gsi, CARD_BG_TEXTURE); // set a source texture
@@ -162,184 +176,32 @@ void card_entity_bake_texture(gs_immediate_draw_t *gsi, card_entity_t card_entit
 
     float ability_y_offset = CARD_TEXTURE_HEIGHT / 2.0f;
     float offset_increment = 100.f;
-    if (card_entity.data.current_abilities.strike > 0) {
-        char ability_buffer[20] = "Strike ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.strike);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.heal > 0) {
-        char ability_buffer[20] = "Heal ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.heal);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.dull > 0) {
-        char ability_buffer[20] = "Dull ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.dull);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.sharpen > 0) {
-        char ability_buffer[20] = "Sharpen ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.sharpen);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.mass_strike > 0) {
-        char ability_buffer[20] = "Mass Strike ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.mass_strike);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.mass_heal > 0) {
-        char ability_buffer[20] = "Mass Heal ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.mass_heal);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.mass_dull > 0) {
-        char ability_buffer[20] = "Mass Dull ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.mass_dull);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.mass_sharpen > 0) {
-        char ability_buffer[20] = "Mass Sharpen ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "%d", card_entity.data.current_abilities.mass_sharpen);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.charge_health > 0) {
-        char ability_buffer[20] = "Charge Health ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "+%d", card_entity.data.current_abilities.charge_health);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.charge_attack > 0) {
-        char ability_buffer[20] = "Charge Attack ";
-        size_t current_len = strlen(ability_buffer);
-        snprintf(ability_buffer + current_len, sizeof(ability_buffer) - current_len, "+%d", card_entity.data.current_abilities.charge_attack);
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
 
-    if (card_entity.data.current_abilities.shield) {
-        char ability_buffer[20] = "Shield";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.evade) {
-        char ability_buffer[20] = "Evade";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.regenerate) {
-        char ability_buffer[20] = "Regenerate";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.haste) {
-        char ability_buffer[20] = "Haste";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.timebound) {
-        char ability_buffer[20] = "Timebound";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.sacrifice) {
-        char ability_buffer[20] = "Sacrifice";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.frozen) {
-        char ability_buffer[20] = "Frozen";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.ward) {
-        char ability_buffer[20] = "Ward";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.cancel) {
-        char ability_buffer[20] = "Cancel";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-
-    if (card_entity.data.current_abilities.bestow_shield) {
-        char ability_buffer[20] = "Bestow Shield";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.bestow_regenerate) {
-        char ability_buffer[20] = "Bestow Regenerate";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.bestow_haste) {
-        char ability_buffer[20] = "Bestow Haste";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.bestow_timebound) {
-        char ability_buffer[20] = "Bestow Timebound";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.bestow_sacrifice) {
-        char ability_buffer[20] = "Bestow Sacrifice";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.bestow_frozen) {
-        char ability_buffer[20] = "Bestow Frozen";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
-    if (card_entity.data.current_abilities.bestow_ward) {
-        char ability_buffer[20] = "Bestow Ward";
-        text_dimensions = gs_asset_font_text_dimensions(&CARD_FONT, ability_buffer, strlen(ability_buffer));
-        gsi_text(gsi, CARD_TEXTURE_WIDTH * 0.5f - text_dimensions.x * 0.5f, ability_y_offset, ability_buffer, &CARD_FONT, false, 20, 20, 20, 255);
-        ability_y_offset += offset_increment;
-    }
+    if (card_entity.data.current_abilities.strike > 0) {card_entity_render_ability_text(gsi, "Strike", card_entity.data.current_abilities.strike, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.heal > 0) {card_entity_render_ability_text(gsi, "Heal", card_entity.data.current_abilities.heal, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.dull > 0) {card_entity_render_ability_text(gsi, "Dull", card_entity.data.current_abilities.dull, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.sharpen > 0) {card_entity_render_ability_text(gsi, "Sharpen", card_entity.data.current_abilities.sharpen, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.mass_strike > 0) {card_entity_render_ability_text(gsi, "Mass Strike", card_entity.data.current_abilities.mass_strike, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.mass_heal > 0) {card_entity_render_ability_text(gsi, "Mass Heal", card_entity.data.current_abilities.mass_heal, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.mass_dull > 0) {card_entity_render_ability_text(gsi, "Mass Dull", card_entity.data.current_abilities.mass_dull, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.mass_sharpen > 0) {card_entity_render_ability_text(gsi, "Mass Sharpen", card_entity.data.current_abilities.mass_sharpen, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.charge_health > 0) {card_entity_render_ability_text(gsi, "Charge Health", card_entity.data.current_abilities.charge_health, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.charge_attack > 0) {card_entity_render_ability_text(gsi, "Charge Attack", card_entity.data.current_abilities.charge_attack, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.shield) {card_entity_render_ability_text(gsi, "Shield", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.evade) {card_entity_render_ability_text(gsi, "Evade", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.regenerate) {card_entity_render_ability_text(gsi, "Regenerate", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.haste) {card_entity_render_ability_text(gsi, "Haste", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.timebound) {card_entity_render_ability_text(gsi, "Timebound", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.frozen) {card_entity_render_ability_text(gsi, "Frozen", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.sacrifice) {card_entity_render_ability_text(gsi, "Sacrifice", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.cancel) {card_entity_render_ability_text(gsi, "Cancel", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_shield) {card_entity_render_ability_text(gsi, "Bestow Shield", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_regenerate) {card_entity_render_ability_text(gsi, "Bestow Regenerate", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_haste) {card_entity_render_ability_text(gsi, "Bestow Haste", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_timebound) {card_entity_render_ability_text(gsi, "Bestow Timebound", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_sacrifice) {card_entity_render_ability_text(gsi, "Bestow Sacrifice", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_frozen) {card_entity_render_ability_text(gsi, "Bestow Frozen", 0, ability_y_offset); ability_y_offset += offset_increment;}
+    if (card_entity.data.current_abilities.bestow_ward) {card_entity_render_ability_text(gsi, "Bestow Ward", 0, ability_y_offset); ability_y_offset += offset_increment;}
 
     char attack_char_buffer[10];
     snprintf(attack_char_buffer, sizeof(attack_char_buffer), "%d", card_entity.data.current_attack);

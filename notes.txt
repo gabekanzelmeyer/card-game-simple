@@ -1,7 +1,7 @@
 road map
-- implement an interactable object with a simple dialog interaction
-- implement triggering card game from dialog interaction
-- improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
+x improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
+x implement triggering card game from dialog interaction
+x implement an interactable object with a simple dialog interaction
 x implement map tiles structure for "collision" avoidance
 x implement floating text to be used for labels / dialog interactions
 x implement grid based movement
@@ -85,7 +85,12 @@ worldbuilding
 -
 
 # characters
--
+- Jon - brother, player visiting
+- Lau - brother wife
+- Jes - love interest
+- Dezi & Geordi - mischevious town kids
+
+
 # places of interest
 # town 1 (first town)
 - Bus / Train station
