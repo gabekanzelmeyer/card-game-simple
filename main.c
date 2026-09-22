@@ -10,6 +10,7 @@
 #include "card_database.h"
 #include "card_library.h"
 #include "card_game.h"
+#include "game.h"
 
 static card_game_state_t card_game = {0};
 
@@ -23,6 +24,9 @@ entity_t cube;
 entity_t capsule;
 entity_t plane;
 enum game_mode mode;
+
+bool show_interaction = false;
+game_interaction_t interaction = {0};
 
 
 void init() {
@@ -69,6 +73,10 @@ void init() {
     plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
 
     mode = WORLD;
+
+    interaction.text = "This is a test";
+    interaction.transform = &capsule.transform;
+    interaction.offset = gs_v2(0, -100);
 }
 
 void update() {
@@ -82,8 +90,10 @@ void update() {
             int in_front_x = sphere.next.position.x + lroundf(world_forward.x);
             int in_front_z = sphere.next.position.z + lroundf(world_forward.z);
             if (!game_map_is_tile_empty(&map, in_front_x, in_front_z)) {
-                mode = LIBRARY;
-                card_library_init();
+                show_interaction = !show_interaction;
+                interaction.transform = &map.tiles[in_front_z * map.width + in_front_x]->transform;
+                // mode = LIBRARY;
+                // card_library_init();
             }
         } else if (mode == LIBRARY) {
             mode = WORLD;
@@ -118,7 +128,10 @@ void update() {
             | GS_GUI_OPT_NOSTYLEBACKGROUND
             | GS_GUI_OPT_FULLSCREEN)) {
 
-            draw_hover_text(&engine, capsule.transform.position, gs_v2(0, -100), "TEST");
+            if (show_interaction) {
+                draw_hover_text(&engine, interaction.transform->position, interaction.offset, interaction.text);
+            }
+
         }
         gs_gui_window_end(&engine.gui);
     } else if (mode == LIBRARY) {

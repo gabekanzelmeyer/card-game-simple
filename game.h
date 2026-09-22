@@ -36,9 +36,15 @@ typedef struct {
     entity_t **tiles;
 } game_map_t;
 
-typedef struct {
-
-} game_interaction_step_t;
+typedef struct game_interaction_t {
+    const char *text;
+    const char *option1;
+    const char *option2;
+    gs_vqs *transform;
+    gs_vec2 offset;
+    struct game_interaction_t * option1_next;
+    struct game_interaction_t * option2_next;
+} game_interaction_t;
 
 game_map_t game_map_create(uint32_t width, uint32_t height) {
     game_map_t map = {0};
