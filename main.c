@@ -77,8 +77,14 @@ void update() {
     }
     if (gs_platform_key_pressed(GS_KEYCODE_SPACE)) {
         if (mode == WORLD) {
-            mode = LIBRARY;
-            card_library_init();
+            gs_vec3 local_forward = gs_v3(0.f, 0.f, -1.f);
+            gs_vec3 world_forward = gs_quat_rotate(sphere.transform.rotation, local_forward);
+            int in_front_x = sphere.next.position.x + lroundf(world_forward.x);
+            int in_front_z = sphere.next.position.z + lroundf(world_forward.z);
+            if (!game_map_is_tile_empty(&map, in_front_x, in_front_z)) {
+                mode = LIBRARY;
+                card_library_init();
+            }
         } else if (mode == LIBRARY) {
             mode = WORLD;
         }

@@ -328,17 +328,18 @@ void lerp_entities_step(gs_dyn_array(entity_t) entities, float dt) {
 }
 
 void draw_hover_text(engine_t *engine, gs_vec3 target, gs_vec2 offset, const char *text) {
-        gs_vec2 screen = world_to_screen(&engine->camera, target);
-        gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&engine->standard_font, text, -1); // -1 means null-terminated string
-        gs_gui_rect_t rect = gs_gui_layout_anchor(&engine->gui.viewport, text_dimensions.x, text_dimensions.y,
-                                                  screen.x - text_dimensions.x * 0.5 + offset.x, screen.y - text_dimensions.y * 0.5 + offset.y, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
-        gs_gui_layout_set_next(&engine->gui, rect, 0);
-        gs_gui_text(&engine->gui, text);
+    gs_vec2 screen = world_to_screen(&engine->camera, target);
+    gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&engine->standard_font, text, -1); // -1 means null-terminated string
+    gs_gui_rect_t rect = gs_gui_layout_anchor(&engine->gui.viewport, text_dimensions.x, text_dimensions.y,
+                                                screen.x - text_dimensions.x * 0.5 + offset.x, screen.y - text_dimensions.y * 0.5 + offset.y, GS_GUI_LAYOUT_ANCHOR_TOPLEFT);
+    gs_gui_layout_set_next(&engine->gui, rect, 0);
+    gs_gui_text(&engine->gui, text);
 }
 
 void draw_entity_relative(engine_t *engine, entity_t *entity, gs_mat4 view_projection, shader_t *shader, gs_vqs parent) {
     gs_mat4 model = gs_vqs_to_mat4(&entity->transform);
     model = gs_mat4_mul(gs_vqs_to_mat4(&parent), model);
+
     gs_mat4 mvp = gs_mat4_mul(view_projection, model);
 
     gs_graphics_bind_vertex_buffer_desc_t vb = gs_default_val();
