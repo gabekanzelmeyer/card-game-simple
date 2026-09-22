@@ -41,6 +41,11 @@ void init() {
     sphere = entity_create();
     sphere.mesh = mesh_sphere(0.5f, 16, 24);
     sphere.material.color = gs_v4(0.8, 0.3, 0.1, 1.0);
+    entity_t nose = entity_create();
+    nose.mesh = mesh_sphere(0.25f, 16, 24);
+    nose.material.color = gs_v4(0.3, 0.7, 0.7, 1.0);
+    nose.transform.position.z = -0.5;
+    gs_dyn_array_push(sphere.children, nose);
 
     cube = entity_create();
     cube.mesh = mesh_cube();

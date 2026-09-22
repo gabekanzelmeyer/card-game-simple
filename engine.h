@@ -336,8 +336,9 @@ void draw_hover_text(engine_t *engine, gs_vec3 target, gs_vec2 offset, const cha
         gs_gui_text(&engine->gui, text);
 }
 
-void draw_entity(engine_t *engine, entity_t *entity, gs_mat4 view_projection, shader_t *shader) {
+void draw_entity_relative(engine_t *engine, entity_t *entity, gs_mat4 view_projection, shader_t *shader, gs_vqs parent) {
     gs_mat4 model = gs_vqs_to_mat4(&entity->transform);
+    model = gs_mat4_mul(gs_vqs_to_mat4(&parent), model);
     gs_mat4 mvp = gs_mat4_mul(view_projection, model);
 
     gs_graphics_bind_vertex_buffer_desc_t vb = gs_default_val();
@@ -368,6 +369,14 @@ void draw_entity(engine_t *engine, entity_t *entity, gs_mat4 view_projection, sh
     draw.start = 0;
     draw.count = entity->mesh.index_count;
     gs_graphics_draw(&engine->cb, &draw);
+
+    for (int i = 0; i < gs_dyn_array_size(entity->children); i++) {
+        draw_entity_relative(engine, &entity->children[i], view_projection, shader, entity->transform);
+    }
+}
+
+void draw_entity(engine_t *engine, entity_t *entity, gs_mat4 view_projection, shader_t *shader) {
+    draw_entity_relative(engine, entity, view_projection, shader, gs_vqs_default());
 }
 
 #endif

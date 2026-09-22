@@ -36,6 +36,10 @@ typedef struct {
     entity_t **tiles;
 } game_map_t;
 
+typedef struct {
+
+} game_interaction_step_t;
+
 game_map_t game_map_create(uint32_t width, uint32_t height) {
     game_map_t map = {0};
     map.width = width;
@@ -74,6 +78,13 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
     int next_z = prev_z;
 
     if (gs_vec3_len(dir) > 0.f && (entity->lerp == 0 || entity->lerp >= 1)) {
+        gs_vec3 normalized_dir = gs_vec3_norm(dir);
+        gs_vec3 local_forward = gs_v3(0.f, 0.f, -1.f);
+        gs_quat target_rotation = gs_quat_from_to_rotation(local_forward, normalized_dir);
+        entity->transform.rotation = target_rotation;
+        entity->prev.rotation = target_rotation;
+        entity->next.rotation = target_rotation;
+
         if (game_map_is_tile_empty(map, target_x, target_z)) {
             next_x = target_x;
             next_z = target_z;
@@ -104,6 +115,12 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
         map->tiles[prev_z * map->width + prev_x] = NULL;
         map->tiles[next_z * map->width + next_x] = entity;
         dir = gs_v3(next_x - prev_x, 0, next_z - prev_z);
+        gs_vec3 normalized_dir = gs_vec3_norm(dir);
+        gs_vec3 local_forward = gs_v3(0.f, 0.f, -1.f);
+        gs_quat target_rotation = gs_quat_from_to_rotation(local_forward, normalized_dir);
+        entity->transform.rotation = target_rotation;
+        entity->prev.rotation = target_rotation;
+        entity->next.rotation = target_rotation;
     } else {
         dir = gs_v3s(0);
     }
