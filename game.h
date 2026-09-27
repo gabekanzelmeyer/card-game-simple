@@ -57,13 +57,55 @@ game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
         map.tiles[i] = NULL;
     }
     for (int i = 0; i < (width + 1) * (height + 1); i++) {
-        gs_dyn_array_push(map.height_map, height_map[i]);
+        gs_dyn_array_push(map.height_map, height_map == NULL ? 0 : height_map[i]);
     }
     return map;
 }
 
 void game_map_free(game_map_t *map) {
     free(map->tiles);
+}
+
+void game_map_save(game_map_t *map, const char *filename) {
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        perror("ERROR opening map file for writing");
+        exit(1);
+    }
+    fprintf(f, "%i\n", map->width);
+    fprintf(f, "%i\n", map->height);
+    for (int i = 0; i < (map->width + 1) * (map->height + 1); i++) {
+        fprintf(f, "%f\n", map->height_map[i]);
+    }
+
+    fclose(f);
+}
+
+game_map_t game_map_load(const char *filename) {
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        perror("ERROR opening map file for reading");
+        exit(1);
+    }
+
+    int width;
+    int height;
+    fscanf(f, "%i", &width);
+    fscanf(f, "%i", &height);
+
+    float *heights = (float*)malloc((width + 1) * (height + 1) * sizeof(float));
+
+    float temp;
+    int count = 0;
+    while (fscanf(f, "%f", &temp) == 1) {
+        heights[count++] = temp;
+    }
+
+    game_map_t map = game_map_create(width, height, heights);
+
+    free(heights);
+    fclose(f);
+    return map;
 }
 
 bool game_map_is_tile_empty(game_map_t *map, int x, int z) {

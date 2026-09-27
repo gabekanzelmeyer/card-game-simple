@@ -89,6 +89,8 @@ void init() {
     interaction.text = "This is a test";
     interaction.transform = &capsule.transform;
     interaction.offset = gs_v2(0, -100);
+
+    game_map_save(&map, "test.map");
 }
 
 void update() {
