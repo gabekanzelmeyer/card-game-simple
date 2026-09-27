@@ -33,6 +33,7 @@ enum game_mode {
 typedef struct {
     uint32_t width;
     uint32_t height;
+    gs_dyn_array(float) height_map;
     entity_t **tiles;
 } game_map_t;
 
@@ -46,13 +47,17 @@ typedef struct game_interaction_t {
     struct game_interaction_t * option2_next;
 } game_interaction_t;
 
-game_map_t game_map_create(uint32_t width, uint32_t height) {
+game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
     game_map_t map = {0};
     map.width = width;
     map.height = height;
+    map.height_map = NULL;
     map.tiles = (entity_t **)malloc(sizeof(entity_t*) * width * height);
     for (int i = 0; i < width * height; i++) {
         map.tiles[i] = NULL;
+    }
+    for (int i = 0; i < (width + 1) * (height + 1); i++) {
+        gs_dyn_array_push(map.height_map, height_map[i]);
     }
     return map;
 }
@@ -69,8 +74,10 @@ void game_map_add(game_map_t *map, entity_t *entity, int x, int y) {
     int index = y * map->width + x;
     if (map->tiles[index] == NULL) {
         entity->transform.position.x = x;
-        entity->transform.position.y = 0.5;
+        entity->transform.position.y = map->height_map[y * (map->width + 1) + x] + 0.5;
         entity->transform.position.z = y;
+        entity->prev = entity->transform;
+        entity->next = entity->transform;
         map->tiles[index] = entity;
     }
 }
@@ -136,16 +143,21 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
     }
     if (gs_vec3_len(dir) > 0.f && entity->lerp >= 1.0f) {
         entity->prev.position.x = lroundf(entity->next.position.x);
+        entity->prev.position.y = entity->next.position.y;
         entity->prev.position.z = lroundf(entity->next.position.z);
         entity->next.position = gs_vec3_add(entity->next.position, dir);
+        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * (map->width + 1) + lroundf(entity->next.position.x)] + 0.5;
         entity->lerp -= 1.0;
     } else if (gs_vec3_len(dir) > 0.f && entity->lerp == 0.0f) {
         entity->prev.position.x = lroundf(entity->next.position.x);
+        entity->prev.position.y = entity->next.position.y;
         entity->prev.position.z = lroundf(entity->next.position.z);
         entity->next.position = gs_vec3_add(entity->next.position, dir);
+        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * (map->width + 1) + lroundf(entity->next.position.x)] + 0.5;
         entity->lerp = dt / 0.2f;
     } else if (entity->lerp >= 1.0f) {
         entity->prev.position.x = lroundf(entity->next.position.x);
+        entity->prev.position.y = entity->next.position.y;
         entity->prev.position.z = lroundf(entity->next.position.z);
         entity->lerp = 0;
     }

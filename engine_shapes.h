@@ -20,6 +20,62 @@ mesh_t mesh_plane() {
     return mesh_create(verts, 4, indices, 6);
 }
 
+mesh_t mesh_grid_plane(int cols, int rows, float *heights) {
+    int vcount = cols * rows;
+    vertex_t* verts = (vertex_t*)malloc(sizeof(vertex_t) * (size_t)vcount);
+
+    float half_w = 0.5f * (float)(cols - 1);
+    float half_d = 0.5f * (float)(rows - 1);
+
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            int idx = r * cols + c;
+            float h  = heights[idx];
+            float hl = heights[r * cols + (c > 0 ? c - 1 : c)];
+            float hr = heights[r * cols + (c < cols - 1 ? c + 1 : c)];
+            float hd = heights[(r > 0 ? r - 1 : r) * cols + c];
+            float hu = heights[(r < rows - 1 ? r + 1 : r) * cols + c];
+
+            float dhdx = (hr - hl) / (2.0f);
+            float dhdz = (hu - hd) / (2.0f);
+
+            float nx = -dhdx, ny = 1.0f, nz = -dhdz;
+            float nlen = sqrtf(nx * nx + ny * ny + nz * nz);
+            nx /= nlen; ny /= nlen; nz /= nlen;
+
+            verts[idx] = (vertex_t) {
+                { c - half_w, h, r - half_d },
+                { nx, ny, nz },
+                { (float)c / (float)(cols - 1), (float)r / (float)(rows - 1) }
+            };
+        }
+    }
+
+    int qcols = cols - 1;
+    int qrows = rows - 1;
+    uint32_t icount = (uint32_t)(qcols * qrows * 6);
+    uint16_t* indices = (uint16_t*)malloc(sizeof(uint16_t) * icount);
+
+    uint32_t k = 0;
+    for (int r = 0; r < qrows; r++) {
+        for (int c = 0; c < qcols; c++) {
+            uint16_t tl = (uint16_t)(r * cols + c);
+            uint16_t tr = tl + 1;
+            uint16_t bl = tl + (uint16_t)cols;
+            uint16_t br = bl + 1;
+
+            // same CCW winding as mesh_plane's {0,2,1, 0,3,2}
+            indices[k++] = tl; indices[k++] = br; indices[k++] = tr;
+            indices[k++] = tl; indices[k++] = bl; indices[k++] = br;
+        }
+    }
+
+    mesh_t m = mesh_create(verts, (uint32_t)vcount, indices, icount);
+    free(verts);
+    free(indices);
+    return m;
+}
+
 mesh_t mesh_cube() {
     vertex_t verts[24] = {
         // front

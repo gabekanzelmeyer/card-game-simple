@@ -1,4 +1,10 @@
 road map
+- implement grid based mesh with adjustable heights for terrain
+- implement 'Tab' transition in and out of editor
+- save / load levels from file
+- implement basic terrain height editing
+- implement basic cube blocking out of structures (with names)
+- implement basic placement of NPCs from editor
 x improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
 x implement triggering card game from dialog interaction
 x implement an interactable object with a simple dialog interaction
@@ -64,25 +70,58 @@ x implement triggering and transitioning into card game with key press
 game modes
 - constraints based on properties (ex. only lvl 1 cards, or max 2 of each lvl, color restrictions, etc.)
 
-worldbuilding
-# general notes
-- player gets dropped off in a town, staying with brother
-- card game big part of towwn culture, destination for card game players
-- twin peaks vibes, lots of interweveaing stories quirky characters
-- card game festival with tournament is coming up, town preparing for that
+Intro
+- Goals:
+-- Introduce player to the world and intial set of characters
+-- Teach player basics of card game and give them initial cards
+-- Show a couple puzzles to communicate the world is alive
+- Emotion:
+-- Atmosphere should feel charming
+-- Sense of charm / quirkiness through characters and dialog
+-- Get a sense that there are many more and stronger cards
+-- Feel a desire to explore this new world
+- Events:
+-- Arrive on train, met at station by brother, reuniting after a while
+-- Brother takes player back to homestead (little out of town in rural area), meet wife and father
+-- Learn about Card Game
+-- Learn about upcoming card game festival in lake town
+-- Learn that player is perhaps there because of some tragedy and they are getting away / starting anew - from convo with brother
 
-#questions
-## Why is player character in the town?
-- Visiting brother and his wife who lives there, cats, chickens, bees, homestead
-- (Rare cards based off cats / chicken names, Wilbur, Henrietta etc.)
-## What are the player characters goals once there?
-- Explore the town, meet townsfolk, collect cards
-- Get involved with and help townsfolk set up for card game festival (possible initial quests)
-- Enter the card game festival tournament
-- Discover lake card game league,
-- Discover mystery of the lake
-- Explore other lake towns, doing quests, playing card game
--
+Early Game
+- Goals:
+-- Player gets a couple concrete goals to drive story forward
+-- Player gets to explore the first town, end learns there are others
+-- Main mystery is presented, player sees vision of figure related to tragedy
+- Emotion:
+-- Player experiences the world has become bigger and sees there are plenty of things to do
+-- Recognize that the world itself has some mystery to it
+-- Feel a sense of excitement for collecting cards and defeating players in the card game
+-- Should feel like card game is the way conflicts are settled in the world
+- Events:
+-- Does multiple quests in town
+-- Player introduced other recurring characters, Dez & Jord, other rural families, quircky town folk
+-- Enters festival tournament, learns of multiple towns and other tournaments, wants to become the best
+-- Sees vision of character from past, player compelled to explore world to investigate
+
+Mid Game
+- Goals:
+- Emotion:
+- Events:
+
+Late Game
+- Goals:
+- Emotion:
+- Events:
+
+End Game
+- Goals:
+- Emotion:
+- Events:
+
+Ending
+- Goals:
+- Emotion:
+- Events:
 
 # characters
 - Jon - brother, player visiting

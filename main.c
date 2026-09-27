@@ -59,17 +59,29 @@ void init() {
     capsule.mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
     capsule.material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
 
-    map = game_map_create(50, 50);
+    int map_width = 50;
+    int map_height = 50;
+    float *heights = malloc(sizeof(float) * (map_width + 1) * (map_height + 1));
+    for (int j = 0; j < map_height + 1; j++) {
+        for (int i = 0; i < map_width + 1; i++) {
+            if (j > 5 && j < map_height - 5 && i > 5 && i < map_width - 5) {
+                heights[j * (map_width + 1) + i] = 2.f;
+            } else {
+                heights[j * (map_width + 1) + i] = 0.f;
+            }
+        }
+    }
+    map = game_map_create(map_width, map_height, heights);
+    free(heights);
+
     game_map_add(&map, &sphere, 0, 0);
     game_map_add(&map, &cube, 4, 4);
     game_map_add(&map, &capsule, 8, 8);
 
     plane = entity_create();
-    plane.mesh = mesh_plane();
-    plane.transform.position.x = map.width / 2 - 0.5;
-    plane.transform.position.z = map.height / 2 - 0.5;
-    plane.transform.scale.x = map.width;
-    plane.transform.scale.z = map.height;
+    plane.mesh = mesh_grid_plane(map_width + 1, map_height + 1, map.height_map);
+    plane.transform.position.x = (map_width + 1) / 2 - 0.5;
+    plane.transform.position.z = (map_height + 1) / 2 - 0.5;
     plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
 
     mode = WORLD;
