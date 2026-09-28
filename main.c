@@ -28,7 +28,6 @@ enum game_mode mode;
 bool show_interaction = false;
 game_interaction_t interaction = {0};
 
-
 void init() {
     srand(time(NULL));
     camera_offset = gs_v3(0.f, 72.f, 40.f);
@@ -61,13 +60,13 @@ void init() {
 
     int map_width = 50;
     int map_height = 50;
-    float *heights = malloc(sizeof(float) * (map_width + 1) * (map_height + 1));
-    for (int j = 0; j < map_height + 1; j++) {
-        for (int i = 0; i < map_width + 1; i++) {
+    float *heights = malloc(sizeof(float) * map_width * map_height);
+    for (int j = 0; j < map_height; j++) {
+        for (int i = 0; i < map_width; i++) {
             if (j > 5 && j < map_height - 5 && i > 5 && i < map_width - 5) {
-                heights[j * (map_width + 1) + i] = 2.f;
+                heights[j * map_width + i] = 1.f;
             } else {
-                heights[j * (map_width + 1) + i] = 0.f;
+                heights[j * map_width + i] = 0.f;
             }
         }
     }
@@ -79,9 +78,9 @@ void init() {
     game_map_add(&map, &capsule, 8, 8);
 
     plane = entity_create();
-    plane.mesh = mesh_grid_plane(map_width + 1, map_height + 1, map.height_map);
-    plane.transform.position.x = (map_width + 1) / 2 - 0.5;
-    plane.transform.position.z = (map_height + 1) / 2 - 0.5;
+    plane.mesh = mesh_grid_plane(map_width, map_height, map.height_map);
+    plane.transform.position.x = map_width / 2 - 0.5;
+    plane.transform.position.z = map_height / 2 - 0.5;
     plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
 
     mode = WORLD;

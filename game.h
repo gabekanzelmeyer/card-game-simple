@@ -56,7 +56,7 @@ game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
     for (int i = 0; i < width * height; i++) {
         map.tiles[i] = NULL;
     }
-    for (int i = 0; i < (width + 1) * (height + 1); i++) {
+    for (int i = 0; i < width * height; i++) {
         gs_dyn_array_push(map.height_map, height_map == NULL ? 0 : height_map[i]);
     }
     return map;
@@ -74,7 +74,7 @@ void game_map_save(game_map_t *map, const char *filename) {
     }
     fprintf(f, "%i\n", map->width);
     fprintf(f, "%i\n", map->height);
-    for (int i = 0; i < (map->width + 1) * (map->height + 1); i++) {
+    for (int i = 0; i < map->width * map->height; i++) {
         fprintf(f, "%f\n", map->height_map[i]);
     }
 
@@ -93,7 +93,7 @@ game_map_t game_map_load(const char *filename) {
     fscanf(f, "%i", &width);
     fscanf(f, "%i", &height);
 
-    float *heights = (float*)malloc((width + 1) * (height + 1) * sizeof(float));
+    float *heights = (float*)malloc(width * height * sizeof(float));
 
     float temp;
     int count = 0;
@@ -188,14 +188,14 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
         entity->prev.position.y = entity->next.position.y;
         entity->prev.position.z = lroundf(entity->next.position.z);
         entity->next.position = gs_vec3_add(entity->next.position, dir);
-        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * (map->width + 1) + lroundf(entity->next.position.x)] + 0.5;
+        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * map->width + lroundf(entity->next.position.x)] + 0.5;
         entity->lerp -= 1.0;
     } else if (gs_vec3_len(dir) > 0.f && entity->lerp == 0.0f) {
         entity->prev.position.x = lroundf(entity->next.position.x);
         entity->prev.position.y = entity->next.position.y;
         entity->prev.position.z = lroundf(entity->next.position.z);
         entity->next.position = gs_vec3_add(entity->next.position, dir);
-        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * (map->width + 1) + lroundf(entity->next.position.x)] + 0.5;
+        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * map->width + lroundf(entity->next.position.x)] + 0.5;
         entity->lerp = dt / 0.2f;
     } else if (entity->lerp >= 1.0f) {
         entity->prev.position.x = lroundf(entity->next.position.x);
