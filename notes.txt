@@ -1,6 +1,6 @@
 road map
 x implement grid based mesh with adjustable heights for terrain
-- save / load map from file
+x save / load map from file
 - implement 'Tab' transition in and out of editor
 - implement basic terrain height editing
 - implement basic cube blocking out of structures (with names)

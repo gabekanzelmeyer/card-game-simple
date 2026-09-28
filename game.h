@@ -27,7 +27,8 @@ enum game_mode {
     LIBRARY,
     CARD_GAME,
     SIM_CARD_GAME,
-    WORLD
+    WORLD,
+    EDITOR
 };
 
 typedef struct {

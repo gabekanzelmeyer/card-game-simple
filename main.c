@@ -25,6 +25,7 @@ entity_t capsule;
 entity_t plane;
 enum game_mode mode;
 
+
 bool show_interaction = false;
 game_interaction_t interaction = {0};
 
@@ -58,29 +59,37 @@ void init() {
     capsule.mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
     capsule.material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
 
-    int map_width = 50;
-    int map_height = 50;
-    float *heights = malloc(sizeof(float) * map_width * map_height);
-    for (int j = 0; j < map_height; j++) {
-        for (int i = 0; i < map_width; i++) {
-            if (j > 5 && j < map_height - 5 && i > 5 && i < map_width - 5) {
-                heights[j * map_width + i] = 1.f;
-            } else {
-                heights[j * map_width + i] = 0.f;
+    FILE *f = fopen("test.map", "r");
+    if (f) {
+        fclose(f);
+        map = game_map_load("test.map");
+        printf("map loaded\n");
+    } else {
+        int map_width = 50;
+        int map_height = 50;
+        float *heights = malloc(sizeof(float) * map_width * map_height);
+        for (int j = 0; j < map_height; j++) {
+            for (int i = 0; i < map_width; i++) {
+                if (j > 5 && j < map_height - 5 && i > 5 && i < map_width - 5) {
+                    heights[j * map_width + i] = 1.f;
+                } else {
+                    heights[j * map_width + i] = 0.f;
+                }
             }
         }
+        map = game_map_create(map_width, map_height, heights);
+        free(heights);
+        game_map_save(&map, "test.map");
     }
-    map = game_map_create(map_width, map_height, heights);
-    free(heights);
 
     game_map_add(&map, &sphere, 0, 0);
     game_map_add(&map, &cube, 4, 4);
     game_map_add(&map, &capsule, 8, 8);
 
     plane = entity_create();
-    plane.mesh = mesh_grid_plane(map_width, map_height, map.height_map);
-    plane.transform.position.x = map_width / 2 - 0.5;
-    plane.transform.position.z = map_height / 2 - 0.5;
+    plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+    plane.transform.position.x = map.width / 2 - 0.5;
+    plane.transform.position.z = map.height / 2 - 0.5;
     plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
 
     mode = WORLD;
@@ -88,8 +97,6 @@ void init() {
     interaction.text = "This is a test";
     interaction.transform = &capsule.transform;
     interaction.offset = gs_v2(0, -100);
-
-    game_map_save(&map, "test.map");
 }
 
 void update() {
@@ -114,6 +121,14 @@ void update() {
             mode = WORLD;
         }
     }
+    if (gs_platform_key_pressed(GS_KEYCODE_TAB)) {
+        if (mode == WORLD) {
+            mode = EDITOR;
+        } else if (mode == EDITOR) {
+            mode = WORLD;
+        }
+    }
+
 
     float dt = gs_platform_delta_time();
 
@@ -147,6 +162,25 @@ void update() {
                 draw_hover_text(&engine, interaction.transform->position, interaction.offset, interaction.text);
             }
 
+        }
+        gs_gui_window_end(&engine.gui);
+    } else if (mode == EDITOR) {
+        if (gs_gui_window_begin_ex(&engine.gui, "main", gs_gui_rect(0, 0, 0, 0), NULL, NULL,
+            GS_GUI_OPT_NOTITLE
+            | GS_GUI_OPT_NORESIZE
+            | GS_GUI_OPT_NOMOVE
+            | GS_GUI_OPT_NOSCROLL
+            | GS_GUI_OPT_NOCLOSE
+            | GS_GUI_OPT_NOFRAME
+            | GS_GUI_OPT_NOSTYLEBORDER
+            | GS_GUI_OPT_NOSTYLESHADOW
+            | GS_GUI_OPT_NOSTYLEBACKGROUND
+            | GS_GUI_OPT_FULLSCREEN)) {
+            gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&engine.standard_font, "Editor", -1); // -1 means null-terminated string
+            gs_gui_rect_t rect = gs_gui_layout_anchor(&engine.gui.viewport, text_dimensions.x, text_dimensions.y,
+                                                      engine.gui.viewport.w / 2.f, 30, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
+            gs_gui_layout_set_next(&engine.gui, rect, 0);
+            gs_gui_text(&engine.gui, "Editor");
         }
         gs_gui_window_end(&engine.gui);
     } else if (mode == LIBRARY) {
