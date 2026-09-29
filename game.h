@@ -207,4 +207,33 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
     lerp_transform_linear(&entity->transform, &entity->prev, &entity->next, entity->lerp);
 }
 
+bool game_map_terrain_pick(game_map_t *map, ray_t r, float max_dist, gs_vec3* out)
+{
+    const float step = 0.5f;
+    float t_prev = 0.0f;
+
+    for (float t = 0.0f; t < max_dist; t += step) {
+        gs_vec3 p = gs_vec3_add(r.origin, gs_vec3_scale(r.dir, t));
+        if (p.x < 0 || p.z < 0 || p.x >= map->width || p.y >= map->height) continue;
+
+        if (p.y <= map->height_map[lroundf(p.z) * map->width + lroundf(p.x)]) {
+            // Crossed the surface: binary search between t_prev and t
+            float lo = t_prev, hi = t;
+            for (int i = 0; i < 8; i++) {
+                float mid = (lo + hi) * 0.5f;
+                gs_vec3 m = gs_vec3_add(r.origin, gs_vec3_scale(r.dir, mid));
+                if (m.y <= map->height_map[lroundf(m.z) * map->width + lroundf(m.x)]) {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            *out = gs_vec3_add(r.origin, gs_vec3_scale(r.dir, hi));
+            return true;
+        }
+        t_prev = t;
+    }
+    return false;
+}
+
 #endif

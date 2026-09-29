@@ -12,6 +12,11 @@ typedef struct {
 } vertex_t;
 
 typedef struct {
+    gs_vec3 origin;
+    gs_vec3 dir;
+} ray_t;
+
+typedef struct {
     gs_handle(gs_graphics_vertex_buffer_t) vbo;
     gs_handle(gs_graphics_index_buffer_t) ibo;
     uint32_t index_count;
@@ -140,6 +145,29 @@ mesh_t mesh_create(vertex_t* verts, uint32_t vert_count, uint16_t* indices, uint
 
     m.index_count = index_count;
     return m;
+}
+
+ray_t mouse_ray(const gs_camera_t* cam)
+{
+    gs_vec2 mp = gs_platform_mouse_positionv();
+    gs_vec2 ws = gs_platform_window_sizev(gs_platform_main_window());
+
+    // Pixel coords -> normalized device coords (y is flipped)
+    float ndc_x =  (mp.x / ws.x) * 2.0f - 1.0f;
+    float ndc_y = 1.0f - (mp.y / ws.y) * 2.0f;
+
+    // Inverse of view-projection takes NDC back to world space
+    gs_mat4 vp  = gs_camera_get_view_projection(cam, (int32_t)ws.x, (int32_t)ws.y);
+    gs_mat4 inv = gs_mat4_inverse(vp);
+
+    gs_vec4 n = gs_mat4_mul_vec4(inv, gs_v4(ndc_x, ndc_y, -1.0f, 1.0f)); // near plane
+    gs_vec4 f = gs_mat4_mul_vec4(inv, gs_v4(ndc_x, ndc_y,  1.0f, 1.0f)); // far plane
+
+    gs_vec3 np = gs_v3(n.x / n.w, n.y / n.w, n.z / n.w);
+    gs_vec3 fp = gs_v3(f.x / f.w, f.y / f.w, f.z / f.w);
+
+    ray_t r = { np, gs_vec3_norm(gs_vec3_sub(fp, np)) };
+    return r;
 }
 
 entity_t entity_create() {

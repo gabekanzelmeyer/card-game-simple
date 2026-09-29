@@ -131,6 +131,8 @@ void update() {
 
 
     float dt = gs_platform_delta_time();
+    gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
+    gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
 
     // WASD movement
     gs_vec3 move = gs_v3s(0);
@@ -178,9 +180,49 @@ void update() {
             | GS_GUI_OPT_FULLSCREEN)) {
             gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&engine.standard_font, "Editor", -1); // -1 means null-terminated string
             gs_gui_rect_t rect = gs_gui_layout_anchor(&engine.gui.viewport, text_dimensions.x, text_dimensions.y,
-                                                      engine.gui.viewport.w / 2.f, 30, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
+                                                      0, 30, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
             gs_gui_layout_set_next(&engine.gui, rect, 0);
             gs_gui_text(&engine.gui, "Editor");
+
+            gs_vec3 mouse_terrain_coords;
+            if (game_map_terrain_pick(&map, mouse_ray(&engine.camera), 100, &mouse_terrain_coords)) {
+                gs_vec3 terrain_tile_pos = mouse_terrain_coords;
+                terrain_tile_pos.x = lroundf(mouse_terrain_coords.x);
+                terrain_tile_pos.z = lroundf(mouse_terrain_coords.z);
+
+                for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
+                    for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
+                        char buf[4];
+                        snprintf(buf, 4, "%.1f", map.height_map[j * map.width + i]);
+                        draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), buf);
+                    }
+                }
+
+                bool height_map_edited = false;
+                if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+                    for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
+                        for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
+                            map.height_map[j * map.width + i] += 1;
+                            height_map_edited = true;
+                        }
+                    }
+                }
+                if (gs_platform_mouse_pressed(GS_MOUSE_RBUTTON)) {
+                    for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
+                        for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
+                            map.height_map[j * map.width + i] -= 1;
+                            height_map_edited = true;
+                        }
+                    }
+                }
+                if (height_map_edited) {
+                    gs_graphics_vertex_buffer_destroy(plane.mesh.vbo);
+                    gs_graphics_index_buffer_destroy(plane.mesh.ibo);
+                    plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+
+                    game_map_save(&map, "test.map");
+                }
+            }
         }
         gs_gui_window_end(&engine.gui);
     } else if (mode == LIBRARY) {
@@ -211,9 +253,6 @@ void update() {
         card_game_show_simulation_gui(&engine, &card_game);
     }
     gs_gui_end(&engine.gui);
-
-    gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
-    gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
 
     gs_graphics_clear_action_t clear_action = gs_default_val();
     clear_action.flag = GS_GRAPHICS_CLEAR_COLOR | GS_GRAPHICS_CLEAR_DEPTH;
