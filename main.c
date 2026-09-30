@@ -129,10 +129,7 @@ void update() {
         }
     }
 
-
     float dt = gs_platform_delta_time();
-    gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
-    gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
 
     // WASD movement
     gs_vec3 move = gs_v3s(0);
@@ -143,7 +140,6 @@ void update() {
         if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
     }
     game_map_move(&map, &sphere, move, dt);
-
     engine.camera.transform.position = gs_vec3_add(sphere.transform.position, camera_offset);
 
     gs_gui_begin(&engine.gui, NULL);
@@ -185,7 +181,7 @@ void update() {
             gs_gui_text(&engine.gui, "Editor");
 
             gs_vec3 mouse_terrain_coords;
-            if (game_map_terrain_pick(&map, mouse_ray(&engine.camera), 100, &mouse_terrain_coords)) {
+            if (game_map_terrain_intersect(&map, mouse_ray(&engine.camera), 100, &mouse_terrain_coords)) {
                 gs_vec3 terrain_tile_pos = mouse_terrain_coords;
                 terrain_tile_pos.x = lroundf(mouse_terrain_coords.x);
                 terrain_tile_pos.z = lroundf(mouse_terrain_coords.z);
@@ -263,6 +259,10 @@ void update() {
     gs_graphics_clear_desc_t clear = gs_default_val();
     clear.actions = &clear_action;
     clear.size = sizeof(clear_action);
+
+    // only get the viewport after the camera position has moved
+    gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
+    gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
 
     gs_graphics_renderpass_begin(&engine.cb, (gs_handle(gs_graphics_renderpass_t)){0});
     gs_graphics_clear(&engine.cb, &clear);

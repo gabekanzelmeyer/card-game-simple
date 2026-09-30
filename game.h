@@ -171,44 +171,34 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
         map->tiles[prev_z * map->width + prev_x] = NULL;
         map->tiles[next_z * map->width + next_x] = entity;
         dir = gs_v3(next_x - prev_x, 0, next_z - prev_z);
-        gs_vec3 normalized_dir = gs_vec3_norm(dir);
-        gs_vec3 local_forward = gs_v3(0.f, 0.f, -1.f);
-        gs_quat target_rotation = gs_quat_from_to_rotation(local_forward, normalized_dir);
-        entity->transform.rotation = target_rotation;
-        entity->prev.rotation = target_rotation;
-        entity->next.rotation = target_rotation;
     } else {
         dir = gs_v3s(0);
     }
 
+    float speed = 5.0f;
     if (gs_vec3_len(gs_vec3_sub(entity->next.position, entity->prev.position)) > 0)  {
-        entity->lerp += dt / 0.2f;
+        entity->lerp += dt * speed;
     }
     if (gs_vec3_len(dir) > 0.f && entity->lerp >= 1.0f) {
-        entity->prev.position.x = lroundf(entity->next.position.x);
-        entity->prev.position.y = entity->next.position.y;
-        entity->prev.position.z = lroundf(entity->next.position.z);
-        entity->next.position = gs_vec3_add(entity->next.position, dir);
+        entity->prev.position = entity->next.position;
+        entity->next.position.x = next_x;
         entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * map->width + lroundf(entity->next.position.x)] + 0.5;
+        entity->next.position.z = next_z;
         entity->lerp -= 1.0;
     } else if (gs_vec3_len(dir) > 0.f && entity->lerp == 0.0f) {
-        entity->prev.position.x = lroundf(entity->next.position.x);
-        entity->prev.position.y = entity->next.position.y;
-        entity->prev.position.z = lroundf(entity->next.position.z);
-        entity->next.position = gs_vec3_add(entity->next.position, dir);
+        entity->prev.position = entity->next.position;
+        entity->next.position.x = next_x;
         entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * map->width + lroundf(entity->next.position.x)] + 0.5;
-        entity->lerp = dt / 0.2f;
+        entity->next.position.z = next_z;
+        entity->lerp = dt * speed;
     } else if (entity->lerp >= 1.0f) {
-        entity->prev.position.x = lroundf(entity->next.position.x);
-        entity->prev.position.y = entity->next.position.y;
-        entity->prev.position.z = lroundf(entity->next.position.z);
-        entity->lerp = 0;
+        entity->prev.position = entity->next.position;
+        entity->lerp = 0.f;
     }
     lerp_transform_linear(&entity->transform, &entity->prev, &entity->next, entity->lerp);
 }
 
-bool game_map_terrain_pick(game_map_t *map, ray_t r, float max_dist, gs_vec3* out)
-{
+bool game_map_terrain_intersect(game_map_t *map, ray_t r, float max_dist, gs_vec3* out) {
     const float step = 0.5f;
     float t_prev = 0.0f;
 

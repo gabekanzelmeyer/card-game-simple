@@ -2,8 +2,9 @@ road map
 x implement grid based mesh with adjustable heights for terrain
 x save / load map from file
 x implement 'Tab' transition in and out of editor
-- implement basic terrain height editing
-- movement is all stuttery now...
+x implement basic terrain height editing
+x bug: movement is all stuttery now...
+- bug: height of movement isn't consistent, moving up and down 1 tile behaves different (heigh map indexing issue for sure..)
 - implement basic cube blocking out of structures (with names)
 - implement basic placement of NPCs from editor
 x improve how text is rendered on cards in card_entity (so much duplicated code for all the abilities)
