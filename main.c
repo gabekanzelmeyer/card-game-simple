@@ -25,6 +25,30 @@ entity_t capsule;
 entity_t plane;
 enum game_mode mode;
 
+typedef struct {
+    char map_name[256];
+    char map_width[8];
+    char map_height[8];
+} editor_state_t;
+
+editor_state_t editor_state = {
+    .map_name = "test.map",
+    .map_width = "50",
+    .map_height = "50"
+};
+
+void sanitize_integer_string(char* buf) {
+    int i = 0, j = 0;
+    while (buf[i]) {
+        // Allow leading minus sign or digits
+        if (isdigit((unsigned char)buf[i])) {
+            buf[j++] = buf[i];
+        }
+        i++;
+    }
+    buf[j] = '\0';
+}
+
 
 bool show_interaction = false;
 game_interaction_t interaction = {0};
@@ -130,6 +154,7 @@ void update() {
     }
 
     float dt = gs_platform_delta_time();
+    gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
 
     // WASD movement
     gs_vec3 move = gs_v3s(0);
@@ -219,8 +244,33 @@ void update() {
                     game_map_save(&map, "test.map");
                 }
             }
+            gs_gui_window_end(&engine.gui);
         }
-        gs_gui_window_end(&engine.gui);
+        if (gs_gui_window_begin_ex(&engine.gui, "editor_left_panel", gs_gui_rect(0, 0, 600, fbs.y), NULL, NULL,
+            GS_GUI_OPT_NOTITLE
+            | GS_GUI_OPT_NORESIZE
+            | GS_GUI_OPT_NOMOVE)) {
+            gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+            gs_gui_label(&engine.gui, "Name:");
+            gs_gui_textbox(&engine.gui, editor_state.map_name, sizeof(editor_state.map_name));
+
+            gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+            gs_gui_label(&engine.gui, "Width:");
+            sanitize_integer_string(editor_state.map_width);
+            gs_gui_textbox(&engine.gui, editor_state.map_width, sizeof(editor_state.map_width));
+
+            gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+            gs_gui_label(&engine.gui, "Height:");
+            sanitize_integer_string(editor_state.map_height);
+            gs_gui_textbox(&engine.gui, editor_state.map_height, sizeof(editor_state.map_height));
+
+            gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+            if (gs_gui_button(&engine.gui, "Resize")) {
+                printf("resize\n");
+            }
+
+            gs_gui_window_end(&engine.gui);
+        }
     } else if (mode == LIBRARY) {
         mode = card_library_gui(&engine);
 
@@ -261,7 +311,6 @@ void update() {
     clear.size = sizeof(clear_action);
 
     // only get the viewport after the camera position has moved
-    gs_vec2 fbs = gs_platform_framebuffer_sizev(gs_platform_main_window());
     gs_mat4 vp = gs_camera_get_view_projection(&engine.camera, (uint32_t)fbs.x, (uint32_t)fbs.y);
 
     gs_graphics_renderpass_begin(&engine.cb, (gs_handle(gs_graphics_renderpass_t)){0});

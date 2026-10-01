@@ -108,6 +108,12 @@ void engine_init(engine_t *engine) {
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_TEXT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_INPUT, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_INPUT, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_INPUT, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_LABEL, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_LABEL, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
+    gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_LABEL, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_DEFAULT, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_HOVER, font_style, sizeof(font_style));
     gs_gui_set_element_style(&engine->gui, GS_GUI_ELEMENT_BUTTON, GS_GUI_ELEMENT_STATE_FOCUS, font_style, sizeof(font_style));

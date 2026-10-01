@@ -176,19 +176,21 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
     }
 
     float speed = 5.0f;
+    int height_index = next_z * map->width + lroundf(next_x);
+
     if (gs_vec3_len(gs_vec3_sub(entity->next.position, entity->prev.position)) > 0)  {
         entity->lerp += dt * speed;
     }
     if (gs_vec3_len(dir) > 0.f && entity->lerp >= 1.0f) {
         entity->prev.position = entity->next.position;
         entity->next.position.x = next_x;
-        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * map->width + lroundf(entity->next.position.x)] + 0.5;
+        entity->next.position.y = map->height_map[height_index] + 0.5;
         entity->next.position.z = next_z;
         entity->lerp -= 1.0;
     } else if (gs_vec3_len(dir) > 0.f && entity->lerp == 0.0f) {
         entity->prev.position = entity->next.position;
         entity->next.position.x = next_x;
-        entity->next.position.y = map->height_map[lroundf(entity->next.position.z) * map->width + lroundf(entity->next.position.x)] + 0.5;
+        entity->next.position.y = map->height_map[height_index] + 0.5;
         entity->next.position.z = next_z;
         entity->lerp = dt * speed;
     } else if (entity->lerp >= 1.0f) {
