@@ -100,6 +100,9 @@ void init() {
         game_map_save(&map, "test.map");
     }
 
+   sprintf(editor_state.map_width, "%d", map.width);
+   sprintf(editor_state.map_height, "%d", map.height);
+
     game_map_add(&map, &sphere, 0, 0);
     game_map_add(&map, &cube, 4, 4);
     game_map_add(&map, &capsule, 8, 8);
@@ -204,6 +207,7 @@ void update() {
                 gs_vec3 terrain_tile_pos = mouse_terrain_coords;
                 terrain_tile_pos.x = lroundf(mouse_terrain_coords.x);
                 terrain_tile_pos.z = lroundf(mouse_terrain_coords.z);
+                printf("intersect x: %f z: %f\n", terrain_tile_pos.x, terrain_tile_pos.z);
 
                 for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
                     for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
