@@ -24,6 +24,8 @@ entity_t cube;
 entity_t capsule;
 entity_t plane;
 enum game_mode mode;
+bool show_interaction = false;
+game_interaction_t interaction = {0};
 
 typedef struct {
     char map_name[256];
@@ -48,10 +50,6 @@ void sanitize_integer_string(char* buf) {
     }
     buf[j] = '\0';
 }
-
-
-bool show_interaction = false;
-game_interaction_t interaction = {0};
 
 void init() {
     srand(time(NULL));
@@ -94,11 +92,7 @@ void init() {
         float *heights = malloc(sizeof(float) * map_width * map_height);
         for (int j = 0; j < map_height; j++) {
             for (int i = 0; i < map_width; i++) {
-                if (j > 5 && j < map_height - 5 && i > 5 && i < map_width - 5) {
-                    heights[j * map_width + i] = 1.f;
-                } else {
-                    heights[j * map_width + i] = 0.f;
-                }
+                heights[j * map_width + i] = 0.f;
             }
         }
         map = game_map_create(map_width, map_height, heights);
@@ -256,16 +250,42 @@ void update() {
 
             gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
             gs_gui_label(&engine.gui, "Width:");
-            sanitize_integer_string(editor_state.map_width);
             gs_gui_textbox(&engine.gui, editor_state.map_width, sizeof(editor_state.map_width));
+            sanitize_integer_string(editor_state.map_width);
 
             gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
             gs_gui_label(&engine.gui, "Height:");
-            sanitize_integer_string(editor_state.map_height);
             gs_gui_textbox(&engine.gui, editor_state.map_height, sizeof(editor_state.map_height));
+            sanitize_integer_string(editor_state.map_height);
 
             gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
             if (gs_gui_button(&engine.gui, "Resize")) {
+                int new_width = atoi(editor_state.map_width);
+                int new_height = atoi(editor_state.map_height);
+                float *new_height_map = malloc(sizeof(float) * new_width * new_height);
+                for (int j = 0; j < new_height; j++) {
+                    for (int i = 0; i < new_width; i++) {
+                        if (i < map.width && j < map.height) {
+                            new_height_map[j * new_width + i] = map.height_map[j * map.width + i];
+                        } else {
+                            new_height_map[j * new_width + i] = 0.f;
+                        }
+                    }
+                }
+                game_map_free(&map);
+                map = game_map_create(new_width, new_height, new_height_map);
+                map.width = new_width;
+                map.height = new_height;
+                map.height_map = new_height_map;
+
+                gs_graphics_vertex_buffer_destroy(plane.mesh.vbo);
+                gs_graphics_index_buffer_destroy(plane.mesh.ibo);
+                plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+                plane.transform.position.x = map.width / 2 - 0.5;
+                plane.transform.position.z = map.height / 2 - 0.5;
+
+                game_map_save(&map, "test.map");
+
                 printf("resize\n");
             }
 

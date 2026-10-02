@@ -64,6 +64,7 @@ game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
 }
 
 void game_map_free(game_map_t *map) {
+    gs_dyn_array_free(map->height_map);
     free(map->tiles);
 }
 
