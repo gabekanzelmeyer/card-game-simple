@@ -195,7 +195,8 @@ void update() {
             | GS_GUI_OPT_NOSTYLEBORDER
             | GS_GUI_OPT_NOSTYLESHADOW
             | GS_GUI_OPT_NOSTYLEBACKGROUND
-            | GS_GUI_OPT_FULLSCREEN)) {
+            | GS_GUI_OPT_NOINTERACT
+            | GS_GUI_OPT_NOFOCUS)) {
             gs_vec2 text_dimensions = gs_asset_font_text_dimensions(&engine.standard_font, "Editor", -1); // -1 means null-terminated string
             gs_gui_rect_t rect = gs_gui_layout_anchor(&engine.gui.viewport, text_dimensions.x, text_dimensions.y,
                                                       0, 30, GS_GUI_LAYOUT_ANCHOR_TOPCENTER);
@@ -244,7 +245,7 @@ void update() {
             }
             gs_gui_window_end(&engine.gui);
         }
-        if (gs_gui_window_begin_ex(&engine.gui, "editor_left_panel", gs_gui_rect(0, 0, 600, fbs.y), NULL, NULL,
+        if (gs_gui_window_begin_ex(&engine.gui, "editor_left_panel", gs_gui_rect(0, 0, 600, fbs.y), NULL, &(gs_gui_selector_desc_t){0},
             GS_GUI_OPT_NOTITLE
             | GS_GUI_OPT_NORESIZE
             | GS_GUI_OPT_NOMOVE)) {
@@ -289,8 +290,6 @@ void update() {
                 plane.transform.position.z = map.height / 2 - 0.5;
 
                 game_map_save(&map, "test.map");
-
-                printf("resize\n");
             }
 
             gs_gui_window_end(&engine.gui);
