@@ -31,12 +31,22 @@ typedef struct {
     char map_name[256];
     char map_width[8];
     char map_height[8];
+    uint16_t tool_tab;
+    uint16_t object_type;
+    char building_name[256];
+    char building_width[8];
+    char building_depth[8];
 } editor_state_t;
 
 editor_state_t editor_state = {
     .map_name = "test.map",
     .map_width = "50",
-    .map_height = "50"
+    .map_height = "50",
+    .tool_tab = 0,
+    .object_type = 0,
+    .building_name = "Building",
+    .building_width = "1",
+    .building_depth = "1"
 };
 
 void sanitize_integer_string(char* buf) {
@@ -209,37 +219,68 @@ void update() {
                 terrain_tile_pos.x = lroundf(mouse_terrain_coords.x);
                 terrain_tile_pos.z = lroundf(mouse_terrain_coords.z);
 
-                for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
-                    for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
-                        char buf[4];
-                        snprintf(buf, 4, "%.1f", map.height_map[j * map.width + i]);
-                        draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), buf);
-                    }
-                }
-
-                bool height_map_edited = false;
-                if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+                if (editor_state.tool_tab == 0) { // Terrain editor
                     for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
                         for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
-                            map.height_map[j * map.width + i] += 1;
-                            height_map_edited = true;
+                            char buf[4];
+                            snprintf(buf, 4, "%.1f", map.height_map[j * map.width + i]);
+                            draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), buf);
                         }
                     }
-                }
-                if (gs_platform_mouse_pressed(GS_MOUSE_RBUTTON)) {
-                    for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
-                        for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
-                            map.height_map[j * map.width + i] -= 1;
-                            height_map_edited = true;
-                        }
-                    }
-                }
-                if (height_map_edited) {
-                    gs_graphics_vertex_buffer_destroy(plane.mesh.vbo);
-                    gs_graphics_index_buffer_destroy(plane.mesh.ibo);
-                    plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
 
-                    game_map_save(&map, "test.map");
+                    bool height_map_edited = false;
+                    if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON)) {
+                        for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
+                            for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
+                                map.height_map[j * map.width + i] += 1;
+                                height_map_edited = true;
+                            }
+                        }
+                    }
+                    if (gs_platform_mouse_pressed(GS_MOUSE_RBUTTON)) {
+                        for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
+                            for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
+                                map.height_map[j * map.width + i] -= 1;
+                                height_map_edited = true;
+                            }
+                        }
+                    }
+                    if (height_map_edited) {
+                        gs_graphics_vertex_buffer_destroy(plane.mesh.vbo);
+                        gs_graphics_index_buffer_destroy(plane.mesh.ibo);
+                        plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+
+                        game_map_save(&map, editor_state.map_name);
+                    }
+                }
+                if (editor_state.tool_tab == 1 && editor_state.object_type == 0) { // Object tool, building type
+                    int building_width = atoi(editor_state.building_width);
+                    int building_depth = atoi(editor_state.building_depth);
+                    for (int i = fmaxf(0, terrain_tile_pos.x - building_width); i < fminf(map.width, terrain_tile_pos.x + building_width + 1); i++) {
+                        for (int j = fmaxf(0, terrain_tile_pos.z - building_depth); j < fminf(map.height, terrain_tile_pos.z + building_depth + 1); j++) {
+                            draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), "0");
+                        }
+                    }
+
+                    bool building_placed = false;
+                    bool building_removed = false;
+                    if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && !gs_platform_key_down(GS_KEYCODE_LCTRL)) {
+                        building_placed = true;
+                    }
+                    if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && gs_platform_key_down(GS_KEYCODE_LCTRL)) {
+                        building_removed = true;
+                    }
+                    if (gs_platform_mouse_pressed(GS_MOUSE_RBUTTON)) {
+                        // TODO: rotate
+                    }
+                    if (building_placed) {
+                        printf("building placed\n");
+                        // game_map_save(&map, editor_state.map_name);
+                    }
+                    if (building_removed) {
+                        printf("building removed\n");
+                        // game_map_save(&map, editor_state.map_name);
+                    }
                 }
             }
             gs_gui_window_end(&engine.gui);
@@ -288,7 +329,35 @@ void update() {
                 plane.transform.position.x = map.width / 2 - 0.5;
                 plane.transform.position.z = map.height / 2 - 0.5;
 
-                game_map_save(&map, "test.map");
+                game_map_save(&map, editor_state.map_name);
+            }
+
+            // tabs
+            gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+
+            if (gs_gui_button(&engine.gui, "Terrain")) editor_state.tool_tab = 0;
+            if (gs_gui_button(&engine.gui, "Object")) editor_state.tool_tab = 1;
+
+            if (editor_state.tool_tab == 1) { // Object tool
+                gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+                if (gs_gui_button(&engine.gui, "Building")) editor_state.object_type = 0;
+                if (gs_gui_button(&engine.gui, "NPC")) editor_state.object_type = 1;
+
+                if (editor_state.object_type == 0) { // Building type
+                    gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+                    gs_gui_label(&engine.gui, "Name:");
+                    gs_gui_textbox(&engine.gui, editor_state.building_name, sizeof(editor_state.building_name));
+
+                    gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+                    gs_gui_label(&engine.gui, "Width:");
+                    gs_gui_textbox(&engine.gui, editor_state.building_width, sizeof(editor_state.building_width));
+                    sanitize_integer_string(editor_state.building_width);
+
+                    gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+                    gs_gui_label(&engine.gui, "Depth:");
+                    gs_gui_textbox(&engine.gui, editor_state.building_depth, sizeof(editor_state.building_depth));
+                    sanitize_integer_string(editor_state.building_depth);
+                }
             }
 
             gs_gui_window_end(&engine.gui);

@@ -32,9 +32,17 @@ enum game_mode {
 };
 
 typedef struct {
+    const char *name;
+    uint16_t width;
+    uint16_t depth;
+    float rotation;
+    entity_t *entity;
+} game_map_object_t;
+
+typedef struct {
     uint32_t width;
     uint32_t height;
-    gs_dyn_array(float) height_map;
+    float *height_map;
     entity_t **tiles;
 } game_map_t;
 
@@ -52,19 +60,19 @@ game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
     game_map_t map = {0};
     map.width = width;
     map.height = height;
-    map.height_map = NULL;
+    map.height_map = (float*)malloc(sizeof(float) * width * height);
     map.tiles = (entity_t **)malloc(sizeof(entity_t*) * width * height);
     for (int i = 0; i < width * height; i++) {
         map.tiles[i] = NULL;
     }
     for (int i = 0; i < width * height; i++) {
-        gs_dyn_array_push(map.height_map, height_map == NULL ? 0 : height_map[i]);
+        map.height_map[i] = height_map == NULL ? 0 : height_map[i];
     }
     return map;
 }
 
 void game_map_free(game_map_t *map) {
-    gs_dyn_array_free(map->height_map);
+    free(map->height_map);
     free(map->tiles);
 }
 
