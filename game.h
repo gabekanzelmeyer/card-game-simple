@@ -207,11 +207,14 @@ bool game_map_terrain_intersect(game_map_t *map, ray_t r, float max_dist, gs_vec
 
     for (float t = 0.0f; t < max_dist; t += step) {
         gs_vec3 p = gs_vec3_add(r.origin, gs_vec3_scale(r.dir, t));
-        if (p.x < 0 || p.z < 0 || p.x >= map->width || p.y >= map->height) continue;
+        p.x = lroundf(p.x);
+        p.z = lroundf(p.z);
+        if (p.x < 0 || p.z < 0 || p.x >= map->width || p.z >= map->height) continue;
 
-        if (p.y <= map->height_map[lroundf(p.z) * map->width + lroundf(p.x)]) {
+        if (p.y <= map->height_map[(int)p.z * map->width + (int)p.x]) {
             // Crossed the surface: binary search between t_prev and t
-            float lo = t_prev, hi = t;
+            float lo = t_prev;
+            float hi = t;
             for (int i = 0; i < 8; i++) {
                 float mid = (lo + hi) * 0.5f;
                 gs_vec3 m = gs_vec3_add(r.origin, gs_vec3_scale(r.dir, mid));

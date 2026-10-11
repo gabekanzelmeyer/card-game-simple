@@ -204,11 +204,10 @@ void update() {
             gs_gui_text(&engine.gui, "Editor");
 
             gs_vec3 mouse_terrain_coords;
-            if (game_map_terrain_intersect(&map, mouse_ray(&engine.camera), 100, &mouse_terrain_coords)) {
+            if (game_map_terrain_intersect(&map, mouse_ray(&engine.camera), 200, &mouse_terrain_coords)) {
                 gs_vec3 terrain_tile_pos = mouse_terrain_coords;
                 terrain_tile_pos.x = lroundf(mouse_terrain_coords.x);
                 terrain_tile_pos.z = lroundf(mouse_terrain_coords.z);
-                printf("intersect x: %f z: %f\n", terrain_tile_pos.x, terrain_tile_pos.z);
 
                 for (int i = fmaxf(0, terrain_tile_pos.x - 1); i < fminf(map.width, terrain_tile_pos.x + 2); i++) {
                     for (int j = fmaxf(0, terrain_tile_pos.z - 1); j < fminf(map.height, terrain_tile_pos.z + 2); j++) {
