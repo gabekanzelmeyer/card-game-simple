@@ -19,6 +19,7 @@ float player_speed = 6.f;
 gs_vec3 camera_offset;
 static engine_t engine;
 static game_map_t map;
+game_map_object_t player;
 entity_t sphere;
 entity_t cube;
 entity_t capsule;
@@ -113,9 +114,10 @@ void init() {
    sprintf(editor_state.map_width, "%d", map.width);
    sprintf(editor_state.map_height, "%d", map.height);
 
-    game_map_add(&map, &sphere, 0, 0);
-    game_map_add(&map, &cube, 4, 4);
-    game_map_add(&map, &capsule, 8, 8);
+    player = (game_map_object_t){.entity = &sphere};
+    game_map_add(&map, player, 0, 0);
+    game_map_add(&map, (game_map_object_t){.entity = &cube}, 4, 4);
+    game_map_add(&map, (game_map_object_t){.entity = &capsule}, 8, 8);
 
     plane = entity_create();
     plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
@@ -142,7 +144,7 @@ void update() {
             int in_front_z = sphere.next.position.z + lroundf(world_forward.z);
             if (!game_map_is_tile_empty(&map, in_front_x, in_front_z)) {
                 show_interaction = !show_interaction;
-                interaction.transform = &map.tiles[in_front_z * map.width + in_front_x]->transform;
+                interaction.transform = &map.objects[in_front_z * map.width + in_front_x].entity->transform;
                 if (!show_interaction) {
                     mode = LIBRARY;
                     card_library_init();
@@ -171,7 +173,7 @@ void update() {
         if (gs_platform_key_down(GS_KEYCODE_A)) move.x -= 1.f;
         if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
     }
-    game_map_move(&map, &sphere, move, dt);
+    game_map_move(&map, player, move, dt);
     engine.camera.transform.position = gs_vec3_add(sphere.transform.position, camera_offset);
 
     gs_gui_begin(&engine.gui, NULL);
@@ -213,6 +215,7 @@ void update() {
             gs_gui_layout_set_next(&engine.gui, rect, 0);
             gs_gui_text(&engine.gui, "Editor");
 
+            // the following code needs to be in a wondow block because of the hovered text!
             gs_vec3 mouse_terrain_coords;
             if (game_map_terrain_intersect(&map, mouse_ray(&engine.camera), 200, &mouse_terrain_coords)) {
                 gs_vec3 terrain_tile_pos = mouse_terrain_coords;
@@ -274,6 +277,16 @@ void update() {
                         // TODO: rotate
                     }
                     if (building_placed) {
+                        game_map_object_t building = {0};
+                        building.width = building_width;
+                        building.depth = building_depth;
+                        building.name = editor_state.building_name;
+                        building.entity = malloc(sizeof(entity_t));
+                        *building.entity = entity_create();
+                        building.entity->mesh = mesh_cube();
+                        building.entity->transform.scale = gs_v3(1 + building_width * 2, 1, 1 + building_depth * 2);
+                        building.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
+                        game_map_add(&map, building, terrain_tile_pos.x, terrain_tile_pos.z);
                         printf("building placed\n");
                         // game_map_save(&map, editor_state.map_name);
                     }
@@ -283,9 +296,10 @@ void update() {
                     }
                 }
             }
+
             gs_gui_window_end(&engine.gui);
         }
-        if (gs_gui_window_begin_ex(&engine.gui, "editor_left_panel", gs_gui_rect(0, 0, 600, fbs.y), NULL, &(gs_gui_selector_desc_t){0},
+        if (gs_gui_window_begin_ex(&engine.gui, "editor_left_panel", gs_gui_rect(0, 0, 600, fbs.y), NULL, NULL,
             GS_GUI_OPT_NOTITLE
             | GS_GUI_OPT_NORESIZE
             | GS_GUI_OPT_NOMOVE)) {
@@ -409,10 +423,13 @@ void update() {
     gs_graphics_set_viewport(&engine.cb, 0, 0, (uint32_t)fbs.x, (uint32_t)fbs.y);
     gs_graphics_pipeline_bind(&engine.cb, engine.standard_shader.pipeline);
 
+    for (int i = 0; i < map.width * map.height; i++) {
+        if (map.objects[i].entity != NULL) {
+            draw_entity(&engine, map.objects[i].entity, vp, &engine.standard_shader);
+        }
+    }
+
     draw_entity(&engine, &plane, vp, &engine.standard_shader);
-    draw_entity(&engine, &sphere, vp, &engine.standard_shader);
-    draw_entity(&engine, &cube, vp, &engine.standard_shader);
-    draw_entity(&engine, &capsule, vp, &engine.standard_shader);
 
     if (mode == LIBRARY) {
         card_library_update(&engine);

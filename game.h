@@ -33,9 +33,9 @@ enum game_mode {
 
 typedef struct {
     const char *name;
+    uint16_t type;
     uint16_t width;
     uint16_t depth;
-    float rotation;
     entity_t *entity;
 } game_map_object_t;
 
@@ -43,7 +43,8 @@ typedef struct {
     uint32_t width;
     uint32_t height;
     float *height_map;
-    entity_t **tiles;
+    bool *empty_map;
+    game_map_object_t *objects;
 } game_map_t;
 
 typedef struct game_interaction_t {
@@ -61,19 +62,20 @@ game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
     map.width = width;
     map.height = height;
     map.height_map = (float*)malloc(sizeof(float) * width * height);
-    map.tiles = (entity_t **)malloc(sizeof(entity_t*) * width * height);
-    for (int i = 0; i < width * height; i++) {
-        map.tiles[i] = NULL;
-    }
+    map.empty_map = (bool*)malloc(sizeof(bool) * width * height);
+    map.objects = (game_map_object_t*)malloc(sizeof(game_map_object_t) * width * height);
     for (int i = 0; i < width * height; i++) {
         map.height_map[i] = height_map == NULL ? 0 : height_map[i];
+        map.empty_map[i] = true;
+        map.objects[i] = (game_map_object_t){0};
     }
     return map;
 }
 
 void game_map_free(game_map_t *map) {
     free(map->height_map);
-    free(map->tiles);
+    free(map->empty_map);
+    free(map->objects);
 }
 
 void game_map_save(game_map_t *map, const char *filename) {
@@ -119,36 +121,43 @@ game_map_t game_map_load(const char *filename) {
 }
 
 bool game_map_is_tile_empty(game_map_t *map, int x, int z) {
-    return x >= 0 && x < map->width && z >= 0 && z < map->height && map->tiles[z * map->width + x] == NULL;
+    return x >= 0 && x < map->width && z >= 0 && z < map->height && map->empty_map[z * map->width + x];
 }
 
-void game_map_add(game_map_t *map, entity_t *entity, int x, int y) {
+void game_map_add(game_map_t *map, game_map_object_t object, int x, int y) {
     int index = y * map->width + x;
-    if (map->tiles[index] == NULL) {
-        entity->transform.position.x = x;
-        entity->transform.position.y = map->height_map[y * (map->width + 1) + x] + 0.5;
-        entity->transform.position.z = y;
-        entity->prev = entity->transform;
-        entity->next = entity->transform;
-        map->tiles[index] = entity;
+    if (map->empty_map[index]) {
+        object.entity->transform.position.x = x;
+        object.entity->transform.position.y = map->height_map[y * (map->width + 1) + x] + 0.5;
+        object.entity->transform.position.z = y;
+        object.entity->prev = object.entity->transform;
+        object.entity->next = object.entity->transform;
+        map->objects[index] = object;
+
+        for (int i = x - object.width; i < x + object.width + 1; i++) {
+            for (int j = y - object.depth; j < y + object.depth + 1; j++) {
+                int empty_index = j * map->width + i;
+                map->empty_map[empty_index] = false;
+            }
+        }
     }
 }
 
-void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
-    int prev_x = lroundf(entity->prev.position.x);
-    int prev_z = lroundf(entity->prev.position.z);
+void game_map_move(game_map_t *map, game_map_object_t object, gs_vec3 dir, float dt) {
+    int prev_x = lroundf(object.entity->prev.position.x);
+    int prev_z = lroundf(object.entity->prev.position.z);
     int target_x = prev_x + lroundf(dir.x);
     int target_z = prev_z + lroundf(dir.z);
     int next_x = prev_x;
     int next_z = prev_z;
 
-    if (gs_vec3_len(dir) > 0.f && (entity->lerp == 0 || entity->lerp >= 1)) {
+    if (gs_vec3_len(dir) > 0.f && (object.entity->lerp == 0 || object.entity->lerp >= 1)) {
         gs_vec3 normalized_dir = gs_vec3_norm(dir);
         gs_vec3 local_forward = gs_v3(0.f, 0.f, -1.f);
         gs_quat target_rotation = gs_quat_from_to_rotation(local_forward, normalized_dir);
-        entity->transform.rotation = target_rotation;
-        entity->prev.rotation = target_rotation;
-        entity->next.rotation = target_rotation;
+        object.entity->transform.rotation = target_rotation;
+        object.entity->prev.rotation = target_rotation;
+        object.entity->next.rotation = target_rotation;
 
         if (game_map_is_tile_empty(map, target_x, target_z)) {
             next_x = target_x;
@@ -177,8 +186,21 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
     }
 
     if (next_x != prev_x || next_z != prev_z) {
-        map->tiles[prev_z * map->width + prev_x] = NULL;
-        map->tiles[next_z * map->width + next_x] = entity;
+        map->objects[prev_z * map->width + prev_x] = (game_map_object_t){0};
+        map->objects[next_z * map->width + next_x] = object;
+
+        for (int i = prev_x - object.width; i < prev_x + object.width + 1; i++) {
+            for (int j = prev_z - object.depth; j < prev_z + object.depth + 1; j++) {
+                int empty_index = j * map->width + i;
+                map->empty_map[empty_index] = true;
+            }
+        }
+        for (int i = next_x - object.width; i < next_x + object.width + 1; i++) {
+            for (int j = next_z - object.depth; j < next_z + object.depth + 1; j++) {
+                int empty_index = j * map->width + i;
+                map->empty_map[empty_index] = false;
+            }
+        }
         dir = gs_v3(next_x - prev_x, 0, next_z - prev_z);
     } else {
         dir = gs_v3s(0);
@@ -187,26 +209,26 @@ void game_map_move(game_map_t *map, entity_t *entity, gs_vec3 dir, float dt) {
     float speed = 5.0f;
     int height_index = next_z * map->width + lroundf(next_x);
 
-    if (gs_vec3_len(gs_vec3_sub(entity->next.position, entity->prev.position)) > 0)  {
-        entity->lerp += dt * speed;
+    if (gs_vec3_len(gs_vec3_sub(object.entity->next.position, object.entity->prev.position)) > 0)  {
+        object.entity->lerp += dt * speed;
     }
-    if (gs_vec3_len(dir) > 0.f && entity->lerp >= 1.0f) {
-        entity->prev.position = entity->next.position;
-        entity->next.position.x = next_x;
-        entity->next.position.y = map->height_map[height_index] + 0.5;
-        entity->next.position.z = next_z;
-        entity->lerp -= 1.0;
-    } else if (gs_vec3_len(dir) > 0.f && entity->lerp == 0.0f) {
-        entity->prev.position = entity->next.position;
-        entity->next.position.x = next_x;
-        entity->next.position.y = map->height_map[height_index] + 0.5;
-        entity->next.position.z = next_z;
-        entity->lerp = dt * speed;
-    } else if (entity->lerp >= 1.0f) {
-        entity->prev.position = entity->next.position;
-        entity->lerp = 0.f;
+    if (gs_vec3_len(dir) > 0.f && object.entity->lerp >= 1.0f) {
+        object.entity->prev.position = object.entity->next.position;
+        object.entity->next.position.x = next_x;
+        object.entity->next.position.y = map->height_map[height_index] + 0.5;
+        object.entity->next.position.z = next_z;
+        object.entity->lerp -= 1.0;
+    } else if (gs_vec3_len(dir) > 0.f && object.entity->lerp == 0.0f) {
+        object.entity->prev.position = object.entity->next.position;
+        object.entity->next.position.x = next_x;
+        object.entity->next.position.y = map->height_map[height_index] + 0.5;
+        object.entity->next.position.z = next_z;
+        object.entity->lerp = dt * speed;
+    } else if (object.entity->lerp >= 1.0f) {
+        object.entity->prev.position = object.entity->next.position;
+        object.entity->lerp = 0.f;
     }
-    lerp_transform_linear(&entity->transform, &entity->prev, &entity->next, entity->lerp);
+    lerp_transform_linear(&object.entity->transform, &object.entity->prev, &object.entity->next, object.entity->lerp);
 }
 
 bool game_map_terrain_intersect(game_map_t *map, ray_t r, float max_dist, gs_vec3* out) {
