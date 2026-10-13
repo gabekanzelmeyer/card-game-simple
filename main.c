@@ -288,7 +288,7 @@ void update() {
                         building.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
                         game_map_add(&map, building, terrain_tile_pos.x, terrain_tile_pos.z);
                         printf("building placed\n");
-                        // game_map_save(&map, editor_state.map_name);
+                        game_map_save(&map, editor_state.map_name);
                     }
                     if (building_removed) {
                         printf("building removed\n");

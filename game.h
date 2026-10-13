@@ -8,6 +8,7 @@
 #include "util/gs_gui.h"
 
 #include "engine.h"
+#include "engine_shapes.h"
 
 // macro that allows for erasing and element from a gs_dyn_array and keeping the order
 #define gs_dyn_array_erase(__ARR, __IDX)\
@@ -78,6 +79,25 @@ void game_map_free(game_map_t *map) {
     free(map->objects);
 }
 
+void game_map_add(game_map_t *map, game_map_object_t object, int x, int y) {
+    int index = y * map->width + x;
+    if (map->empty_map[index]) {
+        object.entity->transform.position.x = x;
+        object.entity->transform.position.y = map->height_map[y * (map->width + 1) + x] + 0.5;
+        object.entity->transform.position.z = y;
+        object.entity->prev = object.entity->transform;
+        object.entity->next = object.entity->transform;
+        map->objects[index] = object;
+
+        for (int i = x - object.width; i < x + object.width + 1; i++) {
+            for (int j = y - object.depth; j < y + object.depth + 1; j++) {
+                int empty_index = j * map->width + i;
+                map->empty_map[empty_index] = false;
+            }
+        }
+    }
+}
+
 void game_map_save(game_map_t *map, const char *filename) {
     FILE *f = fopen(filename, "w");
     if (!f) {
@@ -88,6 +108,23 @@ void game_map_save(game_map_t *map, const char *filename) {
     fprintf(f, "%i\n", map->height);
     for (int i = 0; i < map->width * map->height; i++) {
         fprintf(f, "%f\n", map->height_map[i]);
+    }
+    int object_count = 0;
+    for (int i = 0; i < map->width * map->height; i++) {
+        if (map->objects[i].name != NULL) {
+            object_count++;
+        }
+    }
+    fprintf(f, "%i\n", object_count);
+    for (int i = 0; i < map->width * map->height; i++) {
+        if (map->objects[i].name != NULL) {
+            fprintf(f, "%i\n", i % map->width);
+            fprintf(f, "%i\n", i / map->width);
+            fprintf(f, "%s\n", map->objects[i].name);
+            fprintf(f, "%i\n", map->objects[i].type);
+            fprintf(f, "%i\n", map->objects[i].width);
+            fprintf(f, "%i\n", map->objects[i].depth);
+        }
     }
 
     fclose(f);
@@ -108,12 +145,37 @@ game_map_t game_map_load(const char *filename) {
     float *heights = (float*)malloc(width * height * sizeof(float));
 
     float temp;
-    int count = 0;
-    while (fscanf(f, "%f", &temp) == 1) {
-        heights[count++] = temp;
+    for (int i = 0; i < width * height; i++) {
+        fscanf(f, "%f", &temp);
+        heights[i] = temp;
     }
 
     game_map_t map = game_map_create(width, height, heights);
+
+    int object_count;
+    fscanf(f, "%i", &object_count);
+    for (int i = 0; i < object_count; i++) {
+        int pos_x, pos_z, type, width, depth;
+        char name[50];
+        fscanf(f, "%i", &pos_x);
+        fscanf(f, "%i", &pos_z);
+        fscanf(f, "%s", name);
+        fscanf(f, "%i", &type);
+        fscanf(f, "%i", &width);
+        fscanf(f, "%i", &depth);
+
+        game_map_object_t object = {0};
+        object.width = width;
+        object.depth = depth;
+        object.name = name;
+        object.entity = (entity_t*)malloc(sizeof(entity_t));
+        // TODO: based on type make a different entity, just assume building for now
+        *object.entity = entity_create();
+        object.entity->mesh = mesh_cube();
+        object.entity->transform.scale = gs_v3(1 + width * 2, 1, 1 + depth * 2);
+        object.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
+        game_map_add(&map, object, pos_x, pos_z);
+    }
 
     free(heights);
     fclose(f);
@@ -122,25 +184,6 @@ game_map_t game_map_load(const char *filename) {
 
 bool game_map_is_tile_empty(game_map_t *map, int x, int z) {
     return x >= 0 && x < map->width && z >= 0 && z < map->height && map->empty_map[z * map->width + x];
-}
-
-void game_map_add(game_map_t *map, game_map_object_t object, int x, int y) {
-    int index = y * map->width + x;
-    if (map->empty_map[index]) {
-        object.entity->transform.position.x = x;
-        object.entity->transform.position.y = map->height_map[y * (map->width + 1) + x] + 0.5;
-        object.entity->transform.position.z = y;
-        object.entity->prev = object.entity->transform;
-        object.entity->next = object.entity->transform;
-        map->objects[index] = object;
-
-        for (int i = x - object.width; i < x + object.width + 1; i++) {
-            for (int j = y - object.depth; j < y + object.depth + 1; j++) {
-                int empty_index = j * map->width + i;
-                map->empty_map[empty_index] = false;
-            }
-        }
-    }
 }
 
 void game_map_move(game_map_t *map, game_map_object_t object, gs_vec3 dir, float dt) {
