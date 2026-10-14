@@ -256,43 +256,41 @@ void update() {
                         game_map_save(&map, editor_state.map_name);
                     }
                 }
-                if (editor_state.tool_tab == 1 && editor_state.object_type == 0) { // Object tool, building type
-                    int building_width = atoi(editor_state.building_width);
-                    int building_depth = atoi(editor_state.building_depth);
-                    for (int i = fmaxf(0, terrain_tile_pos.x - building_width); i < fminf(map.width, terrain_tile_pos.x + building_width + 1); i++) {
-                        for (int j = fmaxf(0, terrain_tile_pos.z - building_depth); j < fminf(map.height, terrain_tile_pos.z + building_depth + 1); j++) {
-                            draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), "0");
+                if (editor_state.tool_tab == 1) { // Object tool
+                    if (editor_state.object_type == 0) { //building type
+                        int building_width = atoi(editor_state.building_width);
+                        int building_depth = atoi(editor_state.building_depth);
+                        for (int i = fmaxf(0, terrain_tile_pos.x - building_width); i < fminf(map.width, terrain_tile_pos.x + building_width + 1); i++) {
+                            for (int j = fmaxf(0, terrain_tile_pos.z - building_depth); j < fminf(map.height, terrain_tile_pos.z + building_depth + 1); j++) {
+                                draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), "0");
+                            }
                         }
-                    }
 
-                    bool building_placed = false;
-                    bool building_removed = false;
-                    if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && !gs_platform_key_down(GS_KEYCODE_LCTRL)) {
-                        building_placed = true;
+                        // place a building
+                        if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && !gs_platform_key_down(GS_KEYCODE_LCTRL)) {
+                            game_map_object_t building = {0};
+                            building.width = building_width;
+                            building.depth = building_depth;
+                            building.name = editor_state.building_name;
+                            building.entity = malloc(sizeof(entity_t));
+                            *building.entity = entity_create();
+                            building.entity->mesh = mesh_cube();
+                            building.entity->transform.scale = gs_v3(1 + building_width * 2, 1, 1 + building_depth * 2);
+                            building.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
+                            game_map_add(&map, building, terrain_tile_pos.x, terrain_tile_pos.z);
+                            printf("building placed\n");
+                            game_map_save(&map, editor_state.map_name);
+                        }
+
                     }
+                    // remove an object
                     if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && gs_platform_key_down(GS_KEYCODE_LCTRL)) {
-                        building_removed = true;
+                        game_map_remove(&map, terrain_tile_pos.x, terrain_tile_pos.z);
+                        printf("object removed\n");
+                        game_map_save(&map, editor_state.map_name);
                     }
                     if (gs_platform_mouse_pressed(GS_MOUSE_RBUTTON)) {
                         // TODO: rotate
-                    }
-                    if (building_placed) {
-                        game_map_object_t building = {0};
-                        building.width = building_width;
-                        building.depth = building_depth;
-                        building.name = editor_state.building_name;
-                        building.entity = malloc(sizeof(entity_t));
-                        *building.entity = entity_create();
-                        building.entity->mesh = mesh_cube();
-                        building.entity->transform.scale = gs_v3(1 + building_width * 2, 1, 1 + building_depth * 2);
-                        building.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
-                        game_map_add(&map, building, terrain_tile_pos.x, terrain_tile_pos.z);
-                        printf("building placed\n");
-                        game_map_save(&map, editor_state.map_name);
-                    }
-                    if (building_removed) {
-                        printf("building removed\n");
-                        // game_map_save(&map, editor_state.map_name);
                     }
                 }
             }

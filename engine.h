@@ -188,6 +188,11 @@ entity_t entity_create() {
     };
 }
 
+void entity_free(entity_t *entity) {
+    gs_graphics_vertex_buffer_destroy(entity->mesh.vbo);
+    gs_graphics_index_buffer_destroy(entity->mesh.ibo);
+}
+
 char* load_file(const char* filename) {
     char *buffer = NULL;
     long length = 0;

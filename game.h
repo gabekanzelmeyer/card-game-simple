@@ -37,6 +37,8 @@ typedef struct {
     uint16_t type;
     uint16_t width;
     uint16_t depth;
+    uint32_t x;
+    uint32_t z;
     entity_t *entity;
 } game_map_object_t;
 
@@ -44,8 +46,8 @@ typedef struct {
     uint32_t width;
     uint32_t height;
     float *height_map;
-    bool *empty_map;
     game_map_object_t *objects;
+    game_map_object_t **extents;
 } game_map_t;
 
 typedef struct game_interaction_t {
@@ -63,36 +65,57 @@ game_map_t game_map_create(uint32_t width, uint32_t height, float* height_map) {
     map.width = width;
     map.height = height;
     map.height_map = (float*)malloc(sizeof(float) * width * height);
-    map.empty_map = (bool*)malloc(sizeof(bool) * width * height);
     map.objects = (game_map_object_t*)malloc(sizeof(game_map_object_t) * width * height);
+    map.extents = (game_map_object_t**)malloc(sizeof(game_map_object_t*) * width * height);
     for (int i = 0; i < width * height; i++) {
         map.height_map[i] = height_map == NULL ? 0 : height_map[i];
-        map.empty_map[i] = true;
         map.objects[i] = (game_map_object_t){0};
+        map.extents[i] = NULL;
     }
     return map;
 }
 
 void game_map_free(game_map_t *map) {
     free(map->height_map);
-    free(map->empty_map);
     free(map->objects);
+    free(map->extents);
 }
 
-void game_map_add(game_map_t *map, game_map_object_t object, int x, int y) {
-    int index = y * map->width + x;
-    if (map->empty_map[index]) {
+void game_map_add(game_map_t *map, game_map_object_t object, int x, int z) {
+    int index = z * map->width + x;
+    if (map->extents[index] == NULL) {
+        object.x = x;
+        object.z = z;
         object.entity->transform.position.x = x;
-        object.entity->transform.position.y = map->height_map[y * (map->width + 1) + x] + 0.5;
-        object.entity->transform.position.z = y;
+        object.entity->transform.position.y = map->height_map[z * (map->width + 1) + x] + 0.5;
+        object.entity->transform.position.z = z;
         object.entity->prev = object.entity->transform;
         object.entity->next = object.entity->transform;
         map->objects[index] = object;
 
         for (int i = x - object.width; i < x + object.width + 1; i++) {
-            for (int j = y - object.depth; j < y + object.depth + 1; j++) {
-                int empty_index = j * map->width + i;
-                map->empty_map[empty_index] = false;
+            for (int j = z - object.depth; j < z + object.depth + 1; j++) {
+                int extent_index = j * map->width + i;
+                map->extents[extent_index] = &map->objects[index];
+            }
+        }
+    }
+}
+
+void game_map_remove(game_map_t *map, int x, int z) {
+    int index = z * map->width + x;
+    if (map->extents[index] != NULL) {
+        game_map_object_t object = *map->extents[index];
+
+        entity_free(object.entity);
+
+        int object_index = object.z * map->width + object.x;
+        map->objects[object_index] = (game_map_object_t){0};
+        // remove extents
+        for (int i = object.x - object.width; i < object.x + object.width + 1; i++) {
+            for (int j = object.z - object.depth; j < object.z + object.depth + 1; j++) {
+                int extent_index = j * map->width + i;
+                map->extents[extent_index] = NULL;
             }
         }
     }
@@ -118,8 +141,8 @@ void game_map_save(game_map_t *map, const char *filename) {
     fprintf(f, "%i\n", object_count);
     for (int i = 0; i < map->width * map->height; i++) {
         if (map->objects[i].name != NULL) {
-            fprintf(f, "%i\n", i % map->width);
-            fprintf(f, "%i\n", i / map->width);
+            fprintf(f, "%i\n", map->objects[i].x);
+            fprintf(f, "%i\n", map->objects[i].z);
             fprintf(f, "%s\n", map->objects[i].name);
             fprintf(f, "%i\n", map->objects[i].type);
             fprintf(f, "%i\n", map->objects[i].width);
@@ -183,7 +206,7 @@ game_map_t game_map_load(const char *filename) {
 }
 
 bool game_map_is_tile_empty(game_map_t *map, int x, int z) {
-    return x >= 0 && x < map->width && z >= 0 && z < map->height && map->empty_map[z * map->width + x];
+    return x >= 0 && x < map->width && z >= 0 && z < map->height && map->extents[z * map->width + x] == NULL;
 }
 
 void game_map_move(game_map_t *map, game_map_object_t object, gs_vec3 dir, float dt) {
@@ -229,19 +252,21 @@ void game_map_move(game_map_t *map, game_map_object_t object, gs_vec3 dir, float
     }
 
     if (next_x != prev_x || next_z != prev_z) {
+        object.x = next_x;
+        object.z = next_z;
         map->objects[prev_z * map->width + prev_x] = (game_map_object_t){0};
         map->objects[next_z * map->width + next_x] = object;
 
         for (int i = prev_x - object.width; i < prev_x + object.width + 1; i++) {
             for (int j = prev_z - object.depth; j < prev_z + object.depth + 1; j++) {
                 int empty_index = j * map->width + i;
-                map->empty_map[empty_index] = true;
+                map->extents[empty_index] = NULL;
             }
         }
         for (int i = next_x - object.width; i < next_x + object.width + 1; i++) {
             for (int j = next_z - object.depth; j < next_z + object.depth + 1; j++) {
                 int empty_index = j * map->width + i;
-                map->empty_map[empty_index] = false;
+                map->extents[empty_index] = &map->objects[next_z * map->width + next_x];
             }
         }
         dir = gs_v3(next_x - prev_x, 0, next_z - prev_z);
