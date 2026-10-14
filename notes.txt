@@ -1,8 +1,8 @@
 road map
-- implement basic cube blocking out of structures (with names)
 - implement basic placement of NPCs from editor
 - implement gs_gui ui scaling for windows / fonts etc.
 - refactor / organize editor code into it's own .h file
+x implement basic cube blocking out of structures (with names)
 x bug: clicking in editor UI textfield, then into scene, then back onto UI doesn't trigger mouse events on UI
 x bug: intersection testing with terrain is giving weird z values at some places
 x implement editing map size
@@ -206,6 +206,3 @@ trailer idea
 - record scratch, "Wait... you can draw?"
 - "Yah... only sometimes... Welp, good luck, everyone here is crazy about this card game. See you later!"
 - slow zoom out to reveal size of the world to explore and play in
-
-
-

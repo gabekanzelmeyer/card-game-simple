@@ -20,10 +20,7 @@ gs_vec3 camera_offset;
 static engine_t engine;
 static game_map_t map;
 game_map_object_t player;
-entity_t sphere;
-entity_t cube;
-entity_t capsule;
-entity_t plane;
+entity_t terrain;
 enum game_mode mode;
 bool show_interaction = false;
 game_interaction_t interaction = {0};
@@ -37,6 +34,7 @@ typedef struct {
     char building_name[256];
     char building_width[8];
     char building_depth[8];
+    char npc_name[256];
 } editor_state_t;
 
 editor_state_t editor_state = {
@@ -47,7 +45,8 @@ editor_state_t editor_state = {
     .object_type = 0,
     .building_name = "Building",
     .building_width = "1",
-    .building_depth = "1"
+    .building_depth = "1",
+    .npc_name = "Test"
 };
 
 void sanitize_integer_string(char* buf) {
@@ -75,23 +74,6 @@ void init() {
     engine.camera.transform.position = gs_vec3_add(player_pos, camera_offset);
     engine.camera.transform.rotation = gs_quat_angle_axis(gs_deg2rad(-60.f), gs_v3(1.f, 0.f, 0.f));
 
-    sphere = entity_create();
-    sphere.mesh = mesh_sphere(0.5f, 16, 24);
-    sphere.material.color = gs_v4(0.8, 0.3, 0.1, 1.0);
-    entity_t nose = entity_create();
-    nose.mesh = mesh_sphere(0.25f, 16, 24);
-    nose.material.color = gs_v4(0.3, 0.7, 0.7, 1.0);
-    nose.transform.position.z = -0.5;
-    gs_dyn_array_push(sphere.children, nose);
-
-    cube = entity_create();
-    cube.mesh = mesh_cube();
-    cube.material.color = gs_v4(0.1, 0.3, 0.8, 1.0);
-
-    capsule = entity_create();
-    capsule.mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
-    capsule.material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
-
     FILE *f = fopen("test.map", "r");
     if (f) {
         fclose(f);
@@ -114,21 +96,27 @@ void init() {
    sprintf(editor_state.map_width, "%d", map.width);
    sprintf(editor_state.map_height, "%d", map.height);
 
-    player = (game_map_object_t){.entity = &sphere};
+    player = (game_map_object_t) {0};
+    player.entity = malloc(sizeof(entity_t));
+    *player.entity = entity_create();
+    player.entity->mesh = mesh_sphere(0.5f, 16, 24);
+    player.entity->material.color = gs_v4(0.8, 0.3, 0.1, 1.0);
+    entity_t nose = entity_create();
+    nose.mesh = mesh_sphere(0.25f, 16, 24);
+    nose.material.color = gs_v4(0.3, 0.7, 0.7, 1.0);
+    nose.transform.position.z = -0.5;
+    gs_dyn_array_push(player.entity->children, nose);
     game_map_add(&map, player, 0, 0);
-    game_map_add(&map, (game_map_object_t){.entity = &cube}, 4, 4);
-    game_map_add(&map, (game_map_object_t){.entity = &capsule}, 8, 8);
 
-    plane = entity_create();
-    plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
-    plane.transform.position.x = map.width / 2 - 0.5;
-    plane.transform.position.z = map.height / 2 - 0.5;
-    plane.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
+    terrain = entity_create();
+    terrain.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+    terrain.transform.position.x = map.width / 2 - 0.5;
+    terrain.transform.position.z = map.height / 2 - 0.5;
+    terrain.material.color = gs_v4(0.4, 0.4, 0.4, 1.0);
 
     mode = WORLD;
 
     interaction.text = "This is a test";
-    interaction.transform = &capsule.transform;
     interaction.offset = gs_v2(0, -100);
 }
 
@@ -139,12 +127,13 @@ void update() {
     if (gs_platform_key_pressed(GS_KEYCODE_SPACE)) {
         if (mode == WORLD) {
             gs_vec3 local_forward = gs_v3(0.f, 0.f, -1.f);
-            gs_vec3 world_forward = gs_quat_rotate(sphere.transform.rotation, local_forward);
-            int in_front_x = sphere.next.position.x + lroundf(world_forward.x);
-            int in_front_z = sphere.next.position.z + lroundf(world_forward.z);
+            gs_vec3 world_forward = gs_quat_rotate(player.entity->transform.rotation, local_forward);
+            int in_front_x = player.entity->next.position.x + lroundf(world_forward.x);
+            int in_front_z = player.entity->next.position.z + lroundf(world_forward.z);
             if (!game_map_is_tile_empty(&map, in_front_x, in_front_z)) {
+                game_map_object_t *object = map.extents[in_front_z * map.width + in_front_x];
                 show_interaction = !show_interaction;
-                interaction.transform = &map.objects[in_front_z * map.width + in_front_x].entity->transform;
+                interaction.transform = &object->entity->transform;
                 if (!show_interaction) {
                     mode = LIBRARY;
                     card_library_init();
@@ -174,7 +163,7 @@ void update() {
         if (gs_platform_key_down(GS_KEYCODE_D)) move.x += 1.f;
     }
     game_map_move(&map, player, move, dt);
-    engine.camera.transform.position = gs_vec3_add(sphere.transform.position, camera_offset);
+    engine.camera.transform.position = gs_vec3_add(player.entity->transform.position, camera_offset);
 
     gs_gui_begin(&engine.gui, NULL);
     if (mode == WORLD) {
@@ -249,9 +238,9 @@ void update() {
                         }
                     }
                     if (height_map_edited) {
-                        gs_graphics_vertex_buffer_destroy(plane.mesh.vbo);
-                        gs_graphics_index_buffer_destroy(plane.mesh.ibo);
-                        plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+                        gs_graphics_vertex_buffer_destroy(terrain.mesh.vbo);
+                        gs_graphics_index_buffer_destroy(terrain.mesh.ibo);
+                        terrain.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
 
                         game_map_save(&map, editor_state.map_name);
                     }
@@ -268,20 +257,40 @@ void update() {
 
                         // place a building
                         if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && !gs_platform_key_down(GS_KEYCODE_LCTRL)) {
-                            game_map_object_t building = {0};
-                            building.width = building_width;
-                            building.depth = building_depth;
-                            building.name = editor_state.building_name;
-                            building.entity = malloc(sizeof(entity_t));
-                            *building.entity = entity_create();
-                            building.entity->mesh = mesh_cube();
-                            building.entity->transform.scale = gs_v3(1 + building_width * 2, 1, 1 + building_depth * 2);
-                            building.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
-                            game_map_add(&map, building, terrain_tile_pos.x, terrain_tile_pos.z);
+                            game_map_object_t object = {0};
+                            object.type = editor_state.object_type;
+                            object.width = building_width;
+                            object.depth = building_depth;
+                            object.name = editor_state.building_name;
+                            object.entity = malloc(sizeof(entity_t));
+                            *object.entity = entity_create();
+                            object.entity->mesh = mesh_cube();
+                            object.entity->transform.scale = gs_v3(1 + building_width * 2, 1, 1 + building_depth * 2);
+                            object.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
+                            game_map_add(&map, object, terrain_tile_pos.x, terrain_tile_pos.z);
                             printf("building placed\n");
                             game_map_save(&map, editor_state.map_name);
                         }
 
+                    }
+                    if (editor_state.object_type == 1) { // NPC type
+                        int i = (int)terrain_tile_pos.x;
+                        int j = (int)terrain_tile_pos.z;
+                        draw_hover_text(&engine, gs_v3(i, map.height_map[j * map.width + i], j), gs_v2(0, 0), "0");
+                        if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && !gs_platform_key_down(GS_KEYCODE_LCTRL)) {
+                            game_map_object_t object = {0};
+                            object.type = editor_state.object_type;
+                            object.width = 0;
+                            object.depth = 0;
+                            object.name = editor_state.building_name;
+                            object.entity = malloc(sizeof(entity_t));
+                            *object.entity = entity_create();
+                            object.entity->mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
+                            object.entity->material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
+                            game_map_add(&map, object, terrain_tile_pos.x, terrain_tile_pos.z);
+                            printf("NPC placed\n");
+                            game_map_save(&map, editor_state.map_name);
+                        }
                     }
                     // remove an object
                     if (gs_platform_mouse_pressed(GS_MOUSE_LBUTTON) && gs_platform_key_down(GS_KEYCODE_LCTRL)) {
@@ -335,11 +344,11 @@ void update() {
                 map.height = new_height;
                 map.height_map = new_height_map;
 
-                gs_graphics_vertex_buffer_destroy(plane.mesh.vbo);
-                gs_graphics_index_buffer_destroy(plane.mesh.ibo);
-                plane.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
-                plane.transform.position.x = map.width / 2 - 0.5;
-                plane.transform.position.z = map.height / 2 - 0.5;
+                gs_graphics_vertex_buffer_destroy(terrain.mesh.vbo);
+                gs_graphics_index_buffer_destroy(terrain.mesh.ibo);
+                terrain.mesh = mesh_grid_plane(map.width, map.height, map.height_map);
+                terrain.transform.position.x = map.width / 2 - 0.5;
+                terrain.transform.position.z = map.height / 2 - 0.5;
 
                 game_map_save(&map, editor_state.map_name);
             }
@@ -369,6 +378,11 @@ void update() {
                     gs_gui_label(&engine.gui, "Depth:");
                     gs_gui_textbox(&engine.gui, editor_state.building_depth, sizeof(editor_state.building_depth));
                     sanitize_integer_string(editor_state.building_depth);
+                }
+                if (editor_state.object_type == 1) { // NPC type
+                    gs_gui_layout_row(&engine.gui, 2, (int[]){ 200, 250 }, 100);
+                    gs_gui_label(&engine.gui, "Name:");
+                    gs_gui_textbox(&engine.gui, editor_state.npc_name, sizeof(editor_state.npc_name));
                 }
             }
 
@@ -427,7 +441,7 @@ void update() {
         }
     }
 
-    draw_entity(&engine, &plane, vp, &engine.standard_shader);
+    draw_entity(&engine, &terrain, vp, &engine.standard_shader);
 
     if (mode == LIBRARY) {
         card_library_update(&engine);

@@ -192,11 +192,17 @@ game_map_t game_map_load(const char *filename) {
         object.depth = depth;
         object.name = name;
         object.entity = (entity_t*)malloc(sizeof(entity_t));
-        // TODO: based on type make a different entity, just assume building for now
         *object.entity = entity_create();
-        object.entity->mesh = mesh_cube();
-        object.entity->transform.scale = gs_v3(1 + width * 2, 1, 1 + depth * 2);
-        object.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
+        // TODO: based on type make a different entity, just assume building for now
+        if (type == 0) { // building
+            object.entity->mesh = mesh_cube();
+            object.entity->transform.scale = gs_v3(1 + width * 2, 1, 1 + depth * 2);
+            object.entity->material.color = gs_v4(0.8, 0.3, 0.8, 1.0);
+        }
+        if (type == 1) { // npc
+            object.entity->mesh = mesh_capsule(0.5f, 1.0f, 32, 8);
+            object.entity->material.color = gs_v4(0.1, 0.8, 0.3, 1.0);
+        }
         game_map_add(&map, object, pos_x, pos_z);
     }
 
